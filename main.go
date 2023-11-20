@@ -64,30 +64,29 @@ func main() {
 	font := rl.LoadFontEx("FiraCode.ttf", 100, nil)
 	for !rl.WindowShouldClose() {
 		buffer := &editor.Buffers[editor.Views[editor.ActiveViewIndex].BufferIndex]
-		if rl.IsKeyPressed(rl.KeyA) {
-			buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
-			buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = 'a'
-			buffer.Cursor.Column = buffer.Cursor.Column + 1
-		}
-		if rl.IsKeyPressed(rl.KeyDown) {
-			if buffer.Cursor.Line+1 < len(buffer.Content) {
-				buffer.Cursor.Line = buffer.Cursor.Line + 1
-			}
-		}
-		if rl.IsKeyPressed(rl.KeyUp) {
+		switch key := rl.GetKeyPressed(); key {
+		case 0:
+
+		case rl.KeyUp:
 			if buffer.Cursor.Line-1 >= 0 {
 				buffer.Cursor.Line = buffer.Cursor.Line - 1
 			}
-		}
-		if rl.IsKeyPressed(rl.KeyLeft) {
-			if buffer.Cursor.Column-1 >= 0 {
-				buffer.Cursor.Column = buffer.Cursor.Column - 1
+		case rl.KeyDown:
+			if buffer.Cursor.Line+1 < len(buffer.Content) {
+				buffer.Cursor.Line = buffer.Cursor.Line + 1
 			}
-		}
-		if rl.IsKeyPressed(rl.KeyRight) {
+		case rl.KeyRight:
 			if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
 				buffer.Cursor.Column = buffer.Cursor.Column + 1
 			}
+		case rl.KeyLeft:
+			if buffer.Cursor.Column-1 >= 0 {
+				buffer.Cursor.Column = buffer.Cursor.Column - 1
+			}
+		default:
+			buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
+			buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = byte(key)
+			buffer.Cursor.Column = buffer.Cursor.Column + 1
 		}
 		fmt.Println("buffer cursor", buffer.Cursor)
 
