@@ -9,7 +9,14 @@ import (
 
 type Command func(Editor) error
 type Variables map[string]any
-type Keymap map[string]Command
+type Key struct {
+	Ctrl bool
+	Alt bool
+	Shift bool
+	Super bool
+	K string
+}
+type Keymap map[Key]Command
 type Commands map[string]Command
 type Position struct {
 	Line   int
@@ -42,6 +49,17 @@ type Editor struct {
 	Views           []View
 	ActiveViewIndex int
 }
+func (e Editor) CurrentBuffer() *Buffer {
+	return &e.Buffers[e.Views[e.ActiveViewIndex].BufferIndex]
+}
+
+func (buffer *Buffer) InsertCharAtCursor(char byte) error {
+	buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
+	buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = char
+	buffer.Cursor.Column = buffer.Cursor.Column + 1
+
+	return nil
+}
 
 func main() {
 	// basic setup
@@ -66,18 +84,16 @@ func main() {
 	font := rl.LoadFontEx("FiraCode.ttf", 100, nil)
 	for !rl.WindowShouldClose() {
 		buffer := &editor.Buffers[editor.Views[editor.ActiveViewIndex].BufferIndex]
-		var modifiers []string
-		switch {
-		case rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl):
-			modifiers = append(modifiers, "C")
-		case rl.IsKeyDown(rl.KeyLeftAlt) || rl.IsKeyDown(rl.KeyRightAlt):
-			modifiers = append(modifiers, "A")
-		case rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift):
-			modifiers = append(modifiers, "S")
-		}
-		handleKeyEvent(KeyEvent{MODS:modifiers, Key: rl.GetKeyPressed()}, buffer)
-		// fmt.Println("buffer cursor", buffer.Cursor)
 
+		// execute any command that should be executed
+		cmd := defaultKeymap[MakeKey(buffer)]
+		if cmd != nil {
+			if err := cmd(editor); err != nil {
+				panic(err)
+			}
+		}
+
+		// Render
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.Black)
 		var sb strings.Builder
@@ -85,6 +101,7 @@ func main() {
 			_, _ = sb.Write(line)
 			_, _ = sb.WriteString("\n")
 		}
+
 		// render text
 		rl.DrawTextEx(font, sb.String(), rl.Vector2{X: 0, Y: 0}, textSize, 0, rl.White)
 		// render cursor
@@ -96,48 +113,4 @@ func main() {
 		rl.EndDrawing()
 	}
 
-}
-
-
-type KeyEvent struct {
-	MODS []string
-	Key int32
-}
-
-
-func handleKeyEvent(k KeyEvent, buffer *Buffer) {
-	switch k.Key {
-	case 0:
-
-	case rl.KeyUp:
-		if buffer.Cursor.Line-1 >= 0 {
-			buffer.Cursor.Line = buffer.Cursor.Line - 1
-		}
-	case rl.KeyDown:
-		if buffer.Cursor.Line+1 < len(buffer.Content) {
-			buffer.Cursor.Line = buffer.Cursor.Line + 1
-		}
-	case rl.KeyRight:
-		if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
-			buffer.Cursor.Column = buffer.Cursor.Column + 1
-		}
-	case rl.KeyLeft:
-		if buffer.Cursor.Column-1 >= 0 {
-			buffer.Cursor.Column = buffer.Cursor.Column - 1
-		}
-	default:
-		buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
-		buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = byte(k.Key)
-		buffer.Cursor.Column = buffer.Cursor.Column + 1
-	}
-	
-}
-
-
-
-
-func isKeyModifier(k int32) bool {
-	return (k >= 256 && k <= 348) ||
-		(k == 32) ||
-		(k >= 91 && k <= 96)
 }
