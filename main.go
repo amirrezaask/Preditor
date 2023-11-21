@@ -22,6 +22,8 @@ func (p Position) String() string {
 
 type View struct {
 	BufferIndex int
+	MaxLines int
+	MaxColumns int
 }
 type Buffer struct {
 	Cursor    Position
@@ -64,31 +66,17 @@ func main() {
 	font := rl.LoadFontEx("FiraCode.ttf", 100, nil)
 	for !rl.WindowShouldClose() {
 		buffer := &editor.Buffers[editor.Views[editor.ActiveViewIndex].BufferIndex]
-		switch key := rl.GetKeyPressed(); key {
-		case 0:
-
-		case rl.KeyUp:
-			if buffer.Cursor.Line-1 >= 0 {
-				buffer.Cursor.Line = buffer.Cursor.Line - 1
-			}
-		case rl.KeyDown:
-			if buffer.Cursor.Line+1 < len(buffer.Content) {
-				buffer.Cursor.Line = buffer.Cursor.Line + 1
-			}
-		case rl.KeyRight:
-			if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
-				buffer.Cursor.Column = buffer.Cursor.Column + 1
-			}
-		case rl.KeyLeft:
-			if buffer.Cursor.Column-1 >= 0 {
-				buffer.Cursor.Column = buffer.Cursor.Column - 1
-			}
-		default:
-			buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
-			buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = byte(key)
-			buffer.Cursor.Column = buffer.Cursor.Column + 1
+		var modifiers []string
+		switch {
+		case rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl):
+			modifiers = append(modifiers, "C")
+		case rl.IsKeyDown(rl.KeyLeftAlt) || rl.IsKeyDown(rl.KeyRightAlt):
+			modifiers = append(modifiers, "A")
+		case rl.IsKeyDown(rl.KeyLeftShift) || rl.IsKeyDown(rl.KeyRightShift):
+			modifiers = append(modifiers, "S")
 		}
-		fmt.Println("buffer cursor", buffer.Cursor)
+		handleKeyEvent(KeyEvent{MODS:modifiers, Key: rl.GetKeyPressed()}, buffer)
+		// fmt.Println("buffer cursor", buffer.Cursor)
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.Black)
@@ -108,4 +96,48 @@ func main() {
 		rl.EndDrawing()
 	}
 
+}
+
+
+type KeyEvent struct {
+	MODS []string
+	Key int32
+}
+
+
+func handleKeyEvent(k KeyEvent, buffer *Buffer) {
+	switch k.Key {
+	case 0:
+
+	case rl.KeyUp:
+		if buffer.Cursor.Line-1 >= 0 {
+			buffer.Cursor.Line = buffer.Cursor.Line - 1
+		}
+	case rl.KeyDown:
+		if buffer.Cursor.Line+1 < len(buffer.Content) {
+			buffer.Cursor.Line = buffer.Cursor.Line + 1
+		}
+	case rl.KeyRight:
+		if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
+			buffer.Cursor.Column = buffer.Cursor.Column + 1
+		}
+	case rl.KeyLeft:
+		if buffer.Cursor.Column-1 >= 0 {
+			buffer.Cursor.Column = buffer.Cursor.Column - 1
+		}
+	default:
+		buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
+		buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = byte(k.Key)
+		buffer.Cursor.Column = buffer.Cursor.Column + 1
+	}
+	
+}
+
+
+
+
+func isKeyModifier(k int32) bool {
+	return (k >= 256 && k <= 348) ||
+		(k == 32) ||
+		(k >= 91 && k <= 96)
 }
