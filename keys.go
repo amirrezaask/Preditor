@@ -6,33 +6,35 @@ import (
 
 var defaultKeymap = Keymap{
 	Key{K: "<up>"}: func(e Editor) error {
-		buffer := e.CurrentBuffer()
-		if buffer.Cursor.Line-1 >= 0 {
-			buffer.Cursor.Line = buffer.Cursor.Line - 1
+		window := e.CurrentWindow()
+		if window.Cursor.Line-1 >= 0 {
+			window.Cursor.Line = window.Cursor.Line - 1
 		}
 
 		return nil
 	},
 	Key{K: "<down>"}: func(e Editor) error {
-		buffer := e.CurrentBuffer()
-		if buffer.Cursor.Line+1 < len(buffer.Content) {
-			buffer.Cursor.Line = buffer.Cursor.Line + 1
+		window := e.CurrentWindow()
+		if window.Cursor.Line+1 < len(window.VisualLines) {
+			window.Cursor.Line = window.Cursor.Line + 1
 		}
 		return nil
 
 	},
 	Key{K: "<right>"}: func(e Editor) error {
-		// buffer := e.CurrentBuffer()
-		// if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
-		// 	buffer.Cursor.Column = buffer.Cursor.Column + 1
-		// }
+		window := e.CurrentWindow()
+		charSize := measureTextSize(font, ' ', fontSize, 0)
+
+		if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
+			window.Cursor.Column = window.Cursor.Column + 1
+		}
 		return nil
 
 	},
 	Key{K: "<left>"}: func(e Editor) error {
-		buffer := e.CurrentBuffer()
-		if buffer.Cursor.Column-1 >= 0 {
-			buffer.Cursor.Column = buffer.Cursor.Column - 1
+		window := e.CurrentWindow()
+		if window.Cursor.Column-1 >= 0 {
+			window.Cursor.Column = window.Cursor.Column - 1
 		}
 
 		return nil
