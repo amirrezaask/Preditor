@@ -7,7 +7,10 @@ import (
 var defaultKeymap = Keymap{
 	Key{K: "<up>"}: func(e Editor) error {
 		window := e.CurrentWindow()
-		if window.Cursor.Line-1 >= 0 {
+		buffer := e.CurrentBuffer()
+		newPosition := window.Cursor
+		newPosition.Line--
+		if e.isValidCursorPosition(window, buffer, newPosition) {
 			window.Cursor.Line = window.Cursor.Line - 1
 		}
 
@@ -15,7 +18,10 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<down>"}: func(e Editor) error {
 		window := e.CurrentWindow()
-		if window.Cursor.Line+1 < len(window.VisualLines) {
+		buffer := e.CurrentBuffer()
+		newPosition := window.Cursor
+		newPosition.Line++
+		if e.isValidCursorPosition(window, buffer, newPosition){
 			window.Cursor.Line = window.Cursor.Line + 1
 		}
 		return nil
@@ -23,9 +29,11 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<right>"}: func(e Editor) error {
 		window := e.CurrentWindow()
-		charSize := measureTextSize(font, ' ', fontSize, 0)
-
-		if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
+		buffer := e.CurrentBuffer()
+		newPosition := window.Cursor
+		newPosition.Column++
+		
+		if e.isValidCursorPosition(window, buffer, newPosition){
 			window.Cursor.Column = window.Cursor.Column + 1
 		}
 		return nil
@@ -33,48 +41,51 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<left>"}: func(e Editor) error {
 		window := e.CurrentWindow()
-		if window.Cursor.Column-1 >= 0 {
+		buffer := e.CurrentBuffer()
+		newPosition := window.Cursor
+		newPosition.Column --
+		if e.isValidCursorPosition(window, buffer, newPosition){
 			window.Cursor.Column = window.Cursor.Column - 1
 		}
 
 		return nil
 	},
-	Key{K: "a"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('a') },
-	Key{K: "b"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('b') },
-	Key{K: "c"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('c') },
-	Key{K: "d"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('d') },
-	Key{K: "e"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('e') },
-	Key{K: "f"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('f') },
-	Key{K: "g"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('g') },
-	Key{K: "h"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('h') },
-	Key{K: "i"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('i') },
-	Key{K: "j"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('j') },
-	Key{K: "k"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('k') },
-	Key{K: "l"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('l') },
-	Key{K: "m"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('m') },
-	Key{K: "n"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('n') },
-	Key{K: "o"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('o') },
-	Key{K: "p"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('p') },
-	Key{K: "q"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('q') },
-	Key{K: "r"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('r') },
-	Key{K: "s"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('s') },
-	Key{K: "t"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('t') },
-	Key{K: "u"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('u') },
-	Key{K: "v"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('v') },
-	Key{K: "w"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('w') },
-	Key{K: "x"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('x') },
-	Key{K: "y"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('y') },
-	Key{K: "z"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('z') },
-	Key{K: "0"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('0') },
-	Key{K: "1"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('1') },
-	Key{K: "2"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('2') },
-	Key{K: "3"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('3') },
-	Key{K: "4"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('4') },
-	Key{K: "5"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('5') },
-	Key{K: "6"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('6') },
-	Key{K: "7"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('7') },
-	Key{K: "8"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('8') },
-	Key{K: "9"}: func(e Editor) error { return e.CurrentBuffer().InsertCharAtCursor('9') },
+	Key{K: "a"}: func(e Editor) error { return e.InsertCharAtCursor('a') },
+	Key{K: "b"}: func(e Editor) error { return e.InsertCharAtCursor('b') },
+	Key{K: "c"}: func(e Editor) error { return e.InsertCharAtCursor('c') },
+	Key{K: "d"}: func(e Editor) error { return e.InsertCharAtCursor('d') },
+	Key{K: "e"}: func(e Editor) error { return e.InsertCharAtCursor('e') },
+	Key{K: "f"}: func(e Editor) error { return e.InsertCharAtCursor('f') },
+	Key{K: "g"}: func(e Editor) error { return e.InsertCharAtCursor('g') },
+	Key{K: "h"}: func(e Editor) error { return e.InsertCharAtCursor('h') },
+	Key{K: "i"}: func(e Editor) error { return e.InsertCharAtCursor('i') },
+	Key{K: "j"}: func(e Editor) error { return e.InsertCharAtCursor('j') },
+	Key{K: "k"}: func(e Editor) error { return e.InsertCharAtCursor('k') },
+	Key{K: "l"}: func(e Editor) error { return e.InsertCharAtCursor('l') },
+	Key{K: "m"}: func(e Editor) error { return e.InsertCharAtCursor('m') },
+	Key{K: "n"}: func(e Editor) error { return e.InsertCharAtCursor('n') },
+	Key{K: "o"}: func(e Editor) error { return e.InsertCharAtCursor('o') },
+	Key{K: "p"}: func(e Editor) error { return e.InsertCharAtCursor('p') },
+	Key{K: "q"}: func(e Editor) error { return e.InsertCharAtCursor('q') },
+	Key{K: "r"}: func(e Editor) error { return e.InsertCharAtCursor('r') },
+	Key{K: "s"}: func(e Editor) error { return e.InsertCharAtCursor('s') },
+	Key{K: "t"}: func(e Editor) error { return e.InsertCharAtCursor('t') },
+	Key{K: "u"}: func(e Editor) error { return e.InsertCharAtCursor('u') },
+	Key{K: "v"}: func(e Editor) error { return e.InsertCharAtCursor('v') },
+	Key{K: "w"}: func(e Editor) error { return e.InsertCharAtCursor('w') },
+	Key{K: "x"}: func(e Editor) error { return e.InsertCharAtCursor('x') },
+	Key{K: "y"}: func(e Editor) error { return e.InsertCharAtCursor('y') },
+	Key{K: "z"}: func(e Editor) error { return e.InsertCharAtCursor('z') },
+	Key{K: "0"}: func(e Editor) error { return e.InsertCharAtCursor('0') },
+	Key{K: "1"}: func(e Editor) error { return e.InsertCharAtCursor('1') },
+	Key{K: "2"}: func(e Editor) error { return e.InsertCharAtCursor('2') },
+	Key{K: "3"}: func(e Editor) error { return e.InsertCharAtCursor('3') },
+	Key{K: "4"}: func(e Editor) error { return e.InsertCharAtCursor('4') },
+	Key{K: "5"}: func(e Editor) error { return e.InsertCharAtCursor('5') },
+	Key{K: "6"}: func(e Editor) error { return e.InsertCharAtCursor('6') },
+	Key{K: "7"}: func(e Editor) error { return e.InsertCharAtCursor('7') },
+	Key{K: "8"}: func(e Editor) error { return e.InsertCharAtCursor('8') },
+	Key{K: "9"}: func(e Editor) error { return e.InsertCharAtCursor('9') },
 }
 
 func MakeKey(buffer *Buffer) Key {

@@ -128,6 +128,7 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 
 	// render visual lines
 	for _, line := range window.VisualLines {
+		fmt.Printf("visual line: %+v\n", line)
 		if line.visualLineIndex > windowMaxLine {
 			break
 		}
@@ -140,18 +141,43 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 	}
 
 	// render cursor
-	fmt.Printf("Cursor: %+v\n", window.Cursor)
 
 	rl.DrawRectangleLines(int32(window.Cursor.Column)*int32(charSize.X), int32(window.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
 
-func (buffer *Buffer) InsertCharAtCursor(char byte) error {
-	// buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
-	// buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = char
-	// buffer.Cursor.Column = buffer.Cursor.Column + 1
+func (e *Editor) cursorToBufferIndex(window *Window, buffer *Buffer) int {
+	return window.VisualLines[window.Cursor.Line].startIndex + window.Cursor.Column
+}
+func (e *Editor) isValidCursorPosition(window *Window, buffer *Buffer, newPosition Position) bool {
+	if newPosition.Line < 0 {
+		return false
+	}
+	if newPosition.Line >= len(window.VisualLines) {
+		return false
+	}
+	if newPosition.Column < 0 {
+		return false
+	}
+	a := window.VisualLines[newPosition.Line].endIndex - window.VisualLines[newPosition.Line].startIndex
+	if newPosition.Column > a {
+		return false
+	}
 
-	// return nil
+	return true
+}
+
+func (e *Editor) InsertCharAtCursor(char byte) error {
+	idx := e.cursorToBufferIndex(e.CurrentWindow(), e.CurrentBuffer())
+	buffer := e.CurrentBuffer()
+	buffer.Content = append(buffer.Content[:idx+1], buffer.Content[idx:]...)
+	buffer.Content[idx] = char
+	window := e.CurrentWindow()
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
+		window.Cursor.Column = window.Cursor.Column + 1
+	}
 	return nil
 }
 
@@ -166,7 +192,7 @@ func main() {
 		LineWrapping: true,
 	}
 
-	fontSize = 90
+	fontSize = 20
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	editor.Buffers = append(editor.Buffers, Buffer{
