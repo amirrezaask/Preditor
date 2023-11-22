@@ -22,10 +22,10 @@ var defaultKeymap = Keymap{
 
 	},
 	Key{K: "<right>"}: func(e Editor) error {
-		buffer := e.CurrentBuffer()
-		if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
-			buffer.Cursor.Column = buffer.Cursor.Column + 1
-		}
+		// buffer := e.CurrentBuffer()
+		// if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
+		// 	buffer.Cursor.Column = buffer.Cursor.Column + 1
+		// }
 		return nil
 
 	},

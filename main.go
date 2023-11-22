@@ -1,3 +1,8 @@
+/*
+   move all functionalities to editor struct
+   editor.GetCursorBufferIndex()
+*/
+
 package main
 
 import (
@@ -10,9 +15,11 @@ var (
 	font     rl.Font
 	fontSize float32
 )
+
+type BufferID int64
 type Buffer struct {
 	Cursor    Position
-	Content   [][]byte
+	Content   []byte
 	FilePath  string
 	Keymaps   []Keymap
 	Variables Variables
@@ -56,13 +63,19 @@ func (p Position) String() string {
 	return fmt.Sprintf("Line: %d Column:%d\n", p.Line, p.Column)
 }
 
+
+
+type WindowID int64
 type Window struct {
 	BufferIndex  int
 	zeroLocation rl.Vector2
 	Height       int
 	Width        int
 	Cursor       Position
+	VisualLines  []visualLine
 }
+
+
 type visualLine struct {
 	visualLineIndex int
 	startIndex      int
@@ -70,82 +83,78 @@ type visualLine struct {
 	ActualLine      int
 }
 
-/*
-
-
-*/
-
-
-
 // we are considering fonts to mono spaced,
 func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
-	var windowLines []visualLine // actual line -> [] visual line ()
-	cursorSize := measureTextSize(font, buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column], fontSize, 0)
-	windowMaxColumn := float32(window.Width) / cursorSize.X
-	var renderAt rl.Vector2
+	//first scan through buffer.Contents
+	// every new line adds a visual line
+	// every time we reach windowMaxColumn we add visualLine
+	window.VisualLines = []visualLine{}
+	charSize := measureTextSize(font, 'a', fontSize, 0)
+	totalVisualLines := 0
+	lineCharCounter := 0
+	var actualLineIndex int
+	var start int
+	windowMaxColumn := window.Width  / int(charSize.X)
+	windowMaxLine := window.Height / int (charSize.Y)
+	for idx, char := range buffer.Content {
+		lineCharCounter++
+		if char == '\n' {
+			fmt.Printf("At %d, saw a new line char\n", idx)
+			window.VisualLines = append(window.VisualLines, visualLine{
+				visualLineIndex: totalVisualLines,
+				startIndex: start,
+				endIndex: idx,
+				ActualLine: actualLineIndex,
+			})
+			totalVisualLines ++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx+1
+		}
 
-	// calculate visual lines
-	var totalVisualLines int
-	for idx, line := range buffer.Content {
-		if float32(len(line)) > windowMaxColumn {
-			// line should be wrapped(splitted into multiple visual lines)
-			var start int
-			end := int(windowMaxColumn)
-			var visualLines []visualLine
-			for start < end {
-				visualLines = append(visualLines, visualLine{
-					visualLineIndex: totalVisualLines,
-					ActualLine:      idx,
-					startIndex:      start,
-					endIndex:        end,
-				})
-				totalVisualLines++
+		if lineCharCounter > windowMaxColumn {
+			fmt.Printf("At %d, need to break line\n", idx)
 
-				start = end + 1
-				end += int(windowMaxColumn)
-				if end > len(line) {
-					end = len(line)
-				}
-			}
-
-			windowLines = append(windowLines, visualLines...)
-
-		} else {
-			windowLines = append(windowLines, []visualLine{
-				{ActualLine: idx, startIndex: 0, endIndex: len(line), visualLineIndex: totalVisualLines},
-			}...)
+			window.VisualLines = append(window.VisualLines, visualLine{
+				visualLineIndex: totalVisualLines,
+				startIndex: start,
+				endIndex: idx,
+				ActualLine: actualLineIndex,
+				
+			})
 			totalVisualLines++
-
+			lineCharCounter=0
+			start = idx
 		}
+		
+
 	}
 
-	for _, line := range windowLines {
+	for _, line := range window.VisualLines {
 		fmt.Printf("%+v\n", line)
-		renderAt.Y = float32(line.visualLineIndex) * cursorSize.Y
-		rl.DrawTextEx(font, string(buffer.Content[line.ActualLine][line.startIndex:line.endIndex]), renderAt, fontSize, 0, rl.White)
-	}
-
-	for _, visualLine := range windowLines {
-		if visualLine.ActualLine == buffer.Cursor.Line {
-			if visualLine.startIndex <= buffer.Cursor.Column && visualLine.endIndex >= buffer.Cursor.Column {
-				// this is the visual line we need the cursor to be rendered\
-				column := int32(buffer.Cursor.Column)
-				if float32(buffer.Cursor.Column) >= windowMaxColumn {
-					column = int32(buffer.Cursor.Column) - int32(windowMaxColumn) - 1
-				}
-				rl.DrawRectangleLines(int32(column)*int32(cursorSize.X), int32(visualLine.visualLineIndex)*int32(cursorSize.Y), int32(cursorSize.X), int32(cursorSize.Y), rl.White)
-			}
+		fmt.Printf("Y %f\n", float32(line.visualLineIndex)*charSize.Y)
+		fmt.Println(string(buffer.Content[line.startIndex:line.endIndex]))
+		if line.visualLineIndex > windowMaxLine {
+			break
 		}
-
+		rl.DrawTextEx(font,
+			string(buffer.Content[line.startIndex:line.endIndex]),
+			rl.Vector2{X: window.zeroLocation.X, Y: float32(line.visualLineIndex)*charSize.Y},
+			fontSize,
+			0,
+			rl.White)
 	}
+
+	
 }
 
 
 func (buffer *Buffer) InsertCharAtCursor(char byte) error {
-	buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
-	buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = char
-	buffer.Cursor.Column = buffer.Cursor.Column + 1
+	// buffer.Content[buffer.Cursor.Line] = append(buffer.Content[buffer.Cursor.Line][0:buffer.Cursor.Column+1], buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column:]...)
+	// buffer.Content[buffer.Cursor.Line][buffer.Cursor.Column] = char
+	// buffer.Cursor.Column = buffer.Cursor.Column + 1
 
+	// return nil
 	return nil
 }
 
@@ -160,12 +169,20 @@ func main() {
 		LineWrapping: true,
 	}
 
-	fontSize = 70
+	fontSize = 20
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	editor.Buffers = append(editor.Buffers, Buffer{
 		Cursor:   Position{0, 0},
-		Content:  [][]byte{[]byte("helloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"), []byte("world")},
+		Content:  []byte(`orem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+When referring to Lorem ipsum, different expressions are used, namely fill text , fictitious text , blind text or placeholder text : in short, its meaning can also be zero, but its usefulness is so clear as to go through the centuries and resist the ironic and modern versions that came with the arrival of the web.l`),
 		FilePath: "test.txt",
 	})
 	editor.Windows = append(editor.Windows, Window{
