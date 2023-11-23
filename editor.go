@@ -2,9 +2,8 @@ package main
 
 import (
 	"fmt"
-	"time"
 	rl "github.com/gen2brain/raylib-go/raylib"
-
+	"time"
 )
 
 type BufferID int64
@@ -66,14 +65,14 @@ type Window struct {
 }
 
 type visualLine struct {
-	visualLineIndex int
+	Index int
 	startIndex      int
 	endIndex        int
 	ActualLine      int
 }
 
 // we are considering fonts to mono spaced,
-func RenderBufferInWindow(e *Editor, buffer *Buffer, window *Window) {
+func renderBufferOnWindow(e *Editor, buffer *Buffer, window *Window) {
 	//first scan through buffer.Contents
 	// every new line adds a visual line
 	// every time we reach windowMaxColumn we add visualLine
@@ -90,11 +89,13 @@ func RenderBufferInWindow(e *Editor, buffer *Buffer, window *Window) {
 		// just initialized the editor so we set it to default value which is maximum line number that it can show
 		window.VisiblePartEndLine = windowMaxLine
 	}
+
+	fmt.Printf("window visible part: %d %d\n", window.VisiblePartStartLine, window.VisiblePartEndLine)
 	for idx, char := range buffer.Content {
 		lineCharCounter++
 		if char == '\n' {
 			line := visualLine{
-				visualLineIndex: totalVisualLines,
+				Index: totalVisualLines,
 				startIndex:      start,
 				endIndex:        idx,
 				ActualLine:      actualLineIndex,
@@ -105,14 +106,12 @@ func RenderBufferInWindow(e *Editor, buffer *Buffer, window *Window) {
 			lineCharCounter = 0
 			start = idx + 1
 
-			if visualLineShouldBeRendered(e, window, line) {
-				renderVisualLine(e, window, buffer, line)
-			}
+		
 		}
 
 		if lineCharCounter > windowMaxColumn {
 			line := visualLine{
-				visualLineIndex: totalVisualLines,
+				Index: totalVisualLines,
 				startIndex:      start,
 				endIndex:        idx,
 				ActualLine:      actualLineIndex,
@@ -121,31 +120,58 @@ func RenderBufferInWindow(e *Editor, buffer *Buffer, window *Window) {
 			totalVisualLines++
 			lineCharCounter = 0
 			start = idx
-			if visualLineShouldBeRendered(e, window, line) {
-				renderVisualLine(e, window, buffer, line)
-			}
+		
 		}
 	}
-
 	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
+	loopStart = time.Now()
+	visibleView := windowVisibleLines(window)
+	for idx, line := range visibleView {
+		if visualLineShouldBeRendered(e, window, line) {
+			renderVisualLine(e, window, buffer, line, idx)
+		}
+	}
+	fmt.Printf("Render buffer in window: render Loop took: %s\n", time.Since(loopStart))
 	rl.DrawRectangleLines(int32(window.Cursor.Column)*int32(charSize.X), int32(window.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
+func windowVisibleLines(window *Window) []visualLine {
+	var visibleView []visualLine
+
+	switch {
+	case len(window.VisualLines) > windowMaxLines(font, int(fontSize), window):
+		visibleView = window.VisualLines[window.VisiblePartStartLine: window.VisiblePartEndLine]
+	default:
+		visibleView = window.VisualLines
+	}
+
+
+	return visibleView
+
+}
+
 func cursorToBufferIndex(e *Editor, window *Window, buffer *Buffer) int {
-	return window.VisualLines[window.Cursor.Line].startIndex + window.Cursor.Column
+	return windowVisibleLines(window)[window.Cursor.Line].startIndex + window.Cursor.Column
 }
 func visualLineShouldBeRendered(e *Editor, window *Window, line visualLine) bool {
-	if window.VisiblePartStartLine <= line.visualLineIndex && line.visualLineIndex <= window.VisiblePartEndLine {
+	if window.VisiblePartStartLine <= line.Index && line.Index <= window.VisiblePartEndLine {
 		return true
 	}
 
 	return false
 }
-func renderVisualLine(e *Editor, window *Window, buffer *Buffer, line visualLine) {
+
+func windowMaxLines(font rl.Font, fontsize int, window *Window) int {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	return window.Height / int(charSize.Y)
+}
+
+func renderVisualLine(e *Editor, window *Window, buffer *Buffer, line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	rl.DrawTextEx(font,
 		string(buffer.Content[line.startIndex:line.endIndex]),
-		rl.Vector2{X: window.zeroLocation.X, Y: float32(line.visualLineIndex) * charSize.Y},
+		rl.Vector2{X: window.zeroLocation.X, Y: float32(index) * charSize.Y},
 		fontSize,
 		0,
 		rl.White)
@@ -169,6 +195,9 @@ func isValidCursorPosition(e *Editor, window *Window, buffer *Buffer, newPositio
 	return true
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Public API
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func InsertCharAtCursor(e *Editor, char byte) error {
 	idx := cursorToBufferIndex(e, CurrentWindow(e), CurrentBuffer(e))
 	buffer := CurrentBuffer(e)
@@ -186,4 +215,77 @@ func InsertCharAtCursor(e *Editor, char byte) error {
 		}
 	}
 	return nil
+}
+
+func ScrollUp(e *Editor) error {
+	window := CurrentWindow(e)
+	if window.VisiblePartStartLine <= 0 {
+		return nil
+	}
+	window.VisiblePartEndLine--
+	window.VisiblePartStartLine--
+	if window.VisiblePartStartLine < 0 {
+		window.VisiblePartStartLine = 0
+	}
+	return nil
+
+}
+func ScrollDown(e *Editor) error {
+	window := CurrentWindow(e)
+	if window.VisiblePartEndLine >= len(window.VisualLines) {
+		return nil
+	}
+	window.VisiblePartEndLine++
+	window.VisiblePartStartLine++
+	if window.VisiblePartEndLine >= len(window.VisualLines) {
+		window.VisiblePartEndLine = len(window.VisualLines) - 1
+	}
+
+	return nil
+}
+
+func CursorLeft(e *Editor) error {
+	window := CurrentWindow(e)
+	buffer := CurrentBuffer(e)
+	newPosition := window.Cursor
+	newPosition.Column--
+	if isValidCursorPosition(e, window, buffer, newPosition) {
+		window.Cursor.Column = window.Cursor.Column - 1
+	}
+
+	return nil
+
+}
+func CursorRight(e *Editor) error {
+	window := CurrentWindow(e)
+	buffer := CurrentBuffer(e)
+	newPosition := window.Cursor
+	newPosition.Column++
+
+	if isValidCursorPosition(e, window, buffer, newPosition) {
+		window.Cursor.Column = window.Cursor.Column + 1
+	}
+	return nil
+}
+func CursorUp(e *Editor) error {
+	window := CurrentWindow(e)
+	buffer := CurrentBuffer(e)
+	newPosition := window.Cursor
+	newPosition.Line--
+	if isValidCursorPosition(e, window, buffer, newPosition) {
+		window.Cursor.Line = window.Cursor.Line - 1
+	}
+
+	return nil
+}
+func CursorDown(e *Editor) error {
+	window := CurrentWindow(e)
+	buffer := CurrentBuffer(e)
+	newPosition := window.Cursor
+	newPosition.Line++
+	if isValidCursorPosition(e, window, buffer, newPosition) {
+		window.Cursor.Line = window.Cursor.Line + 1
+	}
+	return nil
+
 }
