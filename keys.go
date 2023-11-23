@@ -225,6 +225,7 @@ func MakeKey(buffer *Buffer) Key {
 	case keyPressed == rl.KeySpace:
 		k.K = " "
 	case keyPressed == rl.KeyEscape:
+		k.K = "<escape>"
 	case keyPressed == rl.KeyEnter:
 		k.K = "<enter>"
 	case keyPressed == rl.KeyTab:
@@ -286,4 +287,9 @@ func MakeKey(buffer *Buffer) Key {
 	}
 
 	return k
+}
+
+
+func MakeMouseKey(buffer *Buffer) Key {
+	return Key{}
 }

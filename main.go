@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -62,18 +63,17 @@ func (p Position) String() string {
 	return fmt.Sprintf("Line: %d Column:%d\n", p.Line, p.Column)
 }
 
-
-
 type WindowID int64
 type Window struct {
-	BufferIndex  int
-	zeroLocation rl.Vector2
-	Height       int
-	Width        int
-	Cursor       Position
-	VisualLines  []visualLine
+	BufferIndex          int
+	zeroLocation         rl.Vector2
+	Height               int
+	Width                int
+	Cursor               Position
+	VisualLines          []visualLine
+	VisiblePartStartLine int
+	VisiblePartEndLine   int
 }
-
 
 type visualLine struct {
 	visualLineIndex int
@@ -93,61 +93,58 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 	lineCharCounter := 0
 	var actualLineIndex int
 	var start int
-	windowMaxColumn := window.Width  / int(charSize.X)
-	windowMaxLine := window.Height / int (charSize.Y)
+	windowMaxColumn := window.Width / int(charSize.X)
+	loopStart := time.Now()
 	for idx, char := range buffer.Content {
 		lineCharCounter++
 		if char == '\n' {
-			window.VisualLines = append(window.VisualLines, visualLine{
+			line := visualLine{
 				visualLineIndex: totalVisualLines,
-				startIndex: start,
-				endIndex: idx,
-				ActualLine: actualLineIndex,
-			})
-			totalVisualLines ++
+				startIndex:      start,
+				endIndex:        idx,
+				ActualLine:      actualLineIndex,
+			}
+			window.VisualLines = append(window.VisualLines, line)
+			totalVisualLines++
 			actualLineIndex++
 			lineCharCounter = 0
-			start = idx+1
+			start = idx + 1
+
+			e.renderVisualLine(window, buffer, line)
 		}
 
 		if lineCharCounter > windowMaxColumn {
-			window.VisualLines = append(window.VisualLines, visualLine{
+			line := visualLine{
 				visualLineIndex: totalVisualLines,
-				startIndex: start,
-				endIndex: idx,
-				ActualLine: actualLineIndex,
-				
-			})
+				startIndex:      start,
+				endIndex:        idx,
+				ActualLine:      actualLineIndex,
+			}
+			window.VisualLines = append(window.VisualLines, line)
 			totalVisualLines++
-			lineCharCounter=0
+			lineCharCounter = 0
 			start = idx
-		}
-		
 
+			e.renderVisualLine(window, buffer, line)
+		}
 	}
 
-	// render visual lines
-	for _, line := range window.VisualLines {
-		fmt.Printf("visual line: %+v\n", line)
-		if line.visualLineIndex > windowMaxLine {
-			break
-		}
-		rl.DrawTextEx(font,
-			string(buffer.Content[line.startIndex:line.endIndex]),
-			rl.Vector2{X: window.zeroLocation.X, Y: float32(line.visualLineIndex)*charSize.Y},
-			fontSize,
-			0,
-			rl.White)
-	}
-
-	// render cursor
-
+	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
 	rl.DrawRectangleLines(int32(window.Cursor.Column)*int32(charSize.X), int32(window.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
-
 func (e *Editor) cursorToBufferIndex(window *Window, buffer *Buffer) int {
 	return window.VisualLines[window.Cursor.Line].startIndex + window.Cursor.Column
+}
+func (e *Editor) renderVisualLine(window *Window, buffer *Buffer, line visualLine) {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+	rl.DrawTextEx(font,
+		string(buffer.Content[line.startIndex:line.endIndex]),
+		rl.Vector2{X: window.zeroLocation.X, Y: float32(line.visualLineIndex) * charSize.Y},
+		fontSize,
+		0,
+		rl.White)
+
 }
 func (e *Editor) isValidCursorPosition(window *Window, buffer *Buffer, newPosition Position) bool {
 	if newPosition.Line < 0 {
@@ -177,7 +174,7 @@ func (e *Editor) InsertCharAtCursor(char byte) error {
 
 	if char == '\n' {
 		window.Cursor.Column = 0
-		window.Cursor.Line ++
+		window.Cursor.Line++
 	} else {
 		if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
 			window.Cursor.Column = window.Cursor.Column + 1
@@ -201,7 +198,15 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	editor.Buffers = append(editor.Buffers, Buffer{
-		Content:  []byte(`lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+		Content: []byte(`lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+b
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
 
 It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
 
@@ -209,7 +214,62 @@ It is certainly the most famous placeholder text even if there are different ver
 
 Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
 
-When referring to Lorem ipsum, different expressions are used, namely fill text , fictitious text , blind text or placeholder text : in short, its meaning can also be zero, but its usefulness is so clear as to go through the centuries and resist the ironic and modern versions that came with the arrival of the web.`),
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+
+lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+
+It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
+
+It is certainly the most famous placeholder text even if there are different versions distinguishable from the order in which the Latin words are repeated.
+
+Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
+`),
 		FilePath: "test.txt",
 	})
 	editor.Windows = append(editor.Windows, Window{
@@ -226,13 +286,20 @@ When referring to Lorem ipsum, different expressions are used, namely fill text 
 	for !rl.WindowShouldClose() {
 		buffer := &editor.Buffers[editor.Windows[editor.ActiveWindowIndex].BufferIndex]
 
-		// execute any command that should be executed
+		// execute any key command that should be executed
 		cmd := defaultKeymap[MakeKey(buffer)]
 		if cmd != nil {
 			if err := cmd(editor); err != nil {
 				panic(err)
 			}
 		}
+
+		// cmd = defaultKeymap[MakeMouseKey(buffer)]
+		// if cmd != nil {
+		// 	if err := cmd(editor); cmd != nil {
+		// 		panic(err)
+		// 	}
+		// }
 
 		// Render
 		rl.BeginDrawing()
