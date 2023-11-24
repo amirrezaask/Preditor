@@ -53,199 +53,201 @@ func getKey() Key {
 	return k
 }
 
-
+func isPressed(key int32) bool {
+	return rl.IsKeyPressed(key) || rl.IsKeyPressedRepeat(key)
+}
 
 func getKeyPressedString() string {
 	switch {
-	case rl.IsKeyPressed(rl.KeySpace):
+	case isPressed(rl.KeySpace):
 		return "<space>"
-	case rl.IsKeyPressed(rl.KeyEscape):
+	case isPressed(rl.KeyEscape):
 		return "<esc>"
-	case rl.IsKeyPressed(rl.KeyEnter):
+	case isPressed(rl.KeyEnter):
 		return "<enter>"
-	case rl.IsKeyPressed(rl.KeyTab):
+	case isPressed(rl.KeyTab):
 		return "<tab>"
-	case rl.IsKeyPressed(rl.KeyBackspace):
+	case isPressed(rl.KeyBackspace):
 		return "<backspace>"
-	case rl.IsKeyPressed(rl.KeyInsert):
+	case isPressed(rl.KeyInsert):
 		return "<insert>"
-	case rl.IsKeyPressed(rl.KeyDelete):
+	case isPressed(rl.KeyDelete):
 		return "<delete>"
-	case rl.IsKeyPressed(rl.KeyRight):
+	case isPressed(rl.KeyRight):
 		return "<right>"
-	case rl.IsKeyPressed(rl.KeyLeft):
+	case isPressed(rl.KeyLeft):
 		return "<left>"
-	case rl.IsKeyPressed(rl.KeyDown):
+	case isPressed(rl.KeyDown):
 		return "<down>"
-	case rl.IsKeyPressed(rl.KeyUp):
+	case isPressed(rl.KeyUp):
 		return "<up>"
-	case rl.IsKeyPressed(rl.KeyPageUp):
+	case isPressed(rl.KeyPageUp):
 		return "<pageup>"
-	case rl.IsKeyPressed(rl.KeyPageDown):
+	case isPressed(rl.KeyPageDown):
 		return "<pagedown>"
-	case rl.IsKeyPressed(rl.KeyHome):
+	case isPressed(rl.KeyHome):
 		return "<home>"
-	case rl.IsKeyPressed(rl.KeyEnd):
+	case isPressed(rl.KeyEnd):
 		return "<end>"
-	case rl.IsKeyPressed(rl.KeyCapsLock):
+	case isPressed(rl.KeyCapsLock):
 		return "<capslock>"
-	case rl.IsKeyPressed(rl.KeyScrollLock):
+	case isPressed(rl.KeyScrollLock):
 		return "<scrolllock>"
-	case rl.IsKeyPressed(rl.KeyNumLock):
+	case isPressed(rl.KeyNumLock):
 		return "<numlock>"
-	case rl.IsKeyPressed(rl.KeyPrintScreen):
+	case isPressed(rl.KeyPrintScreen):
 		return "<printscreen>"
-	case rl.IsKeyPressed(rl.KeyPause):
+	case isPressed(rl.KeyPause):
 		return "<pause>"
-	case rl.IsKeyPressed(rl.KeyF1):
+	case isPressed(rl.KeyF1):
 		return "<f1>"
-	case rl.IsKeyPressed(rl.KeyF2):
+	case isPressed(rl.KeyF2):
 		return "<f2>"
-	case rl.IsKeyPressed(rl.KeyF3):
+	case isPressed(rl.KeyF3):
 		return "<f3>"
-	case rl.IsKeyPressed(rl.KeyF4):
+	case isPressed(rl.KeyF4):
 		return "<f4>"
-	case rl.IsKeyPressed(rl.KeyF5):
+	case isPressed(rl.KeyF5):
 		return "<f5>"
-	case rl.IsKeyPressed(rl.KeyF6):
+	case isPressed(rl.KeyF6):
 		return "<f6>"
-	case rl.IsKeyPressed(rl.KeyF7):
+	case isPressed(rl.KeyF7):
 		return "<f7>"
-	case rl.IsKeyPressed(rl.KeyF8):
+	case isPressed(rl.KeyF8):
 		return "<f8>"
-	case rl.IsKeyPressed(rl.KeyF9):
+	case isPressed(rl.KeyF9):
 		return "<f9>"
-	case rl.IsKeyPressed(rl.KeyF10):
+	case isPressed(rl.KeyF10):
 		return "<f10>"
-	case rl.IsKeyPressed(rl.KeyF11):
+	case isPressed(rl.KeyF11):
 		return "<f11>"
-	case rl.IsKeyPressed(rl.KeyF12):
+	case isPressed(rl.KeyF12):
 		return "<f12>"
-	case rl.IsKeyPressed(rl.KeyLeftBracket):
+	case isPressed(rl.KeyLeftBracket):
 		return "["
-	case rl.IsKeyPressed(rl.KeyBackSlash):
+	case isPressed(rl.KeyBackSlash):
 		return "\\"
-	case rl.IsKeyPressed(rl.KeyRightBracket):
+	case isPressed(rl.KeyRightBracket):
 		return "]"
-	case rl.IsKeyPressed(rl.KeyKp0):
+	case isPressed(rl.KeyKp0):
 		return "0"
-	case rl.IsKeyPressed(rl.KeyKp1):
+	case isPressed(rl.KeyKp1):
 		return "1"
-	case rl.IsKeyPressed(rl.KeyKp2):
+	case isPressed(rl.KeyKp2):
 		return "2"
-	case rl.IsKeyPressed(rl.KeyKp3):
+	case isPressed(rl.KeyKp3):
 		return "3"
-	case rl.IsKeyPressed(rl.KeyKp4):
+	case isPressed(rl.KeyKp4):
 		return "4"
-	case rl.IsKeyPressed(rl.KeyKp5):
+	case isPressed(rl.KeyKp5):
 		return "5"
-	case rl.IsKeyPressed(rl.KeyKp6):
+	case isPressed(rl.KeyKp6):
 		return "6"
-	case rl.IsKeyPressed(rl.KeyKp7):
+	case isPressed(rl.KeyKp7):
 		return "7"
-	case rl.IsKeyPressed(rl.KeyKp8):
+	case isPressed(rl.KeyKp8):
 		return "8"
-	case rl.IsKeyPressed(rl.KeyKp9):
+	case isPressed(rl.KeyKp9):
 		return "9"
-	case rl.IsKeyPressed(rl.KeyKpDecimal):
+	case isPressed(rl.KeyKpDecimal):
 		return "."
-	case rl.IsKeyPressed(rl.KeyKpDivide):
+	case isPressed(rl.KeyKpDivide):
 		return "/"
-	case rl.IsKeyPressed(rl.KeyKpMultiply):
+	case isPressed(rl.KeyKpMultiply):
 		return "*"
-	case rl.IsKeyPressed(rl.KeyKpSubtract):
+	case isPressed(rl.KeyKpSubtract):
 		return "-"
-	case rl.IsKeyPressed(rl.KeyKpAdd):
+	case isPressed(rl.KeyKpAdd):
 		return "+"
-	case rl.IsKeyPressed(rl.KeyKpEnter):
+	case isPressed(rl.KeyKpEnter):
 		return "<enter>"
-	case rl.IsKeyPressed(rl.KeyKpEqual):
+	case isPressed(rl.KeyKpEqual):
 		return "="
-	case rl.IsKeyPressed(rl.KeyApostrophe):
+	case isPressed(rl.KeyApostrophe):
 		return "'"
-	case rl.IsKeyPressed(rl.KeyComma):
+	case isPressed(rl.KeyComma):
 		return ","
-	case rl.IsKeyPressed(rl.KeyMinus):
+	case isPressed(rl.KeyMinus):
 		return "-"
-	case rl.IsKeyPressed(rl.KeyPeriod):
+	case isPressed(rl.KeyPeriod):
 		return "."
-	case rl.IsKeyPressed(rl.KeySlash):
+	case isPressed(rl.KeySlash):
 		return "/"
-	case rl.IsKeyPressed(rl.KeyZero):
+	case isPressed(rl.KeyZero):
 		return "0"
-	case rl.IsKeyPressed(rl.KeyOne):
+	case isPressed(rl.KeyOne):
 		return "1"
-	case rl.IsKeyPressed(rl.KeyTwo):
+	case isPressed(rl.KeyTwo):
 		return "2"
-	case rl.IsKeyPressed(rl.KeyThree):
+	case isPressed(rl.KeyThree):
 		return "3"
-	case rl.IsKeyPressed(rl.KeyFour):
+	case isPressed(rl.KeyFour):
 		return "4"
-	case rl.IsKeyPressed(rl.KeyFive):
+	case isPressed(rl.KeyFive):
 		return "5"
-	case rl.IsKeyPressed(rl.KeySix):
+	case isPressed(rl.KeySix):
 		return "6"
-	case rl.IsKeyPressed(rl.KeySeven):
+	case isPressed(rl.KeySeven):
 		return "7"
-	case rl.IsKeyPressed(rl.KeyEight):
+	case isPressed(rl.KeyEight):
 		return "8"
-	case rl.IsKeyPressed(rl.KeyNine):
+	case isPressed(rl.KeyNine):
 		return "9"
-	case rl.IsKeyPressed(rl.KeySemicolon):
+	case isPressed(rl.KeySemicolon):
 		return ";"
-	case rl.IsKeyPressed(rl.KeyEqual):
+	case isPressed(rl.KeyEqual):
 		return "="
-	case rl.IsKeyPressed(rl.KeyA):
+	case isPressed(rl.KeyA):
 		return "a"
-	case rl.IsKeyPressed(rl.KeyB):
+	case isPressed(rl.KeyB):
 		return "b"
-	case rl.IsKeyPressed(rl.KeyC):
+	case isPressed(rl.KeyC):
 		return "c"
-	case rl.IsKeyPressed(rl.KeyD):
+	case isPressed(rl.KeyD):
 		return "d"
-	case rl.IsKeyPressed(rl.KeyE):
+	case isPressed(rl.KeyE):
 		return "e"
-	case rl.IsKeyPressed(rl.KeyF):
+	case isPressed(rl.KeyF):
 		return "f"
-	case rl.IsKeyPressed(rl.KeyG):
+	case isPressed(rl.KeyG):
 		return "g"
-	case rl.IsKeyPressed(rl.KeyH):
+	case isPressed(rl.KeyH):
 		return "h"
-	case rl.IsKeyPressed(rl.KeyI):
+	case isPressed(rl.KeyI):
 		return "i"
-	case rl.IsKeyPressed(rl.KeyJ):
+	case isPressed(rl.KeyJ):
 		return "j"
-	case rl.IsKeyPressed(rl.KeyK):
+	case isPressed(rl.KeyK):
 		return "k"
-	case rl.IsKeyPressed(rl.KeyL):
+	case isPressed(rl.KeyL):
 		return "l"
-	case rl.IsKeyPressed(rl.KeyM):
+	case isPressed(rl.KeyM):
 		return "m"
-	case rl.IsKeyPressed(rl.KeyN):
+	case isPressed(rl.KeyN):
 		return "n"
-	case rl.IsKeyPressed(rl.KeyO):
+	case isPressed(rl.KeyO):
 		return "o"
-	case rl.IsKeyPressed(rl.KeyP):
+	case isPressed(rl.KeyP):
 		return "p"
-	case rl.IsKeyPressed(rl.KeyQ):
+	case isPressed(rl.KeyQ):
 		return "q"
-	case rl.IsKeyPressed(rl.KeyR):
+	case isPressed(rl.KeyR):
 		return "r"
-	case rl.IsKeyPressed(rl.KeyS):
+	case isPressed(rl.KeyS):
 		return "s"
-	case rl.IsKeyPressed(rl.KeyT):
+	case isPressed(rl.KeyT):
 		return "t"
-	case rl.IsKeyPressed(rl.KeyU):
+	case isPressed(rl.KeyU):
 		return "u"
-	case rl.IsKeyPressed(rl.KeyV):
+	case isPressed(rl.KeyV):
 		return "v"
-	case rl.IsKeyPressed(rl.KeyW):
+	case isPressed(rl.KeyW):
 		return "w"
-	case rl.IsKeyPressed(rl.KeyX):
+	case isPressed(rl.KeyX):
 		return "x"
-	case rl.IsKeyPressed(rl.KeyY):
+	case isPressed(rl.KeyY):
 		return "y"
-	case rl.IsKeyPressed(rl.KeyZ):
+	case isPressed(rl.KeyZ):
 		return "z"
 	default:
 		return ""
