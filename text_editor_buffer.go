@@ -199,6 +199,28 @@ func (t *TextEditorBuffer) InsertCharAtCursor(char byte) error {
 	return nil
 }
 
+func (t *TextEditorBuffer) DeleteCharBackward() error {
+	idx := t.cursorToBufferIndex()
+	if idx < 0 || t.Cursor.Column <= 0 {
+		return nil
+	}
+	t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
+	t.Cursor.Column --
+	t.fixCursorColumnIfNeeded(&t.Cursor)
+	return nil
+
+}
+
+func (t *TextEditorBuffer) DeleteCharForeward() error {
+	idx := t.cursorToBufferIndex()
+	if idx < 0 || t.Cursor.Column < 0 {
+		return nil
+	}
+	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
+	t.fixCursorColumnIfNeeded(&t.Cursor)
+	return nil
+}
+
 func (t *TextEditorBuffer) ScrollUp(n int) error {
 	if t.VisibleStart <= 0 {
 		return nil
