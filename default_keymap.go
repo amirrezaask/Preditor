@@ -210,6 +210,7 @@ var defaultKeymap = Keymap{
 	Key{K: "8"}:  func(e *Editor) error { return insertCharAtCursor(e, '8') },
 	Key{K: "9"}:  func(e *Editor) error { return insertCharAtCursor(e, '9') },
 	Key{K: "\\"}: func(e *Editor) error { return insertCharAtCursor(e, '\\') },
+	Key{K: "\\", Shift: true }: func(e *Editor) error { return insertCharAtCursor(e, '|') },
 
 	Key{K: "0", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, ')') },
 	Key{K: "1", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '!') },
