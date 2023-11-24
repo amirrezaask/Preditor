@@ -12,6 +12,14 @@ var defaultKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: "e", Control: true}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).EndOfTheLine()
+		}
+
+		return nil
+	},
+	
 
 	Key{K: "p", Control:true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
