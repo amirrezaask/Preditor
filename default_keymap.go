@@ -13,6 +13,24 @@ var defaultKeymap = Keymap{
 		return nil
 	},
 
+	Key{K: "p", Control:true}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).PreviousLine()
+		}
+
+		return nil
+
+	},
+
+	Key{K: "n", Control:true}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).NextLine()
+		}
+
+		return nil
+
+	},
+
 	Key{K: "<up>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).CursorUp()
