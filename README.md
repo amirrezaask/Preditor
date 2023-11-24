@@ -7,6 +7,7 @@ dead simple text editor written in Golang and using Raylib for rendering
 - reading/writing files
 - simple keybindings (no key chords yet)
 - left mouse click
+- mouse scroll
 - basic emacs bindings for movements
 
 
@@ -16,6 +17,7 @@ dead simple text editor written in Golang and using Raylib for rendering
 - config file
 - text highlight for incremental search
 - file picker buffer
+- Search buffer: similar to file picker but using rg or ug.
 - command output buffer
 
 
