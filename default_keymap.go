@@ -24,6 +24,23 @@ var defaultKeymap = Keymap{
 		return nil
 
 	},
+	Key{K: "<rmouse>"}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollDown(1)
+		}
+
+		return nil
+
+	},
+	Key{K: "<mmouse>"}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollUp(1)
+		}
+
+		return nil
+
+	},
+
 	Key{K: "a", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).BeginingOfTheLine()
