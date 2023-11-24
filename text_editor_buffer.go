@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -62,11 +60,7 @@ type visualLine struct {
 	ActualLine      int
 }
 
-// we are considering fonts to mono spaced,
 func (t *TextEditorBuffer) Render() {
-	//first scan through buffer.Contents
-	// every new line adds a visual line
-	// every time we reach windowMaxColumn we add visualLine
 	t.visualLines = []visualLine{}
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	totalVisualLines := 0
@@ -362,4 +356,17 @@ func (t *TextEditorBuffer) PreviousLine() error {
 
 func (t *TextEditorBuffer) NextLine() error {
 	return t.CursorDown()
+}
+
+func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	apprColumn := pos.X / charSize.X
+	apprLine := pos.Y / charSize.Y
+
+
+	t.Cursor.Line = int(apprLine)
+	t.Cursor.Column = int(apprColumn)
+
+	return nil
 }
