@@ -2,6 +2,7 @@ package main
 
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"os"
 )
 
 type TextEditorBuffer struct {
@@ -44,6 +45,11 @@ func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
+	var err error
+	t.Content, err = os.ReadFile(t.File)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -90,6 +96,22 @@ func (t *TextEditorBuffer) Render() {
 			lineCharCounter = 0
 			start = idx + 1
 
+		}
+		if idx == len(t.Content) - 1 {
+			// last index
+			line := visualLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx,
+				Length:     idx - start - 1,
+				ActualLine: actualLineIndex,
+			}
+			t.visualLines = append(t.visualLines, line)
+			totalVisualLines++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx + 1
+			
 		}
 
 		if int32(lineCharCounter) > t.maxColumn {
@@ -144,7 +166,7 @@ func (t *TextEditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
 func (t *TextEditorBuffer) renderVisualLine(line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	rl.DrawTextEx(font,
-		string(t.Content[line.startIndex:line.endIndex]),
+		string(t.Content[line.startIndex:line.endIndex+1]),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(index) * charSize.Y},
 		fontSize,
 		0,
@@ -360,6 +382,14 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 
 	t.Cursor.Line = int(apprLine)
 	t.Cursor.Column = int(apprColumn)
+
+	return nil
+}
+
+func (t *TextEditorBuffer) Write() error {
+	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
+		return err
+	}
 
 	return nil
 }

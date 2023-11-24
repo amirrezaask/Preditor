@@ -7,7 +7,7 @@ import (
 func main() {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
-	rl.InitWindow(1920, 1080, "core editor")
+	rl.InitWindow(1920, 1080, "editor")
 	
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
@@ -28,8 +28,7 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		Content: []byte(loremIpsum),
-		File:    "test.txt",
+		File:    "main.go",
 	}
 
 	textEditorBuffer.Initialize(BufferOptions{
