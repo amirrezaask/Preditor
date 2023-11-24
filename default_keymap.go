@@ -9,13 +9,13 @@ import (
 var defaultKeymap = Keymap{
 
 	// navigation
-	Key{K: "<lmouse>" }: func(e *Editor) error {
+	Key{K: "<lmouse>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).MoveCursorTo(rl.GetMousePosition())
 		}
 
 		return nil
-	
+
 	},
 	Key{K: "a", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
@@ -31,9 +31,8 @@ var defaultKeymap = Keymap{
 
 		return nil
 	},
-	
 
-	Key{K: "p", Control:true}: func(e *Editor) error {
+	Key{K: "p", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).PreviousLine()
 		}
@@ -42,7 +41,7 @@ var defaultKeymap = Keymap{
 
 	},
 
-	Key{K: "n", Control:true}: func(e *Editor) error {
+	Key{K: "n", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).NextLine()
 		}
@@ -88,7 +87,7 @@ var defaultKeymap = Keymap{
 
 		return nil
 	},
-	
+
 	Key{K: "b", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).CursorLeft()
@@ -188,43 +187,60 @@ var defaultKeymap = Keymap{
 	Key{K: "9"}:  func(e *Editor) error { return insertCharAtCursor(e, '9') },
 	Key{K: "\\"}: func(e *Editor) error { return insertCharAtCursor(e, '\\') },
 
-	Key{K: "0", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, ')') },
-	Key{K: "1", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '!') },
-	Key{K: "2", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '@') },
-	Key{K: "3", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '#') },
-	Key{K: "4", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '$') },
-	Key{K: "5", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '%') },
-	Key{K: "6", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '^') },
-	Key{K: "7", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '&') },
-	Key{K: "8", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '*') },
-	Key{K: "9", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, '(') },
-	Key{K: "a", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'A') },
-	Key{K: "b", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'B') },
-	Key{K: "c", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'C') },
-	Key{K: "d", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'D') },
-	Key{K: "e", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'E') },
-	Key{K: "f", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'F') },
-	Key{K: "g", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'G') },
-	Key{K: "h", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'H') },
-	Key{K: "i", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'I') },
-	Key{K: "j", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'J') },
-	Key{K: "k", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'K') },
-	Key{K: "l", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'L') },
-	Key{K: "m", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'M') },
-	Key{K: "n", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'N') },
-	Key{K: "o", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'O') },
-	Key{K: "p", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'P') },
-	Key{K: "q", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'Q') },
-	Key{K: "r", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'R') },
-	Key{K: "s", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'S') },
-	Key{K: "t", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'T') },
-	Key{K: "u", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'U') },
-	Key{K: "v", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'V') },
-	Key{K: "w", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'W') },
-	Key{K: "x", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'X') },
-	Key{K: "y", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'Y') },
-	Key{K: "z", Shift: true}:  func(e *Editor) error { return insertCharAtCursor(e, 'Z') },
-
+	Key{K: "0", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, 'Z') },
+	Key{K: "["}:              func(e *Editor) error { return insertCharAtCursor(e, '[') },
+	Key{K: "]"}:              func(e *Editor) error { return insertCharAtCursor(e, ']') },
+	Key{K: "{", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '{') },
+	Key{K: "}", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '}') },
+	Key{K: ";"}:              func(e *Editor) error { return insertCharAtCursor(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, ':') },
+	Key{K: "'"}:              func(e *Editor) error { return insertCharAtCursor(e, '\'') },
+	Key{K: "\""}:             func(e *Editor) error { return insertCharAtCursor(e, '"') },
+	Key{K: ","}:              func(e *Editor) error { return insertCharAtCursor(e, ',') },
+	Key{K: "."}:              func(e *Editor) error { return insertCharAtCursor(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '>') },
+	Key{K: "/"}:              func(e *Editor) error { return insertCharAtCursor(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '?') },
+	Key{K: "-"}:              func(e *Editor) error { return insertCharAtCursor(e, '-') },
+	Key{K: "="}:              func(e *Editor) error { return insertCharAtCursor(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Editor) error { return insertCharAtCursor(e, '+') },
 }
 
 func insertCharAtCursor(e *Editor, char byte) error {
