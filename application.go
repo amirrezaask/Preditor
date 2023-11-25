@@ -17,12 +17,13 @@ type BufferOptions struct {
 }
 
 type Colors struct {
-	Background          color.RGBA
-	Foreground          color.RGBA
-	SelectionBackground color.RGBA
-	SelectionForeground color.RGBA
-	StatusBarBackground color.RGBA
-	StatusBarForeground color.RGBA
+	Background            color.RGBA
+	Foreground            color.RGBA
+	SelectionBackground   color.RGBA
+	SelectionForeground   color.RGBA
+	StatusBarBackground   color.RGBA
+	StatusBarForeground   color.RGBA
+	LineNumbersForeground color.RGBA
 }
 
 type Application struct {
@@ -32,6 +33,7 @@ type Application struct {
 	GlobalVariables   Variables
 	Commands          Commands
 	LineWrapping      bool
+	LineNumbers       bool
 	Colors            Colors
 }
 
@@ -132,25 +134,10 @@ func (e *Application) renderStatusBar() {
 		t.Colors.StatusBarForeground)
 }
 
-func (e *Application) renderLineNumbers() {
-	charSize := measureTextSize(font, ' ', fontSize, 0)
-	t := e.ActiveEditor()
-	t.ZeroPosition.X = charSize.X
-
-	rl.DrawRectangle(0, 0, int32(charSize.X), t.maxLine, rl.Red)
-	//rl.DrawTextEx(font,
-	//	fmt.Sprintf("%s %s %d:%d", state, file, t.Cursor.Line, t.Cursor.Column),
-	//	rl.Vector2{X: 0, Y: float32(t.maxLine) * charSize.Y},
-	//	fontSize,
-	//	0,
-	//	t.Colors.StatusBarForeground)
-}
-
 func (e *Application) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
 
-	e.renderLineNumbers()
 	e.ActiveEditor().Render()
 	e.renderStatusBar()
 

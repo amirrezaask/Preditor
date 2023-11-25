@@ -25,12 +25,14 @@ func main() {
 
 	// create editor
 	editor := Application{
+		LineNumbers: true,
 		LineWrapping: true,
 		Colors: Colors{
 			Background:          editorBackground,
 			Foreground:          editorForeground,
 			StatusBarBackground: editorStatusbarBackground,
 			StatusBarForeground: editorStatusbarForeground,
+			LineNumbersForeground: rl.White,
 		},
 	}
 
@@ -49,6 +51,7 @@ func main() {
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditor{
 		File:    filename,
+		RenderLineNumbers: true,
 		TabSize: 4,
 	}
 
