@@ -20,7 +20,9 @@ type Buffer interface {
 	Type() string
 	Initialize(BufferOptions) error
 	SetMaxWidth(w int32)
+	GetMaxWidth() int32
 	SetMaxHeight(h int32)
+	GetMaxHeight() int32
 	Render()
 	Destroy() error
 	MoveCursorTo(rl.Vector2) error
@@ -31,6 +33,8 @@ type Colors struct {
 	Foreground          color.RGBA
 	SelectionBackground color.RGBA
 	SelectionForeground color.RGBA
+	StatusBarBackground color.RGBA
+	StatusBarForeground color.RGBA
 }
 
 type Editor struct {
@@ -122,16 +126,20 @@ func (e *Editor) Render() {
 
 
 func (e *Editor) HandleWindowResize() {
-	if !(rl.IsWindowResized() || rl.IsWindowMaximized()) {
-		return
-	}
 	height := rl.GetRenderHeight()
 	width := rl.GetRenderWidth()
 
+	
 	// window is resized
 	for _, buffer := range e.Buffers {
-		buffer.SetMaxWidth(int32(width))
-		buffer.SetMaxHeight(int32(height))
+		if buffer.GetMaxWidth() != int32(width) {
+			buffer.SetMaxWidth(int32(width))
+		}
+
+		if buffer.GetMaxHeight() != int32(height) {
+			buffer.SetMaxHeight(int32(height))
+
+		}
 	}
 }
 

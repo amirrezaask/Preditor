@@ -6,6 +6,8 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+const SCROLLSPEED = 10
+
 var defaultKeymap = Keymap{
 
 	Key{K: "s", Control: true}: func(e *Editor) error {
@@ -26,7 +28,7 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<mouse-wheel-up>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
-			return e.ActiveBuffer().(*TextEditorBuffer).ScrollUp(1)
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollUp(10)
 		}
 
 		return nil
@@ -34,7 +36,7 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<mouse-wheel-down>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
-			return e.ActiveBuffer().(*TextEditorBuffer).ScrollDown(1)
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollDown(10)
 		}
 
 		return nil
@@ -43,7 +45,7 @@ var defaultKeymap = Keymap{
 
 	Key{K: "<rmouse>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
-			return e.ActiveBuffer().(*TextEditorBuffer).ScrollDown(1)
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollDown(10)
 		}
 
 		return nil
@@ -51,7 +53,7 @@ var defaultKeymap = Keymap{
 	},
 	Key{K: "<mmouse>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
-			return e.ActiveBuffer().(*TextEditorBuffer).ScrollUp(1)
+			return e.ActiveBuffer().(*TextEditorBuffer).ScrollUp(10)
 		}
 
 		return nil
