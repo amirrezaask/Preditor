@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-
+	var fontname string
+	flag.StringVar(&fontname, "font", "Consolas", "")
 	flag.Parse()
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
@@ -33,7 +34,7 @@ func main() {
 		},
 	}
 
-	fontPath, err := findfont.Find("Consolas.ttf")
+	fontPath, err := findfont.Find(fontname + ".ttf")
 	if err != nil {
 		panic(err)
 	}
