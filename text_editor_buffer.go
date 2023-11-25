@@ -67,8 +67,6 @@ func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
 		if err != nil {
 			return err
 		}
-	} else {
-		t.Content = make([]byte, 1000)
 	}
 	t.replaceTabsWithSpaces()
 	t.updateMaxLineAndColumn()
@@ -87,9 +85,8 @@ type visualLine struct {
 	Length     int
 }
 
-func (t *TextEditorBuffer) Render() {
+func (t *TextEditorBuffer) calculateVisualLines(){
 	t.visualLines = []visualLine{}
-	charSize := measureTextSize(font, ' ', fontSize, 0)
 	totalVisualLines := 0
 	lineCharCounter := 0
 	var actualLineIndex int
@@ -97,6 +94,7 @@ func (t *TextEditorBuffer) Render() {
 	if t.VisibleEnd == 0 {
 		t.VisibleEnd = t.maxLine
 	}
+
 	for idx, char := range t.Content {
 		lineCharCounter++
 		if char == '\n' {
@@ -157,6 +155,13 @@ func (t *TextEditorBuffer) Render() {
 
 		}
 	}
+
+}
+
+func (t *TextEditorBuffer) Render() {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	t.calculateVisualLines()
 	// fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
 	// loopStart = time.Now()
 	var visibleLines []visualLine
@@ -250,6 +255,7 @@ func (t *TextEditorBuffer) InsertCharAtCursor(char byte) error {
 		t.Content = append(t.Content[:idx+1], t.Content[idx:]...)
 		t.Content[idx] = char
 	}
+	t.calculateVisualLines()
 	if char == '\n' {
 		t.CursorDown()
 		t.BeginingOfTheLine()
@@ -270,6 +276,7 @@ func (t *TextEditorBuffer) DeleteCharBackward() error {
 	} else {
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
 	}
+	t.calculateVisualLines()
 	t.CursorLeft()
 
 	return nil
@@ -282,6 +289,7 @@ func (t *TextEditorBuffer) DeleteCharForeward() error {
 		return nil
 	}
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
+	t.calculateVisualLines()
 	return nil
 }
 
@@ -440,11 +448,16 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	apprColumn := pos.X / charSize.X
 	apprLine := pos.Y / charSize.Y
 
+	if len(t.visualLines) < 1 {
+		return nil
+	}
+
 	t.Cursor.Line = int(apprLine) + int(t.VisibleStart)
 	t.Cursor.Column = int(apprColumn)
 
+
 	if t.Cursor.Line > len(t.visualLines) {
-		t.Cursor.Line = len(t.visualLines) - 1
+		t.Cursor.Line = len(t.visualLines)
 	}
 
 	// check if cursor should be moved back
