@@ -172,7 +172,7 @@ func (t *TextEditorBuffer) Render() {
 	}
 	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
 	cursorView := Position{
-		Line: t.Cursor.Line - int(t.VisibleStart),
+		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
 	}
 	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X), int32(cursorView.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
@@ -271,7 +271,7 @@ func (t *TextEditorBuffer) DeleteCharBackward() error {
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
 	}
 	t.CursorLeft()
-	
+
 	return nil
 
 }
@@ -345,7 +345,7 @@ func (t *TextEditorBuffer) CursorLeft() error {
 func (t *TextEditorBuffer) CursorRight() error {
 	newPosition := t.Cursor
 	newPosition.Column++
-	lineColumns := t.visualLines[t.Cursor.Line].Length+1
+	lineColumns := t.visualLines[t.Cursor.Line].Length + 1
 
 	if newPosition.Column > lineColumns+1 {
 		fmt.Printf("new position :%+v\n", newPosition)
@@ -375,7 +375,7 @@ func (t *TextEditorBuffer) CursorUp() error {
 	}
 	if t.isValidCursorPosition(newPosition) {
 		t.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-		
+
 	}
 
 	return nil
@@ -394,7 +394,7 @@ func (t *TextEditorBuffer) CursorDown() error {
 	} else {
 		newPosition.Column = 0
 	}
-	
+
 	if t.isValidCursorPosition(newPosition) {
 		t.MoveCursorToPositionAndScrollIfNeeded(newPosition)
 
@@ -416,6 +416,9 @@ func (t *TextEditorBuffer) BeginingOfTheLine() error {
 func (t *TextEditorBuffer) EndOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = t.visualLines[t.Cursor.Line].Length
+	if int32(newPosition.Column) < t.maxColumn {
+		newPosition.Column++
+	}
 	if t.isValidCursorPosition(newPosition) {
 		t.MoveCursorToPositionAndScrollIfNeeded(newPosition)
 	}
@@ -448,26 +451,24 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	if t.Cursor.Column > t.visualLines[t.Cursor.Line].Length {
 		t.Cursor.Column = t.visualLines[t.Cursor.Line].Length
 	}
-	
+
 	fmt.Printf("moving cursor to: %+v\n", t.Cursor)
 
 	return nil
 }
 
-
 func (t *TextEditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
 	t.Cursor = pos
 
-	if t.Cursor.Line == int(t.VisibleStart -1) {
+	if t.Cursor.Line == int(t.VisibleStart-1) {
 		jump := int(t.maxLine / 2)
 		t.ScrollUp(jump)
 	}
 
-	if t.Cursor.Line == int(t.VisibleEnd) + 1 {
+	if t.Cursor.Line == int(t.VisibleEnd)+1 {
 		jump := int(t.maxLine / 2)
 		t.ScrollDown(jump)
 	}
-
 
 	return nil
 }
