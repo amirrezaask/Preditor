@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 
+	"github.com/flopp/go-findfont"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func main() {
-	
+
 	flag.Parse()
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
@@ -20,20 +21,25 @@ func main() {
 	editorForeground, _ := parseHexColor("#d3b58d")
 	editorStatusbarBackground, _ := parseHexColor("#d3b58d")
 	editorStatusbarForeground, _ := parseHexColor("#000000")
-	
+
 	// create editor
 	editor := Editor{
 		LineWrapping: true,
 		Colors: Colors{
-			Background: editorBackground,
-			Foreground: editorForeground,
+			Background:          editorBackground,
+			Foreground:          editorForeground,
 			StatusBarBackground: editorStatusbarBackground,
 			StatusBarForeground: editorStatusbarForeground,
 		},
 	}
 
+	fontPath, err := findfont.Find("Consolas.ttf")
+	if err != nil {
+		panic(err)
+	}
+
 	fontSize = 20
-	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
+	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	filename := ""
 	if len(flag.Args()) > 0 {
 		filename = flag.Args()[0]
@@ -41,14 +47,14 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		File:	filename,
+		File:    filename,
 		TabSize: 4,
 	}
 
 	textEditorBuffer.Initialize(BufferOptions{
-		MaxHeight:	int32(rl.GetRenderHeight()),
-		MaxWidth:	 int32(rl.GetRenderWidth()),
-		Colors:	   editor.Colors,
+		MaxHeight:    int32(rl.GetRenderHeight()),
+		MaxWidth:     int32(rl.GetRenderWidth()),
+		Colors:       editor.Colors,
 		ZeroPosition: rl.Vector2{},
 	})
 	editor.Buffers = append(editor.Buffers, textEditorBuffer)
