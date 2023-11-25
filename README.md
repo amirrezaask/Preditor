@@ -9,6 +9,8 @@ dead simple text editor written in Golang and using Raylib for rendering
 - left mouse click
 - mouse scroll
 - basic emacs bindings for movements
+- Line numbers
+- Basic status bar to show file name, file state
 
 
 ## TODO:
