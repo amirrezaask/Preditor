@@ -108,13 +108,9 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start + 1,
+				Length:     idx - start,
 				ActualLine: actualLineIndex,
 			}
-			if line.Length < 0 {
-				line.Length = 0
-			}
-
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
 			actualLineIndex++
@@ -128,11 +124,8 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start + 1,
+				Length:     idx - start,
 				ActualLine: actualLineIndex,
-			}
-			if line.Length < 0 {
-				line.Length = 0
 			}
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
@@ -147,13 +140,10 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start + 1,
+				Length:     idx - start,
 				ActualLine: actualLineIndex,
 			}
-			if line.Length < 0 {
-				line.Length = 0
-			}
-
+	
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
 			lineCharCounter = 0
@@ -234,8 +224,7 @@ func (t *TextEditor) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Column < 0 {
 		return false
 	}
-	a := t.visualLines[newPosition.Line].Length
-	if newPosition.Column > a+1 {
+	if newPosition.Column > t.visualLines[newPosition.Line].Length {
 		return false
 	}
 
@@ -357,7 +346,7 @@ func (t *TextEditor) CursorRight() error {
 		return nil
 	}
 	lineColumns := t.visualLines[t.Cursor.Line].Length
-	if newPosition.Column > lineColumns+1 {
+	if newPosition.Column > lineColumns {
 		newPosition.Line++
 		newPosition.Column = 0
 	}
@@ -424,9 +413,6 @@ func (t *TextEditor) BeginingOfTheLine() error {
 func (t *TextEditor) EndOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = t.visualLines[t.Cursor.Line].Length
-	if int32(newPosition.Column) < t.maxColumn {
-		newPosition.Column++
-	}
 	if t.isValidCursorPosition(newPosition) {
 		t.MoveCursorToPositionAndScrollIfNeeded(newPosition)
 	}
