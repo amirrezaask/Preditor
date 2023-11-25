@@ -9,6 +9,11 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+const (
+	State_Clean = 1
+	State_Dirty = 2
+)
+
 type TextEditor struct {
 	File         string
 	Content      []byte
@@ -26,6 +31,7 @@ type TextEditor struct {
 	maxLine      int32
 	maxColumn    int32
 	Colors       Colors
+	State        int
 }
 
 func (t *TextEditor) replaceTabsWithSpaces() {
@@ -102,7 +108,7 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start - 1,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 			if line.Length < 0 {
@@ -122,7 +128,7 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start - 1,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 			if line.Length < 0 {
@@ -141,7 +147,7 @@ func (t *TextEditor) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start - 1,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 			if line.Length < 0 {
@@ -167,7 +173,7 @@ func (t *TextEditor) renderCursor() {
 		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
 	}
-	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X), int32(cursorView.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
+	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X)+int32(t.ZeroPosition.X), int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
 func (t *TextEditor) Render() {
@@ -228,7 +234,7 @@ func (t *TextEditor) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Column < 0 {
 		return false
 	}
-	a := t.visualLines[newPosition.Line].endIndex - t.visualLines[newPosition.Line].startIndex
+	a := t.visualLines[newPosition.Line].Length
 	if newPosition.Column > a+1 {
 		return false
 	}
@@ -244,6 +250,8 @@ func (t *TextEditor) InsertCharAtCursor(char byte) error {
 		t.Content = append(t.Content[:idx+1], t.Content[idx:]...)
 		t.Content[idx] = char
 	}
+	t.State = State_Dirty
+
 	t.calculateVisualLines()
 	if char == '\n' {
 		t.CursorDown()
@@ -265,6 +273,7 @@ func (t *TextEditor) DeleteCharBackward() error {
 	} else {
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
 	}
+	t.State = State_Dirty
 	t.calculateVisualLines()
 	t.CursorLeft()
 
@@ -272,12 +281,14 @@ func (t *TextEditor) DeleteCharBackward() error {
 
 }
 
-func (t *TextEditor) DeleteCharForeward() error {
+func (t *TextEditor) DeleteCharForward() error {
 	idx := t.cursorToBufferIndex()
 	if idx < 0 || t.Cursor.Column < 0 {
 		return nil
 	}
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
+	t.State = State_Dirty
+
 	t.calculateVisualLines()
 	return nil
 }
@@ -342,11 +353,11 @@ func (t *TextEditor) CursorLeft() error {
 func (t *TextEditor) CursorRight() error {
 	newPosition := t.Cursor
 	newPosition.Column++
-	lineColumns := t.visualLines[t.Cursor.Line].Length + 1
-
+	if t.Cursor.Line == len(t.visualLines) {
+		return nil
+	}
+	lineColumns := t.visualLines[t.Cursor.Line].Length
 	if newPosition.Column > lineColumns+1 {
-		fmt.Printf("new position :%+v\n", newPosition)
-		fmt.Printf("line columns: %+v\n", lineColumns)
 		newPosition.Line++
 		newPosition.Column = 0
 	}
@@ -482,6 +493,7 @@ func (t *TextEditor) Write() error {
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
+	t.State = State_Clean
 	t.replaceTabsWithSpaces()
 	return nil
 }
