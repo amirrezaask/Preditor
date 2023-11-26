@@ -17,7 +17,7 @@ const (
 type EditorBuffer struct {
 	File              string
 	Content           []byte
-	Keymap           Keymap
+	Keymap            Keymap
 	Variables         Variables
 	Commands          Commands
 	MaxHeight         int32
@@ -73,9 +73,8 @@ type TextEditorOptions struct {
 	TabSize      int
 }
 
-
 func NewTextEditor(opts TextEditorOptions) (*EditorBuffer, error) {
-	t:= EditorBuffer{}
+	t := EditorBuffer{}
 	t.File = opts.Filename
 	t.RenderLineNumbers = opts.LineNumbers
 	t.TabSize = opts.TabSize
@@ -96,7 +95,6 @@ func NewTextEditor(opts TextEditorOptions) (*EditorBuffer, error) {
 	return &t, nil
 
 }
-
 
 func (t *EditorBuffer) Destroy() error {
 	return nil
@@ -182,9 +180,9 @@ func (t *EditorBuffer) renderCursor() {
 		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
 	}
-	posX := int32(cursorView.Column)*int32(charSize.X)+int32(t.ZeroPosition.X)
+	posX := int32(cursorView.Column)*int32(charSize.X) + int32(t.ZeroPosition.X)
 	if t.RenderLineNumbers {
-		posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine))+1) * int(charSize.X))
+		posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
 	}
 	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
@@ -376,7 +374,7 @@ func (t *EditorBuffer) CursorLeft() error {
 
 func (t *EditorBuffer) CursorRight(n int) error {
 	newPosition := t.Cursor
-	newPosition.Column+=n
+	newPosition.Column += n
 	if t.Cursor.Line == len(t.visualLines) {
 		return nil
 	}
@@ -534,14 +532,11 @@ func (t *EditorBuffer) Indent() error {
 		t.calculateVisualLines()
 		t.CursorRight(t.TabSize)
 	}
-	
+
 	t.State = State_Dirty
 
-	
 	return nil
 }
-
-
 
 var editorBufferKeymap = Keymap{
 
@@ -708,6 +703,7 @@ var editorBufferKeymap = Keymap{
 	Key{K: ";"}:              func(e *Application) error { return insertCharAtCursor(e, ';') },
 	Key{K: ";", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, ':') },
 	Key{K: "'"}:              func(e *Application) error { return insertCharAtCursor(e, '\'') },
+	Key{K: "'", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '"') },
 	Key{K: "\""}:             func(e *Application) error { return insertCharAtCursor(e, '"') },
 	Key{K: ","}:              func(e *Application) error { return insertCharAtCursor(e, ',') },
 	Key{K: "."}:              func(e *Application) error { return insertCharAtCursor(e, '.') },
@@ -719,7 +715,7 @@ var editorBufferKeymap = Keymap{
 	Key{K: "="}:              func(e *Application) error { return insertCharAtCursor(e, '=') },
 	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '_') },
 	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '+') },
-	Key{K: "<tab>" }:         func(e *Application) error { return e.ActiveEditor().Indent() },
+	Key{K: "<tab>"}:          func(e *Application) error { return e.ActiveEditor().Indent() },
 }
 
 func insertCharAtCursor(e *Application, char byte) error {

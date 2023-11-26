@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 
-	"github.com/flopp/go-findfont"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -36,13 +35,12 @@ func main() {
 		},
 	}
 
-	fontPath, err := findfont.Find(fontname + ".ttf")
+	var err error
+	err = loadFont(fontname, 20)
 	if err != nil {
 		panic(err)
 	}
 
-	fontSize = 25
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	filename := ""
 	if len(flag.Args()) > 0 {
 		filename = flag.Args()[0]
