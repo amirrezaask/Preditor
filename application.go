@@ -9,13 +9,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type BufferOptions struct {
-	MaxHeight    int32
-	MaxWidth     int32
-	ZeroPosition rl.Vector2
-	Colors       Colors
-}
-
 type Colors struct {
 	Background            color.RGBA
 	Foreground            color.RGBA

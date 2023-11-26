@@ -48,19 +48,21 @@ func main() {
 		filename = flag.Args()[0]
 	}
 	rl.SetTextLineSpacing(int(fontSize))
-	rl.SetMouseCursor(rl.MouseCursorIBeam)
-	textEditorBuffer := &TextEditor{
-		File:    filename,
-		RenderLineNumbers: true,
-		TabSize: 4,
-	}
 
-	textEditorBuffer.Initialize(BufferOptions{
+
+	// initialize first editor
+	textEditorBuffer, err := NewTextEditor(TextEditorOptions{
+		Filename:    filename,
+		LineNumbers: true,
+		TabSize: 4,
 		MaxHeight:    int32(rl.GetRenderHeight()),
 		MaxWidth:     int32(rl.GetRenderWidth()),
 		Colors:       editor.Colors,
-		ZeroPosition: rl.Vector2{},
 	})
+	if err != nil {
+		panic(err)
+	}
+
 	editor.Editors = append(editor.Editors, textEditorBuffer)
 
 	for !rl.WindowShouldClose() {

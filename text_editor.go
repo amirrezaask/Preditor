@@ -63,7 +63,22 @@ func (t *TextEditor) Type() string {
 	return "text_editor_buffer"
 }
 
-func (t *TextEditor) Initialize(opts BufferOptions) error {
+type TextEditorOptions struct {
+	MaxHeight    int32
+	MaxWidth     int32
+	ZeroPosition rl.Vector2
+	Colors       Colors
+	Filename     string
+	LineNumbers  bool
+	TabSize      int
+}
+
+
+func NewTextEditor(opts TextEditorOptions) (*TextEditor, error) {
+	t:= TextEditor{}
+	t.File = opts.Filename
+	t.RenderLineNumbers = opts.LineNumbers
+	t.TabSize = opts.TabSize
 	t.MaxHeight = opts.MaxHeight
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
@@ -72,13 +87,15 @@ func (t *TextEditor) Initialize(opts BufferOptions) error {
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	t.replaceTabsWithSpaces()
 	t.updateMaxLineAndColumn()
-	return nil
+	return &t, nil
+
 }
+
 
 func (t *TextEditor) Destroy() error {
 	return nil
