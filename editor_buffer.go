@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -32,6 +33,7 @@ type EditorBuffer struct {
 	maxColumn         int32
 	Colors            Colors
 	State             int
+	CursorBlinking    bool
 	RenderLineNumbers bool
 }
 
@@ -63,17 +65,18 @@ func (t *EditorBuffer) Type() string {
 	return "text_editor_buffer"
 }
 
-type TextEditorOptions struct {
-	MaxHeight    int32
-	MaxWidth     int32
-	ZeroPosition rl.Vector2
-	Colors       Colors
-	Filename     string
-	LineNumbers  bool
-	TabSize      int
+type EditorBufferOptions struct {
+	MaxHeight      int32
+	MaxWidth       int32
+	ZeroPosition   rl.Vector2
+	Colors         Colors
+	Filename       string
+	LineNumbers    bool
+	TabSize        int
+	CursorBlinking bool
 }
 
-func NewTextEditor(opts TextEditorOptions) (*EditorBuffer, error) {
+func NewEditorBuffer(opts EditorBufferOptions) (*EditorBuffer, error) {
 	t := EditorBuffer{}
 	t.File = opts.Filename
 	t.RenderLineNumbers = opts.LineNumbers
@@ -176,6 +179,9 @@ func (t *EditorBuffer) renderCursor() {
 
 	// render cursor
 	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
+	if t.CursorBlinking && (time.Now().Unix())%2 == 0 {
+		return
+	}
 	cursorView := Position{
 		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
@@ -262,7 +268,7 @@ func (t *EditorBuffer) renderVisualLine(line visualLine, index int) {
 	}
 
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s", string(t.Content[line.startIndex:line.endIndex+1])),
+		string(t.Content[line.startIndex:line.endIndex+1]),
 		rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(index) * charSize.Y},
 		fontSize,
 		0,
