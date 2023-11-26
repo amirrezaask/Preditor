@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"golang.design/x/clipboard"
 )
 
 func main() {
@@ -14,6 +15,9 @@ func main() {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.InitWindow(1920, 1080, "editor")
 
+	if err := clipboard.Init(); err != nil {
+		panic(err)
+	}
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 

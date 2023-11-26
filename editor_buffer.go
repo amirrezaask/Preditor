@@ -8,6 +8,7 @@ import (
 	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"golang.design/x/clipboard"
 )
 
 const (
@@ -758,4 +759,12 @@ var editorBufferKeymap = Keymap{
 
 func insertCharAtCursor(e *Application, char byte) error {
 	return e.ActiveEditor().InsertCharAtCursor(char)
+}
+
+func getClipboardContent() []byte {
+	return clipboard.Read(clipboard.FmtText)
+}
+
+func writeToClipboard(bs []byte) {
+	<-clipboard.Write(clipboard.FmtText, bs)
 }
