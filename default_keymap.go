@@ -52,10 +52,10 @@ var defaultKeymap = Keymap{
 		return e.ActiveEditor().CursorDown()
 	},
 	Key{K: "<right>"}: func(e *Application) error {
-		return e.ActiveEditor().CursorRight()
+		return e.ActiveEditor().CursorRight(1)
 	},
 	Key{K: "f", Control: true}: func(e *Application) error {
-		return e.ActiveEditor().CursorRight()
+		return e.ActiveEditor().CursorRight(1)
 	},
 	Key{K: "<left>"}: func(e *Application) error {
 		return e.ActiveEditor().CursorLeft()
@@ -182,6 +182,7 @@ var defaultKeymap = Keymap{
 	Key{K: "="}:              func(e *Application) error { return insertCharAtCursor(e, '=') },
 	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '_') },
 	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '+') },
+	Key{K: "<tab>" }:         func(e *Application) error { return e.ActiveEditor().Indent() },
 }
 
 func insertCharAtCursor(e *Application, char byte) error {

@@ -280,7 +280,7 @@ func (t *TextEditor) InsertCharAtCursor(char byte) error {
 		t.CursorDown()
 		t.BeginingOfTheLine()
 	} else {
-		t.CursorRight()
+		t.CursorRight(1)
 	}
 	return nil
 
@@ -373,9 +373,9 @@ func (t *TextEditor) CursorLeft() error {
 
 }
 
-func (t *TextEditor) CursorRight() error {
+func (t *TextEditor) CursorRight(n int) error {
 	newPosition := t.Cursor
-	newPosition.Column++
+	newPosition.Column+=n
 	if t.Cursor.Line == len(t.visualLines) {
 		return nil
 	}
@@ -524,3 +524,18 @@ func (t *TextEditor) Write() error {
 
 func (t *TextEditor) GetMaxHeight() int32 { return t.MaxHeight }
 func (t *TextEditor) GetMaxWidth() int32  { return t.MaxWidth }
+func (t *TextEditor) Indent() error {
+	idx := t.cursorToBufferIndex()
+	if idx >= len(t.Content) { // end of file, appending
+		t.Content = append(t.Content, []byte(strings.Repeat(" ", t.TabSize))...)
+	} else {
+		t.Content = append(t.Content[:idx], append([]byte(strings.Repeat(" ", t.TabSize)), t.Content[idx:]...)...)
+		t.calculateVisualLines()
+		t.CursorRight(t.TabSize)
+	}
+	
+	t.State = State_Dirty
+
+	
+	return nil
+}
