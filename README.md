@@ -18,7 +18,6 @@ Simple text editor implemented in Golang using Raylib with the goal of being a s
 - Copy/paste
 - Selecting a section of text (both mouse and keyboard)
 - Undo
-- Configuration file ( kitty like config )
 - Incremental in buffer search
 - Fuzzy file finder
 - Command output buffer ( run a command and see it's result, similar to *Compile Mode* in Emacs)
