@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ type Editor struct {
 	SearchMatches             [][2]Position
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
+	BeforeSaveHook            []func(*Editor) error
 }
 
 func (t *Editor) replaceTabsWithSpaces() {
@@ -102,6 +104,11 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 		t.Content, err = os.ReadFile(t.File)
 		if err != nil {
 			return nil, err
+		}
+
+		fileType, exists := fileTypeMapping[path.Ext(t.File)]
+		if exists {
+			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
 		}
 	}
 	t.replaceTabsWithSpaces()
@@ -797,6 +804,13 @@ func (t *Editor) Write() error {
 	if t.File == "" {
 		return nil
 	}
+
+	for _, hook := range t.BeforeSaveHook {
+		if err := hook(t); err != nil {
+			return err
+		}
+	}
+
 	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
