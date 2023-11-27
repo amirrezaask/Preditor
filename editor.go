@@ -848,6 +848,15 @@ var editorBufferKeymap = Keymap{
 		a.ActiveEditor().Keymaps = append(a.ActiveEditor().Keymaps, searchModeKeymap)
 		return nil
 	},
+	Key{K: "<esc>"}: func(p *Preditor) error {
+		editor := p.ActiveEditor()
+		if editor.HasSelection {
+			editor.HasSelection = !editor.HasSelection
+			editor.SelectionStart = nil
+		}
+
+		return nil
+	},
 
 	//selection
 	Key{K: "<space>", Control: true}: func(e *Preditor) error {
