@@ -372,23 +372,31 @@ func (t *Editor) convertBufferIndexToLineAndColumn(idx int) *Position {
 
 	return nil
 }
-func (t *Editor) regexMatchAndHighlight(pattern string) error {
-	if pattern != t.LastSearchString {
-		t.SearchMatches = [][2]Position{}
-		re, err := regexp.Compile(pattern)
-		if err != nil {
-			return err
-		}
+func (t *Editor) findMatchesRegex(pattern string) error {
+	t.SearchMatches = [][2]Position{}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return err
+	}
 
-		matches := re.FindAllStringIndex(string(t.Content), -1)
-		for _, match := range matches {
-			matchStart := t.convertBufferIndexToLineAndColumn(match[0])
-			matchEnd := t.convertBufferIndexToLineAndColumn(match[1])
-			if matchStart == nil || matchEnd == nil {
-				continue
-			}
-			matchEnd.Column--
-			t.SearchMatches = append(t.SearchMatches, [2]Position{*matchStart, *matchEnd})
+	matches := re.FindAllStringIndex(string(t.Content), -1)
+	for _, match := range matches {
+		matchStart := t.convertBufferIndexToLineAndColumn(match[0])
+		matchEnd := t.convertBufferIndexToLineAndColumn(match[1])
+		if matchStart == nil || matchEnd == nil {
+			continue
+		}
+		matchEnd.Column--
+		t.SearchMatches = append(t.SearchMatches, [2]Position{*matchStart, *matchEnd})
+	}
+
+	return nil
+}
+
+func (t *Editor) findMatchesAndHighlight(pattern string) error {
+	if pattern != t.LastSearchString {
+		if err := t.findMatchesRegex(pattern); err != nil {
+			return err
 		}
 	}
 	for idx, match := range t.SearchMatches {
@@ -418,7 +426,7 @@ func (t *Editor) renderSearchResults() {
 	if t.SearchString == nil || len(*t.SearchString) < 1 {
 		return
 	}
-	t.regexMatchAndHighlight(*t.SearchString)
+	t.findMatchesAndHighlight(*t.SearchString)
 }
 
 func (t *Editor) Render() {
@@ -1074,6 +1082,20 @@ var searchModeKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	},
+
+	Key{K: "<enter>", Control: true}: func(a *Application) error {
+		editor := a.ActiveEditor()
+
+		editor.CurrentMatch--
+		if editor.CurrentMatch >= len(editor.SearchMatches) {
+			editor.CurrentMatch = 0
+		}
+		if editor.CurrentMatch < 0 {
+			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		}
+		editor.MovedAwayFromCurrentMatch = false
+		return nil
+	},
 	Key{K: "<esc>"}: func(a *Application) error {
 		a.ActiveEditor().Keymaps = a.ActiveEditor().Keymaps[:len(a.ActiveEditor().Keymaps)-1]
 		fmt.Println("exiting search mode")
@@ -1100,15 +1122,31 @@ var searchModeKeymap = Keymap{
 		return e.ActiveEditor().ScrollDown(10)
 	},
 
-	Key{K: "<rmouse>-click"}: func(e *Application) error {
-		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+	Key{K: "<rmouse>-click"}: func(a *Application) error {
+		editor := a.ActiveEditor()
 
-		return e.ActiveEditor().ScrollDown(10)
+		editor.CurrentMatch++
+		if editor.CurrentMatch >= len(editor.SearchMatches) {
+			editor.CurrentMatch = 0
+		}
+		if editor.CurrentMatch < 0 {
+			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		}
+		editor.MovedAwayFromCurrentMatch = false
+		return nil
 	},
-	Key{K: "<mmouse>-click"}: func(e *Application) error {
-		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+	Key{K: "<mmouse>-click"}: func(a *Application) error {
+		editor := a.ActiveEditor()
 
-		return e.ActiveEditor().ScrollUp(10)
+		editor.CurrentMatch--
+		if editor.CurrentMatch >= len(editor.SearchMatches) {
+			editor.CurrentMatch = 0
+		}
+		if editor.CurrentMatch < 0 {
+			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		}
+		editor.MovedAwayFromCurrentMatch = false
+		return nil
 	},
 	Key{K: "<pagedown>"}: func(e *Application) error {
 		e.ActiveEditor().MovedAwayFromCurrentMatch = true
