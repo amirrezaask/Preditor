@@ -47,6 +47,7 @@ func main() {
 		filename = flag.Args()[0]
 	}
 	rl.SetTextLineSpacing(int(fontSize))
+	rl.SetExitKey(0)
 
 	// initialize first editor
 	textEditorBuffer, err := NewEditor(EditorOptions{
