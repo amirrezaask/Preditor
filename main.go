@@ -24,7 +24,8 @@ func main() {
 
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
-	rl.InitWindow(1920, 1080, "editor")
+	rl.SetTraceLogLevel(rl.LogError)
+	rl.InitWindow(1920, 1080, "4ed")
 
 	if err := clipboard.Init(); err != nil {
 		panic(err)
