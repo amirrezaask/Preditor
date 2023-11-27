@@ -20,7 +20,7 @@ type Colors struct {
 }
 
 type Application struct {
-	Editors           []*EditorBuffer
+	Editors           []*Editor
 	ActiveEditorIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
@@ -30,7 +30,7 @@ type Application struct {
 	Colors            Colors
 }
 
-func (e *Application) ActiveEditor() *EditorBuffer {
+func (e *Application) ActiveEditor() *Editor {
 	return e.Editors[e.ActiveEditorIndex]
 }
 
