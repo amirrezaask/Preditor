@@ -15,6 +15,13 @@ func main() {
 	flag.StringVar(&fontname, "font", "Consolas", "")
 	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".core"), "path to config file, defaults to: ~/.core.cfg")
 	flag.Parse()
+
+	// read config file
+	cfg, err := readConfig(configPath)
+	if err != nil {
+		panic(err)
+	}
+
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.InitWindow(1920, 1080, "editor")
@@ -24,26 +31,13 @@ func main() {
 	}
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
-
-	editorBackground, _ := parseHexColor("#333333")
-	editorForeground, _ := parseHexColor("#ffffff")
-	editorStatusbarBackground, _ := parseHexColor("#d3b58d")
-	editorStatusbarForeground, _ := parseHexColor("#000000")
-
 	// create editor
 	editor := Application{
 		LineNumbers:  true,
 		LineWrapping: true,
-		Colors: Colors{
-			Background:            editorBackground,
-			Foreground:            editorForeground,
-			StatusBarBackground:   editorStatusbarBackground,
-			StatusBarForeground:   editorStatusbarForeground,
-			LineNumbersForeground: rl.White,
-		},
+		Colors:       cfg.Colors,
 	}
 
-	var err error
 	err = loadFont(fontname, 20)
 	if err != nil {
 		panic(err)
