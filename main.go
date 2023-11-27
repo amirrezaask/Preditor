@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"os"
+	"path"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
@@ -9,7 +11,9 @@ import (
 
 func main() {
 	var fontname string
+	var configPath string
 	flag.StringVar(&fontname, "font", "Consolas", "")
+	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".core"), "path to config file, defaults to: ~/.core.cfg")
 	flag.Parse()
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
@@ -21,8 +25,8 @@ func main() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 
-	editorBackground, _ := parseHexColor("#062329")
-	editorForeground, _ := parseHexColor("#d3b58d")
+	editorBackground, _ := parseHexColor("#333333")
+	editorForeground, _ := parseHexColor("#ffffff")
 	editorStatusbarBackground, _ := parseHexColor("#d3b58d")
 	editorStatusbarForeground, _ := parseHexColor("#000000")
 
