@@ -100,7 +100,7 @@ func readConfig(cfgPath string) (*Config, error) {
 	lines := strings.Split(string(bs), "\n")
 
 	for _, line := range lines {
-		splitted := strings.Split(line, " ")
+		splitted := strings.SplitN(line, " ", 2)
 		if len(splitted) != 2 {
 			continue
 		}
