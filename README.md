@@ -1,4 +1,4 @@
-# jed Editor
+# 4ed Editor
 ### just edit
 Simple text editor implemented in Golang using Raylib with the goal of being a simple, extensible basic editor that you can build your own PDE on.
  
