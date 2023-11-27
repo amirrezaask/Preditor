@@ -238,7 +238,7 @@ func (t *Editor) renderStatusBar() {
 	}
 	var searchString string
 	if t.SearchString != nil {
-		searchString = fmt.Sprintf("Searching: \"%s\"", *t.SearchString)
+		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *t.SearchString, t.CurrentMatch, len(t.SearchMatches)-1)
 	}
 
 	rl.DrawTextEx(font,
@@ -824,19 +824,19 @@ func (t *Editor) Indent() error {
 }
 
 var editorBufferKeymap = Keymap{
-	Key{K: "f", Control: true}: func(e *Application) error {
+	Key{K: "f", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
-	Key{K: "s", Control: true}: func(e *Application) error {
+	Key{K: "s", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().Write()
 	},
-	Key{K: "f", Alt: true}: func(a *Application) error {
+	Key{K: "f", Alt: true}: func(a *Preditor) error {
 		a.ActiveEditor().Keymaps = append(a.ActiveEditor().Keymaps, searchModeKeymap)
 		return nil
 	},
 
 	//selection
-	Key{K: "<space>", Control: true}: func(e *Application) error {
+	Key{K: "<space>", Control: true}: func(e *Preditor) error {
 		editor := e.ActiveEditor()
 		if editor.HasSelection {
 			editor.HasSelection = !editor.HasSelection
@@ -854,181 +854,181 @@ var editorBufferKeymap = Keymap{
 	},
 
 	// navigation
-	Key{K: "<lmouse>-click"}: func(e *Application) error {
+	Key{K: "<lmouse>-click"}: func(e *Preditor) error {
 		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
 	},
-	Key{K: "<mouse-wheel-up>"}: func(e *Application) error {
+	Key{K: "<mouse-wheel-up>"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollUp(10)
 
 	},
-	Key{K: "<mouse-wheel-down>"}: func(e *Application) error {
+	Key{K: "<mouse-wheel-down>"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollDown(10)
 	},
 
-	Key{K: "<rmouse>-click"}: func(e *Application) error {
+	Key{K: "<rmouse>-click"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollDown(10)
 	},
-	Key{K: "<mmouse>-click"}: func(e *Application) error {
+	Key{K: "<mmouse>-click"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollUp(10)
 	},
 
-	Key{K: "a", Control: true}: func(e *Application) error {
+	Key{K: "a", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().BeginingOfTheLine()
 	},
-	Key{K: "e", Control: true}: func(e *Application) error {
+	Key{K: "e", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().EndOfTheLine()
 	},
 
-	Key{K: "p", Control: true}: func(e *Application) error {
+	Key{K: "p", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().PreviousLine()
 	},
 
-	Key{K: "n", Control: true}: func(e *Application) error {
+	Key{K: "n", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().NextLine()
 	},
 
-	Key{K: "<up>"}: func(e *Application) error {
+	Key{K: "<up>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorUp()
 	},
-	Key{K: "<down>"}: func(e *Application) error {
+	Key{K: "<down>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorDown()
 	},
-	Key{K: "<right>"}: func(e *Application) error {
+	Key{K: "<right>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
 
-	Key{K: "<left>"}: func(e *Application) error {
+	Key{K: "<left>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorLeft()
 	},
 
-	Key{K: "b", Control: true}: func(e *Application) error {
+	Key{K: "b", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorLeft()
 	},
-	Key{K: "<home>"}: func(e *Application) error {
+	Key{K: "<home>"}: func(e *Preditor) error {
 		return e.ActiveEditor().BeginingOfTheLine()
 	},
-	Key{K: "<pagedown>"}: func(e *Application) error {
+	Key{K: "<pagedown>"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollDown(1)
 	},
-	Key{K: "<pageup>"}: func(e *Application) error {
+	Key{K: "<pageup>"}: func(e *Preditor) error {
 		return e.ActiveEditor().ScrollUp(1)
 	},
 
 	//insertion
-	Key{K: "<enter>"}: func(e *Application) error { return insertChar(e, '\n') },
-	Key{K: "<space>"}: func(e *Application) error { return insertChar(e, ' ') },
-	Key{K: "<backspace>"}: func(e *Application) error {
+	Key{K: "<enter>"}: func(e *Preditor) error { return insertChar(e, '\n') },
+	Key{K: "<space>"}: func(e *Preditor) error { return insertChar(e, ' ') },
+	Key{K: "<backspace>"}: func(e *Preditor) error {
 		return e.ActiveEditor().DeleteCharBackward()
 	},
-	Key{K: "d", Control: true}: func(e *Application) error {
+	Key{K: "d", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().DeleteCharForward()
 	},
-	Key{K: "d", Control: true}: func(e *Application) error {
+	Key{K: "d", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().DeleteCharForward()
 	},
-	Key{K: "<delete>"}: func(e *Application) error {
+	Key{K: "<delete>"}: func(e *Preditor) error {
 		return e.ActiveEditor().DeleteCharForward()
 	},
-	Key{K: "a"}:               func(e *Application) error { return insertChar(e, 'a') },
-	Key{K: "b"}:               func(e *Application) error { return insertChar(e, 'b') },
-	Key{K: "c"}:               func(e *Application) error { return insertChar(e, 'c') },
-	Key{K: "d"}:               func(e *Application) error { return insertChar(e, 'd') },
-	Key{K: "e"}:               func(e *Application) error { return insertChar(e, 'e') },
-	Key{K: "f"}:               func(e *Application) error { return insertChar(e, 'f') },
-	Key{K: "g"}:               func(e *Application) error { return insertChar(e, 'g') },
-	Key{K: "h"}:               func(e *Application) error { return insertChar(e, 'h') },
-	Key{K: "i"}:               func(e *Application) error { return insertChar(e, 'i') },
-	Key{K: "j"}:               func(e *Application) error { return insertChar(e, 'j') },
-	Key{K: "k"}:               func(e *Application) error { return insertChar(e, 'k') },
-	Key{K: "l"}:               func(e *Application) error { return insertChar(e, 'l') },
-	Key{K: "m"}:               func(e *Application) error { return insertChar(e, 'm') },
-	Key{K: "n"}:               func(e *Application) error { return insertChar(e, 'n') },
-	Key{K: "o"}:               func(e *Application) error { return insertChar(e, 'o') },
-	Key{K: "p"}:               func(e *Application) error { return insertChar(e, 'p') },
-	Key{K: "q"}:               func(e *Application) error { return insertChar(e, 'q') },
-	Key{K: "r"}:               func(e *Application) error { return insertChar(e, 'r') },
-	Key{K: "s"}:               func(e *Application) error { return insertChar(e, 's') },
-	Key{K: "t"}:               func(e *Application) error { return insertChar(e, 't') },
-	Key{K: "u"}:               func(e *Application) error { return insertChar(e, 'u') },
-	Key{K: "v"}:               func(e *Application) error { return insertChar(e, 'v') },
-	Key{K: "w"}:               func(e *Application) error { return insertChar(e, 'w') },
-	Key{K: "x"}:               func(e *Application) error { return insertChar(e, 'x') },
-	Key{K: "y"}:               func(e *Application) error { return insertChar(e, 'y') },
-	Key{K: "z"}:               func(e *Application) error { return insertChar(e, 'z') },
-	Key{K: "0"}:               func(e *Application) error { return insertChar(e, '0') },
-	Key{K: "1"}:               func(e *Application) error { return insertChar(e, '1') },
-	Key{K: "2"}:               func(e *Application) error { return insertChar(e, '2') },
-	Key{K: "3"}:               func(e *Application) error { return insertChar(e, '3') },
-	Key{K: "4"}:               func(e *Application) error { return insertChar(e, '4') },
-	Key{K: "5"}:               func(e *Application) error { return insertChar(e, '5') },
-	Key{K: "6"}:               func(e *Application) error { return insertChar(e, '6') },
-	Key{K: "7"}:               func(e *Application) error { return insertChar(e, '7') },
-	Key{K: "8"}:               func(e *Application) error { return insertChar(e, '8') },
-	Key{K: "9"}:               func(e *Application) error { return insertChar(e, '9') },
-	Key{K: "\\"}:              func(e *Application) error { return insertChar(e, '\\') },
-	Key{K: "\\", Shift: true}: func(e *Application) error { return insertChar(e, '|') },
+	Key{K: "a"}:               func(e *Preditor) error { return insertChar(e, 'a') },
+	Key{K: "b"}:               func(e *Preditor) error { return insertChar(e, 'b') },
+	Key{K: "c"}:               func(e *Preditor) error { return insertChar(e, 'c') },
+	Key{K: "d"}:               func(e *Preditor) error { return insertChar(e, 'd') },
+	Key{K: "e"}:               func(e *Preditor) error { return insertChar(e, 'e') },
+	Key{K: "f"}:               func(e *Preditor) error { return insertChar(e, 'f') },
+	Key{K: "g"}:               func(e *Preditor) error { return insertChar(e, 'g') },
+	Key{K: "h"}:               func(e *Preditor) error { return insertChar(e, 'h') },
+	Key{K: "i"}:               func(e *Preditor) error { return insertChar(e, 'i') },
+	Key{K: "j"}:               func(e *Preditor) error { return insertChar(e, 'j') },
+	Key{K: "k"}:               func(e *Preditor) error { return insertChar(e, 'k') },
+	Key{K: "l"}:               func(e *Preditor) error { return insertChar(e, 'l') },
+	Key{K: "m"}:               func(e *Preditor) error { return insertChar(e, 'm') },
+	Key{K: "n"}:               func(e *Preditor) error { return insertChar(e, 'n') },
+	Key{K: "o"}:               func(e *Preditor) error { return insertChar(e, 'o') },
+	Key{K: "p"}:               func(e *Preditor) error { return insertChar(e, 'p') },
+	Key{K: "q"}:               func(e *Preditor) error { return insertChar(e, 'q') },
+	Key{K: "r"}:               func(e *Preditor) error { return insertChar(e, 'r') },
+	Key{K: "s"}:               func(e *Preditor) error { return insertChar(e, 's') },
+	Key{K: "t"}:               func(e *Preditor) error { return insertChar(e, 't') },
+	Key{K: "u"}:               func(e *Preditor) error { return insertChar(e, 'u') },
+	Key{K: "v"}:               func(e *Preditor) error { return insertChar(e, 'v') },
+	Key{K: "w"}:               func(e *Preditor) error { return insertChar(e, 'w') },
+	Key{K: "x"}:               func(e *Preditor) error { return insertChar(e, 'x') },
+	Key{K: "y"}:               func(e *Preditor) error { return insertChar(e, 'y') },
+	Key{K: "z"}:               func(e *Preditor) error { return insertChar(e, 'z') },
+	Key{K: "0"}:               func(e *Preditor) error { return insertChar(e, '0') },
+	Key{K: "1"}:               func(e *Preditor) error { return insertChar(e, '1') },
+	Key{K: "2"}:               func(e *Preditor) error { return insertChar(e, '2') },
+	Key{K: "3"}:               func(e *Preditor) error { return insertChar(e, '3') },
+	Key{K: "4"}:               func(e *Preditor) error { return insertChar(e, '4') },
+	Key{K: "5"}:               func(e *Preditor) error { return insertChar(e, '5') },
+	Key{K: "6"}:               func(e *Preditor) error { return insertChar(e, '6') },
+	Key{K: "7"}:               func(e *Preditor) error { return insertChar(e, '7') },
+	Key{K: "8"}:               func(e *Preditor) error { return insertChar(e, '8') },
+	Key{K: "9"}:               func(e *Preditor) error { return insertChar(e, '9') },
+	Key{K: "\\"}:              func(e *Preditor) error { return insertChar(e, '\\') },
+	Key{K: "\\", Shift: true}: func(e *Preditor) error { return insertChar(e, '|') },
 
-	Key{K: "0", Shift: true}: func(e *Application) error { return insertChar(e, ')') },
-	Key{K: "1", Shift: true}: func(e *Application) error { return insertChar(e, '!') },
-	Key{K: "2", Shift: true}: func(e *Application) error { return insertChar(e, '@') },
-	Key{K: "3", Shift: true}: func(e *Application) error { return insertChar(e, '#') },
-	Key{K: "4", Shift: true}: func(e *Application) error { return insertChar(e, '$') },
-	Key{K: "5", Shift: true}: func(e *Application) error { return insertChar(e, '%') },
-	Key{K: "6", Shift: true}: func(e *Application) error { return insertChar(e, '^') },
-	Key{K: "7", Shift: true}: func(e *Application) error { return insertChar(e, '&') },
-	Key{K: "8", Shift: true}: func(e *Application) error { return insertChar(e, '*') },
-	Key{K: "9", Shift: true}: func(e *Application) error { return insertChar(e, '(') },
-	Key{K: "a", Shift: true}: func(e *Application) error { return insertChar(e, 'A') },
-	Key{K: "b", Shift: true}: func(e *Application) error { return insertChar(e, 'B') },
-	Key{K: "c", Shift: true}: func(e *Application) error { return insertChar(e, 'C') },
-	Key{K: "d", Shift: true}: func(e *Application) error { return insertChar(e, 'D') },
-	Key{K: "e", Shift: true}: func(e *Application) error { return insertChar(e, 'E') },
-	Key{K: "f", Shift: true}: func(e *Application) error { return insertChar(e, 'F') },
-	Key{K: "g", Shift: true}: func(e *Application) error { return insertChar(e, 'G') },
-	Key{K: "h", Shift: true}: func(e *Application) error { return insertChar(e, 'H') },
-	Key{K: "i", Shift: true}: func(e *Application) error { return insertChar(e, 'I') },
-	Key{K: "j", Shift: true}: func(e *Application) error { return insertChar(e, 'J') },
-	Key{K: "k", Shift: true}: func(e *Application) error { return insertChar(e, 'K') },
-	Key{K: "l", Shift: true}: func(e *Application) error { return insertChar(e, 'L') },
-	Key{K: "m", Shift: true}: func(e *Application) error { return insertChar(e, 'M') },
-	Key{K: "n", Shift: true}: func(e *Application) error { return insertChar(e, 'N') },
-	Key{K: "o", Shift: true}: func(e *Application) error { return insertChar(e, 'O') },
-	Key{K: "p", Shift: true}: func(e *Application) error { return insertChar(e, 'P') },
-	Key{K: "q", Shift: true}: func(e *Application) error { return insertChar(e, 'Q') },
-	Key{K: "r", Shift: true}: func(e *Application) error { return insertChar(e, 'R') },
-	Key{K: "s", Shift: true}: func(e *Application) error { return insertChar(e, 'S') },
-	Key{K: "t", Shift: true}: func(e *Application) error { return insertChar(e, 'T') },
-	Key{K: "u", Shift: true}: func(e *Application) error { return insertChar(e, 'U') },
-	Key{K: "v", Shift: true}: func(e *Application) error { return insertChar(e, 'V') },
-	Key{K: "w", Shift: true}: func(e *Application) error { return insertChar(e, 'W') },
-	Key{K: "x", Shift: true}: func(e *Application) error { return insertChar(e, 'X') },
-	Key{K: "y", Shift: true}: func(e *Application) error { return insertChar(e, 'Y') },
-	Key{K: "z", Shift: true}: func(e *Application) error { return insertChar(e, 'Z') },
-	Key{K: "["}:              func(e *Application) error { return insertChar(e, '[') },
-	Key{K: "]"}:              func(e *Application) error { return insertChar(e, ']') },
-	Key{K: "[", Shift: true}: func(e *Application) error { return insertChar(e, '{') },
-	Key{K: "]", Shift: true}: func(e *Application) error { return insertChar(e, '}') },
-	Key{K: ";"}:              func(e *Application) error { return insertChar(e, ';') },
-	Key{K: ";", Shift: true}: func(e *Application) error { return insertChar(e, ':') },
-	Key{K: "'"}:              func(e *Application) error { return insertChar(e, '\'') },
-	Key{K: "'", Shift: true}: func(e *Application) error { return insertChar(e, '"') },
-	Key{K: "\""}:             func(e *Application) error { return insertChar(e, '"') },
-	Key{K: ","}:              func(e *Application) error { return insertChar(e, ',') },
-	Key{K: "."}:              func(e *Application) error { return insertChar(e, '.') },
-	Key{K: ",", Shift: true}: func(e *Application) error { return insertChar(e, '<') },
-	Key{K: ".", Shift: true}: func(e *Application) error { return insertChar(e, '>') },
-	Key{K: "/"}:              func(e *Application) error { return insertChar(e, '/') },
-	Key{K: "/", Shift: true}: func(e *Application) error { return insertChar(e, '?') },
-	Key{K: "-"}:              func(e *Application) error { return insertChar(e, '-') },
-	Key{K: "="}:              func(e *Application) error { return insertChar(e, '=') },
-	Key{K: "-", Shift: true}: func(e *Application) error { return insertChar(e, '_') },
-	Key{K: "=", Shift: true}: func(e *Application) error { return insertChar(e, '+') },
-	Key{K: "`"}:              func(e *Application) error { return insertChar(e, '`') },
-	Key{K: "`", Shift: true}: func(e *Application) error { return insertChar(e, '~') },
-	Key{K: "<tab>"}:          func(e *Application) error { return e.ActiveEditor().Indent() },
+	Key{K: "0", Shift: true}: func(e *Preditor) error { return insertChar(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Preditor) error { return insertChar(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Preditor) error { return insertChar(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Preditor) error { return insertChar(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Preditor) error { return insertChar(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Preditor) error { return insertChar(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Preditor) error { return insertChar(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Preditor) error { return insertChar(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Preditor) error { return insertChar(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Preditor) error { return insertChar(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Preditor) error { return insertChar(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Preditor) error { return insertChar(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Preditor) error { return insertChar(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Preditor) error { return insertChar(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Preditor) error { return insertChar(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Preditor) error { return insertChar(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Preditor) error { return insertChar(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Preditor) error { return insertChar(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Preditor) error { return insertChar(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Preditor) error { return insertChar(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Preditor) error { return insertChar(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Preditor) error { return insertChar(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Preditor) error { return insertChar(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Preditor) error { return insertChar(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Preditor) error { return insertChar(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Preditor) error { return insertChar(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Preditor) error { return insertChar(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Preditor) error { return insertChar(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Preditor) error { return insertChar(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Preditor) error { return insertChar(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Preditor) error { return insertChar(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Preditor) error { return insertChar(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Preditor) error { return insertChar(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Preditor) error { return insertChar(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Preditor) error { return insertChar(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Preditor) error { return insertChar(e, 'Z') },
+	Key{K: "["}:              func(e *Preditor) error { return insertChar(e, '[') },
+	Key{K: "]"}:              func(e *Preditor) error { return insertChar(e, ']') },
+	Key{K: "[", Shift: true}: func(e *Preditor) error { return insertChar(e, '{') },
+	Key{K: "]", Shift: true}: func(e *Preditor) error { return insertChar(e, '}') },
+	Key{K: ";"}:              func(e *Preditor) error { return insertChar(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Preditor) error { return insertChar(e, ':') },
+	Key{K: "'"}:              func(e *Preditor) error { return insertChar(e, '\'') },
+	Key{K: "'", Shift: true}: func(e *Preditor) error { return insertChar(e, '"') },
+	Key{K: "\""}:             func(e *Preditor) error { return insertChar(e, '"') },
+	Key{K: ","}:              func(e *Preditor) error { return insertChar(e, ',') },
+	Key{K: "."}:              func(e *Preditor) error { return insertChar(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Preditor) error { return insertChar(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Preditor) error { return insertChar(e, '>') },
+	Key{K: "/"}:              func(e *Preditor) error { return insertChar(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Preditor) error { return insertChar(e, '?') },
+	Key{K: "-"}:              func(e *Preditor) error { return insertChar(e, '-') },
+	Key{K: "="}:              func(e *Preditor) error { return insertChar(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Preditor) error { return insertChar(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Preditor) error { return insertChar(e, '+') },
+	Key{K: "`"}:              func(e *Preditor) error { return insertChar(e, '`') },
+	Key{K: "`", Shift: true}: func(e *Preditor) error { return insertChar(e, '~') },
+	Key{K: "<tab>"}:          func(e *Preditor) error { return e.ActiveEditor().Indent() },
 }
 
-func insertChar(e *Application, char byte) error {
+func insertChar(e *Preditor, char byte) error {
 	return e.ActiveEditor().InsertCharAtCursor(char)
 }
 
@@ -1040,7 +1040,7 @@ func writeToClipboard(bs []byte) {
 	<-clipboard.Write(clipboard.FmtText, bs)
 }
 
-func insertCharAtSearchString(e *Application, char byte) error {
+func insertCharAtSearchString(e *Preditor, char byte) error {
 
 	editor := e.ActiveEditor()
 	if editor.SearchString == nil {
@@ -1068,11 +1068,11 @@ func (e *Editor) DeleteCharBackwardFromActiveSearch() error {
 }
 
 var searchModeKeymap = Keymap{
-	Key{K: "<space>"}: func(e *Application) error { return insertCharAtSearchString(e, ' ') },
-	Key{K: "<backspace>"}: func(e *Application) error {
+	Key{K: "<space>"}: func(e *Preditor) error { return insertCharAtSearchString(e, ' ') },
+	Key{K: "<backspace>"}: func(e *Preditor) error {
 		return e.ActiveEditor().DeleteCharBackwardFromActiveSearch()
 	},
-	Key{K: "<enter>"}: func(a *Application) error {
+	Key{K: "<enter>"}: func(a *Preditor) error {
 		editor := a.ActiveEditor()
 
 		editor.CurrentMatch++
@@ -1083,7 +1083,7 @@ var searchModeKeymap = Keymap{
 		return nil
 	},
 
-	Key{K: "<enter>", Control: true}: func(a *Application) error {
+	Key{K: "<enter>", Control: true}: func(a *Preditor) error {
 		editor := a.ActiveEditor()
 
 		editor.CurrentMatch--
@@ -1096,7 +1096,7 @@ var searchModeKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	},
-	Key{K: "<esc>"}: func(a *Application) error {
+	Key{K: "<esc>"}: func(a *Preditor) error {
 		a.ActiveEditor().Keymaps = a.ActiveEditor().Keymaps[:len(a.ActiveEditor().Keymaps)-1]
 		fmt.Println("exiting search mode")
 		editor := a.ActiveEditor()
@@ -1108,21 +1108,21 @@ var searchModeKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	},
-	Key{K: "<lmouse>-click"}: func(e *Application) error {
+	Key{K: "<lmouse>-click"}: func(e *Preditor) error {
 		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
 	},
-	Key{K: "<mouse-wheel-up>"}: func(e *Application) error {
+	Key{K: "<mouse-wheel-up>"}: func(e *Preditor) error {
 		e.ActiveEditor().MovedAwayFromCurrentMatch = true
 		return e.ActiveEditor().ScrollUp(10)
 
 	},
-	Key{K: "<mouse-wheel-down>"}: func(e *Application) error {
+	Key{K: "<mouse-wheel-down>"}: func(e *Preditor) error {
 		e.ActiveEditor().MovedAwayFromCurrentMatch = true
 
 		return e.ActiveEditor().ScrollDown(10)
 	},
 
-	Key{K: "<rmouse>-click"}: func(a *Application) error {
+	Key{K: "<rmouse>-click"}: func(a *Preditor) error {
 		editor := a.ActiveEditor()
 
 		editor.CurrentMatch++
@@ -1135,7 +1135,7 @@ var searchModeKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	},
-	Key{K: "<mmouse>-click"}: func(a *Application) error {
+	Key{K: "<mmouse>-click"}: func(a *Preditor) error {
 		editor := a.ActiveEditor()
 
 		editor.CurrentMatch--
@@ -1148,110 +1148,110 @@ var searchModeKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	},
-	Key{K: "<pagedown>"}: func(e *Application) error {
+	Key{K: "<pagedown>"}: func(e *Preditor) error {
 		e.ActiveEditor().MovedAwayFromCurrentMatch = true
 		return e.ActiveEditor().ScrollDown(1)
 	},
-	Key{K: "<pageup>"}: func(e *Application) error {
+	Key{K: "<pageup>"}: func(e *Preditor) error {
 		e.ActiveEditor().MovedAwayFromCurrentMatch = true
 
 		return e.ActiveEditor().ScrollUp(1)
 	},
 
-	Key{K: "a"}:               func(e *Application) error { return insertCharAtSearchString(e, 'a') },
-	Key{K: "b"}:               func(e *Application) error { return insertCharAtSearchString(e, 'b') },
-	Key{K: "c"}:               func(e *Application) error { return insertCharAtSearchString(e, 'c') },
-	Key{K: "d"}:               func(e *Application) error { return insertCharAtSearchString(e, 'd') },
-	Key{K: "e"}:               func(e *Application) error { return insertCharAtSearchString(e, 'e') },
-	Key{K: "f"}:               func(e *Application) error { return insertCharAtSearchString(e, 'f') },
-	Key{K: "g"}:               func(e *Application) error { return insertCharAtSearchString(e, 'g') },
-	Key{K: "h"}:               func(e *Application) error { return insertCharAtSearchString(e, 'h') },
-	Key{K: "i"}:               func(e *Application) error { return insertCharAtSearchString(e, 'i') },
-	Key{K: "j"}:               func(e *Application) error { return insertCharAtSearchString(e, 'j') },
-	Key{K: "k"}:               func(e *Application) error { return insertCharAtSearchString(e, 'k') },
-	Key{K: "l"}:               func(e *Application) error { return insertCharAtSearchString(e, 'l') },
-	Key{K: "m"}:               func(e *Application) error { return insertCharAtSearchString(e, 'm') },
-	Key{K: "n"}:               func(e *Application) error { return insertCharAtSearchString(e, 'n') },
-	Key{K: "o"}:               func(e *Application) error { return insertCharAtSearchString(e, 'o') },
-	Key{K: "p"}:               func(e *Application) error { return insertCharAtSearchString(e, 'p') },
-	Key{K: "q"}:               func(e *Application) error { return insertCharAtSearchString(e, 'q') },
-	Key{K: "r"}:               func(e *Application) error { return insertCharAtSearchString(e, 'r') },
-	Key{K: "s"}:               func(e *Application) error { return insertCharAtSearchString(e, 's') },
-	Key{K: "t"}:               func(e *Application) error { return insertCharAtSearchString(e, 't') },
-	Key{K: "u"}:               func(e *Application) error { return insertCharAtSearchString(e, 'u') },
-	Key{K: "v"}:               func(e *Application) error { return insertCharAtSearchString(e, 'v') },
-	Key{K: "w"}:               func(e *Application) error { return insertCharAtSearchString(e, 'w') },
-	Key{K: "x"}:               func(e *Application) error { return insertCharAtSearchString(e, 'x') },
-	Key{K: "y"}:               func(e *Application) error { return insertCharAtSearchString(e, 'y') },
-	Key{K: "z"}:               func(e *Application) error { return insertCharAtSearchString(e, 'z') },
-	Key{K: "0"}:               func(e *Application) error { return insertCharAtSearchString(e, '0') },
-	Key{K: "1"}:               func(e *Application) error { return insertCharAtSearchString(e, '1') },
-	Key{K: "2"}:               func(e *Application) error { return insertCharAtSearchString(e, '2') },
-	Key{K: "3"}:               func(e *Application) error { return insertCharAtSearchString(e, '3') },
-	Key{K: "4"}:               func(e *Application) error { return insertCharAtSearchString(e, '4') },
-	Key{K: "5"}:               func(e *Application) error { return insertCharAtSearchString(e, '5') },
-	Key{K: "6"}:               func(e *Application) error { return insertCharAtSearchString(e, '6') },
-	Key{K: "7"}:               func(e *Application) error { return insertCharAtSearchString(e, '7') },
-	Key{K: "8"}:               func(e *Application) error { return insertCharAtSearchString(e, '8') },
-	Key{K: "9"}:               func(e *Application) error { return insertCharAtSearchString(e, '9') },
-	Key{K: "\\"}:              func(e *Application) error { return insertCharAtSearchString(e, '\\') },
-	Key{K: "\\", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '|') },
+	Key{K: "a"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'a') },
+	Key{K: "b"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'b') },
+	Key{K: "c"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'c') },
+	Key{K: "d"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'd') },
+	Key{K: "e"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'e') },
+	Key{K: "f"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'f') },
+	Key{K: "g"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'g') },
+	Key{K: "h"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'h') },
+	Key{K: "i"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'i') },
+	Key{K: "j"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'j') },
+	Key{K: "k"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'k') },
+	Key{K: "l"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'l') },
+	Key{K: "m"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'm') },
+	Key{K: "n"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'n') },
+	Key{K: "o"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'o') },
+	Key{K: "p"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'p') },
+	Key{K: "q"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'q') },
+	Key{K: "r"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'r') },
+	Key{K: "s"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 's') },
+	Key{K: "t"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 't') },
+	Key{K: "u"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'u') },
+	Key{K: "v"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'v') },
+	Key{K: "w"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'w') },
+	Key{K: "x"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'x') },
+	Key{K: "y"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'y') },
+	Key{K: "z"}:               func(e *Preditor) error { return insertCharAtSearchString(e, 'z') },
+	Key{K: "0"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '0') },
+	Key{K: "1"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '1') },
+	Key{K: "2"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '2') },
+	Key{K: "3"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '3') },
+	Key{K: "4"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '4') },
+	Key{K: "5"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '5') },
+	Key{K: "6"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '6') },
+	Key{K: "7"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '7') },
+	Key{K: "8"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '8') },
+	Key{K: "9"}:               func(e *Preditor) error { return insertCharAtSearchString(e, '9') },
+	Key{K: "\\"}:              func(e *Preditor) error { return insertCharAtSearchString(e, '\\') },
+	Key{K: "\\", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '|') },
 
-	Key{K: "0", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, ')') },
-	Key{K: "1", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '!') },
-	Key{K: "2", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '@') },
-	Key{K: "3", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '#') },
-	Key{K: "4", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '$') },
-	Key{K: "5", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '%') },
-	Key{K: "6", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '^') },
-	Key{K: "7", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '&') },
-	Key{K: "8", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '*') },
-	Key{K: "9", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '(') },
-	Key{K: "a", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'A') },
-	Key{K: "b", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'B') },
-	Key{K: "c", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'C') },
-	Key{K: "d", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'D') },
-	Key{K: "e", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'E') },
-	Key{K: "f", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'F') },
-	Key{K: "g", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'G') },
-	Key{K: "h", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'H') },
-	Key{K: "i", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'I') },
-	Key{K: "j", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'J') },
-	Key{K: "k", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'K') },
-	Key{K: "l", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'L') },
-	Key{K: "m", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'M') },
-	Key{K: "n", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'N') },
-	Key{K: "o", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'O') },
-	Key{K: "p", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'P') },
-	Key{K: "q", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Q') },
-	Key{K: "r", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'R') },
-	Key{K: "s", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'S') },
-	Key{K: "t", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'T') },
-	Key{K: "u", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'U') },
-	Key{K: "v", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'V') },
-	Key{K: "w", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'W') },
-	Key{K: "x", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'X') },
-	Key{K: "y", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Y') },
-	Key{K: "z", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Z') },
-	Key{K: "["}:              func(e *Application) error { return insertCharAtSearchString(e, '[') },
-	Key{K: "]"}:              func(e *Application) error { return insertCharAtSearchString(e, ']') },
-	Key{K: "[", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '{') },
-	Key{K: "]", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '}') },
-	Key{K: ";"}:              func(e *Application) error { return insertCharAtSearchString(e, ';') },
-	Key{K: ";", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, ':') },
-	Key{K: "'"}:              func(e *Application) error { return insertCharAtSearchString(e, '\'') },
-	Key{K: "'", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '"') },
-	Key{K: "\""}:             func(e *Application) error { return insertCharAtSearchString(e, '"') },
-	Key{K: ","}:              func(e *Application) error { return insertCharAtSearchString(e, ',') },
-	Key{K: "."}:              func(e *Application) error { return insertCharAtSearchString(e, '.') },
-	Key{K: ",", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '<') },
-	Key{K: ".", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '>') },
-	Key{K: "/"}:              func(e *Application) error { return insertCharAtSearchString(e, '/') },
-	Key{K: "/", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '?') },
-	Key{K: "-"}:              func(e *Application) error { return insertCharAtSearchString(e, '-') },
-	Key{K: "="}:              func(e *Application) error { return insertCharAtSearchString(e, '=') },
-	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '_') },
-	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '+') },
-	Key{K: "`"}:              func(e *Application) error { return insertCharAtSearchString(e, '`') },
-	Key{K: "`", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '~') },
+	Key{K: "0", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, 'Z') },
+	Key{K: "["}:              func(e *Preditor) error { return insertCharAtSearchString(e, '[') },
+	Key{K: "]"}:              func(e *Preditor) error { return insertCharAtSearchString(e, ']') },
+	Key{K: "[", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '{') },
+	Key{K: "]", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '}') },
+	Key{K: ";"}:              func(e *Preditor) error { return insertCharAtSearchString(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, ':') },
+	Key{K: "'"}:              func(e *Preditor) error { return insertCharAtSearchString(e, '\'') },
+	Key{K: "'", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '"') },
+	Key{K: "\""}:             func(e *Preditor) error { return insertCharAtSearchString(e, '"') },
+	Key{K: ","}:              func(e *Preditor) error { return insertCharAtSearchString(e, ',') },
+	Key{K: "."}:              func(e *Preditor) error { return insertCharAtSearchString(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '>') },
+	Key{K: "/"}:              func(e *Preditor) error { return insertCharAtSearchString(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '?') },
+	Key{K: "-"}:              func(e *Preditor) error { return insertCharAtSearchString(e, '-') },
+	Key{K: "="}:              func(e *Preditor) error { return insertCharAtSearchString(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '+') },
+	Key{K: "`"}:              func(e *Preditor) error { return insertCharAtSearchString(e, '`') },
+	Key{K: "`", Shift: true}: func(e *Preditor) error { return insertCharAtSearchString(e, '~') },
 }
