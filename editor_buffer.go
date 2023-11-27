@@ -37,10 +37,7 @@ type EditorBuffer struct {
 	CursorBlinking    bool
 	RenderLineNumbers bool
 	HasSelection      bool
-	SelectionStart    struct {
-		VisualLineIndex int
-		Column          int
-	}
+	SelectionStart    *Position
 }
 
 func (t *EditorBuffer) replaceTabsWithSpaces() {
@@ -240,6 +237,54 @@ func (t *EditorBuffer) renderStatusBar() {
 		t.Colors.StatusBarForeground)
 }
 
+func (t *EditorBuffer) renderSelection() {
+	if t.SelectionStart == nil {
+		return
+	}
+
+	fmt.Println("rendering selection ===============")
+	startLine := min(t.SelectionStart.Line, t.Cursor.Line)
+	startColumn := min(t.SelectionStart.Column, t.Cursor.Column)
+	endLine := max(t.SelectionStart.Line, t.Cursor.Line)
+	endColumn := max(t.SelectionStart.Column, t.Cursor.Column)
+	fmt.Println("startline", startLine)
+	fmt.Println("startcol", startColumn)
+	fmt.Println("endline", endLine)
+	fmt.Println("endcol", endColumn)
+
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	for i := startLine; i <= endLine; i++ {
+		if len(t.visualLines) <= i {
+			break
+		}
+		var thisLineEnd int
+		var thisLineStart int
+		line := t.visualLines[i]
+		if startLine == endLine {
+			thisLineEnd = endColumn
+			thisLineStart = startColumn
+		} else {
+			thisLineEnd = line.Length - 1
+		}
+		for j := thisLineStart; j <= thisLineEnd; j++ {
+			posX := int32(j-line.startIndex)*int32(charSize.X) + int32(t.ZeroPosition.X)
+			if t.RenderLineNumbers {
+				if len(t.visualLines) > t.Cursor.Line {
+					posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
+				} else {
+					posX += int32(charSize.X)
+
+				}
+			}
+			fmt.Printf("highlighting line: %d col: %d\n", i, j)
+			rl.DrawRectangle(posX, int32(i)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.White, 0.5))
+		}
+	}
+
+	fmt.Println("========================================")
+}
+
 func (t *EditorBuffer) Render() {
 
 	t.calculateVisualLines()
@@ -260,6 +305,7 @@ func (t *EditorBuffer) Render() {
 
 	t.renderCursor()
 	t.renderStatusBar()
+	t.renderSelection()
 }
 
 func (t *EditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -600,6 +646,26 @@ var editorBufferKeymap = Keymap{
 	Key{K: "s", Control: true}: func(e *Application) error {
 		return e.ActiveEditor().Write()
 	},
+	//selection
+	Key{K: "<space>", Control: true}: func(e *Application) error {
+		editor := e.ActiveEditor()
+		if editor.HasSelection {
+			editor.HasSelection = !editor.HasSelection
+			editor.SelectionStart = nil
+			fmt.Println("selection", !e.ActiveEditor().HasSelection)
+
+		} else {
+			editor.HasSelection = !editor.HasSelection
+			editor.SelectionStart = &Position{
+				Line:   editor.Cursor.Line,
+				Column: editor.Cursor.Column,
+			}
+			fmt.Printf("selection : %+v\n", e.ActiveEditor().SelectionStart)
+
+		}
+		return nil
+	},
+
 	// navigation
 	Key{K: "<lmouse>-click"}: func(e *Application) error {
 		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
