@@ -300,7 +300,7 @@ func (t *EditorBuffer) renderSelection() {
 
 				}
 			}
-			rl.DrawRectangle(posX, int32(i-int(t.VisibleStart))*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.White, 0.5))
+			rl.DrawRectangle(posX, int32(i-int(t.VisibleStart))*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.Selection, 0.5))
 		}
 	}
 

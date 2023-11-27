@@ -26,8 +26,7 @@ var defaultConfig = Config{
 	Colors: Colors{
 		Background:            mustParseHexColor("#333333"),
 		Foreground:            mustParseHexColor("#F2F2F2"),
-		SelectionBackground:   mustParseHexColor("#48B9C7"),
-		SelectionForeground:   mustParseHexColor("#FFFFFF"),
+		Selection:             mustParseHexColor("#48B9C7"),
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
@@ -68,12 +67,7 @@ func addToConfig(cfg *Config, key string, value string) error {
 			return err
 		}
 	case "selection_background":
-		cfg.Colors.SelectionBackground, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "selection_foreground":
-		cfg.Colors.SelectionForeground, err = parseHexColor(value)
+		cfg.Colors.Selection, err = parseHexColor(value)
 		if err != nil {
 			return err
 		}
