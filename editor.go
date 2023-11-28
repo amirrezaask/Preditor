@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -165,6 +166,38 @@ func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
 
 	return highlights
 }
+func Sort[T any](slice []T, pred func(t1 T, t2 T) bool) {
+	sort.Slice(slice, func(i, j int) bool {
+		return pred(slice[i], slice[j])
+	})
+}
+func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
+	var missing []highlight
+	if len(hs) == 0 {
+		missing = append(missing, highlight{
+			start: start,
+			end:   end,
+			Color: t.Colors.Foreground,
+		})
+	} else {
+		for i, h := range hs {
+			if i+1 < len(hs) && hs[i+1].start-h.end != 1 {
+				missing = append(missing, highlight{
+					start: h.end + 1,
+					end:   hs[i+1].start - 1,
+					Color: t.Colors.Foreground,
+				})
+			}
+		}
+	}
+
+	hs = append(hs, missing...)
+	Sort[highlight](hs, func(t1, t2 highlight) bool {
+		return t1.start < t2.start
+	})
+
+	return hs
+}
 
 func (t *Editor) calculateVisualLines() {
 	t.visualLines = []visualLine{}
@@ -185,6 +218,7 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
+				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:idx], start), start, idx),
 			}
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
@@ -201,6 +235,7 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
+				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:], start), start, idx),
 			}
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
@@ -217,6 +252,7 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
+				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:idx], start), start, idx),
 			}
 
 			t.visualLines = append(t.visualLines, line)
@@ -226,7 +262,6 @@ func (t *Editor) calculateVisualLines() {
 
 		}
 	}
-
 }
 
 func (t *Editor) renderCursor() {
