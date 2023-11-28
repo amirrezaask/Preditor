@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Colors         Colors
-	FontName       string
-	FontSize       int
-	CursorShape    int
-	CursorBlinking bool
+	Colors                   Colors
+	FontName                 string
+	FontSize                 int
+	CursorShape              int
+	CursorBlinking           bool
+	EnableSyntaxHighlighting bool
 }
 
 func mustParseHexColor(hex string) color.RGBA {
@@ -33,7 +34,7 @@ var defaultConfig = Config{
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
 		Cursor:                mustParseHexColor("#00ff00"),
-		SyntaxKeyword:         mustParseHexColor("#d4d4d4"),
+		SyntaxKeyword:         mustParseHexColor("#FF0000"),
 	},
 	CursorShape:    CURSOR_SHAPE_BLOCK,
 	CursorBlinking: false,
@@ -44,6 +45,8 @@ var defaultConfig = Config{
 func addToConfig(cfg *Config, key string, value string) error {
 	var err error
 	switch key {
+	case "syntax":
+		cfg.EnableSyntaxHighlighting = value == "true"
 	case "cursor_shape":
 		switch value {
 		case "block":
