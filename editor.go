@@ -877,33 +877,36 @@ func (t *Editor) copy() error {
 }
 
 func (t *Editor) cut() error {
+	var startIndex int
+	var endIndex int
 	if t.HasSelection {
-		// cut selection
+		// copy selection
 		selection := t.positionToBufferIndex(*t.SelectionStart)
 		cursor := t.positionToBufferIndex(t.Cursor)
 		switch {
 		case selection < cursor:
 			writeToClipboard(t.Content[selection:cursor])
-			fmt.Printf("cut: '%s'\n", string(t.Content[selection:cursor]))
-			t.Content = append(t.Content[:selection], t.Content[cursor+1:]...)
+			startIndex = selection
+			endIndex = cursor
 		case selection > cursor:
 			writeToClipboard(t.Content[cursor:selection])
-			fmt.Printf("cut: '%s'\n", string(t.Content[cursor:selection]))
-			t.Content = append(t.Content[:cursor], t.Content[selection+1:]...)
+			startIndex = cursor
+			endIndex = selection
 		case cursor == selection:
 			return nil
 		}
+		t.HasSelection = false
+		t.SelectionStart = nil
 	} else {
-		line := t.visualLines[t.Cursor.Line]
-		writeToClipboard(t.Content[line.startIndex : line.endIndex+1])
-		fmt.Printf("cut: '%s'\n", string(t.Content[line.startIndex:line.endIndex+1]))
-		t.Content = append(t.Content[:line.startIndex], t.Content[line.endIndex+1:]...)
+		writeToClipboard(t.Content[t.visualLines[t.Cursor.Line].startIndex:t.visualLines[t.Cursor.Line].endIndex])
+		startIndex = t.visualLines[t.Cursor.Line].startIndex
+		endIndex = t.visualLines[t.Cursor.Line].endIndex
 	}
 
-	t.HasSelection = false
-	t.SelectionStart = nil
+	t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
+
 	t.State = State_Dirty
-	t.calculateVisualLines()
+
 	return nil
 }
 func (t *Editor) paste() error {
@@ -1195,7 +1198,7 @@ func getClipboardContent() []byte {
 }
 
 func writeToClipboard(bs []byte) {
-	clipboard.Write(clipboard.FmtText, bs)
+	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
 }
 
 func insertCharAtSearchString(e *Preditor, char byte) error {
