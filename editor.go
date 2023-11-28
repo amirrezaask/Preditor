@@ -98,7 +98,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
-	t.Keymaps = append([]Keymap{}, editorBufferKeymap)
+	t.Keymaps = append([]Keymap{}, editorKeymap)
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -854,6 +854,34 @@ func (t *Editor) copy() error {
 
 	return nil
 }
+
+func (t *Editor) cut() error {
+	if t.HasSelection {
+		// cut selection
+		selection := t.positionToBufferIndex(*t.SelectionStart)
+		cursor := t.positionToBufferIndex(t.Cursor)
+		switch {
+		case selection < cursor:
+			writeToClipboard(t.Content[selection:cursor])
+			fmt.Printf("cut: '%s'\n", string(t.Content[selection:cursor]))
+			t.Content = append(t.Content[:selection], t.Content[cursor+1:]...)
+		case selection > cursor:
+			writeToClipboard(t.Content[cursor:selection])
+			fmt.Printf("cut: '%s'\n", string(t.Content[cursor:selection]))
+			t.Content = append(t.Content[:cursor], t.Content[selection+1:]...)
+		case cursor == selection:
+			return nil
+		}
+	} else {
+		line := t.visualLines[t.Cursor.Line]
+		writeToClipboard(t.Content[line.startIndex : line.endIndex+1])
+		fmt.Printf("cut: '%s'\n", string(t.Content[line.startIndex:line.endIndex+1]))
+		t.Content = append(t.Content[:line.startIndex], t.Content[line.endIndex+1:]...)
+	}
+	t.State = State_Dirty
+	t.calculateVisualLines()
+	return nil
+}
 func (t *Editor) paste() error {
 	var idx int
 	if t.HasSelection {
@@ -909,7 +937,7 @@ func (t *Editor) paste() error {
 	return nil
 }
 
-var editorBufferKeymap = Keymap{
+var editorKeymap = Keymap{
 	Key{K: "f", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
@@ -921,6 +949,9 @@ var editorBufferKeymap = Keymap{
 	},
 	Key{K: "v", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().paste()
+	},
+	Key{K: "x", Control: true}: func(e *Preditor) error {
+		return e.ActiveEditor().cut()
 	},
 	Key{K: "f", Alt: true}: func(a *Preditor) error {
 		a.ActiveEditor().Keymaps = append(a.ActiveEditor().Keymaps, searchModeKeymap)
