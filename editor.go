@@ -181,6 +181,13 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 		})
 	} else {
 		for i, h := range hs {
+			if i == len(hs)-1 && h.end != end {
+				missing = append(missing, highlight{
+					start: h.end,
+					end:   end,
+					Color: t.Colors.Foreground,
+				})
+			}
 			if i+1 < len(hs) && hs[i+1].start-h.end != 1 {
 				missing = append(missing, highlight{
 					start: h.end + 1,
