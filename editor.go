@@ -24,6 +24,7 @@ type Editor struct {
 	File                      string
 	Content                   []byte
 	Keymaps                   []Keymap
+	ColorGroups               map[*regexp.Regexp]color.RGBA
 	Variables                 Variables
 	Commands                  Commands
 	MaxHeight                 int32
@@ -118,9 +119,10 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 			return nil, err
 		}
 
-		fileType, exists := fileTypeMapping[path.Ext(t.File)]
+		fileType, exists := fileTypeMappings[path.Ext(t.File)]
 		if exists {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
+			t.ColorGroups = fileType.ColorGroups
 		}
 	}
 	t.replaceTabsWithSpaces()
@@ -133,12 +135,35 @@ func (t *Editor) Destroy() error {
 	return nil
 }
 
+type highlight struct {
+	start int
+	end   int
+	Color color.RGBA
+}
+
 type visualLine struct {
 	Index      int
 	startIndex int
 	endIndex   int
 	ActualLine int
 	Length     int
+	Highlights []highlight
+}
+
+func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
+	var highlights []highlight
+	for re, c := range t.ColorGroups {
+		indexes := re.FindAllStringIndex(string(bs), -1)
+		for _, index := range indexes {
+			highlights = append(highlights, highlight{
+				start: index[0] + offset,
+				end:   index[1] + offset,
+				Color: c,
+			})
+		}
+	}
+
+	return highlights
 }
 
 func (t *Editor) calculateVisualLines() {

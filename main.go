@@ -26,6 +26,8 @@ func main() {
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
 
+	initFileTypes(cfg.Colors)
+
 	if err := clipboard.Init(); err != nil {
 		panic(err)
 	}
