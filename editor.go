@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
@@ -767,6 +768,57 @@ func (t *Editor) PreviousLine() error {
 func (t *Editor) NextLine() error {
 	return t.CursorDown()
 }
+func (t *Editor) indexOfFirstNonLetter(bs []byte) int {
+	for idx, b := range bs {
+		if !unicode.IsLetter(rune(b)) {
+			return idx
+		}
+	}
+
+	return -1
+}
+
+func (t *Editor) NextWord() error {
+	currentidx := t.positionToBufferIndex(t.Cursor)
+	if len(t.Content) <= currentidx+1 {
+		return nil
+	}
+	jump := t.indexOfFirstNonLetter(t.Content[currentidx+1:])
+	if jump == -1 {
+		return nil
+	}
+	if jump == 0 {
+		jump = 1
+	}
+	pos := t.convertBufferIndexToLineAndColumn(jump + currentidx)
+
+	Printlnf(pos)
+	if t.isValidCursorPosition(*pos) {
+		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
+	}
+	return nil
+}
+
+func (t *Editor) PreviousWord() error {
+	currentidx := t.positionToBufferIndex(t.Cursor)
+	if len(t.Content) <= currentidx+1 {
+		return nil
+	}
+	jump := t.indexOfFirstNonLetter(t.Content[:currentidx])
+	if jump == -1 {
+		return nil
+	}
+	if jump == 0 {
+		jump = 1
+	}
+	pos := t.convertBufferIndexToLineAndColumn(currentidx - jump)
+
+	Printlnf(pos)
+	if t.isValidCursorPosition(*pos) {
+		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
+	}
+	return nil
+}
 
 func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
@@ -1057,9 +1109,14 @@ var editorKeymap = Keymap{
 	Key{K: "<right>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
-
+	Key{K: "<right>", Control: true}: func(e *Preditor) error {
+		return e.ActiveEditor().NextWord()
+	},
 	Key{K: "<left>"}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorLeft()
+	},
+	Key{K: "<left>", Control: true}: func(e *Preditor) error {
+		return e.ActiveEditor().PreviousWord()
 	},
 
 	Key{K: "b", Control: true}: func(e *Preditor) error {
