@@ -47,6 +47,8 @@ type Editor struct {
 	SearchMatches             [][2]Position
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
+	CursorShape               int
+	LastCursorBlink           time.Time
 	BeforeSaveHook            []func(*Editor) error
 }
 
@@ -78,6 +80,12 @@ func (t *Editor) Type() string {
 	return "text_editor_buffer"
 }
 
+const (
+	CURSOR_SHAPE_BLOCK   = 1
+	CURSOR_SHAPE_OUTLINE = 2
+	CURSOR_SHAPE_LINE    = 3
+)
+
 type EditorOptions struct {
 	MaxHeight      int32
 	MaxWidth       int32
@@ -87,6 +95,7 @@ type EditorOptions struct {
 	LineNumbers    bool
 	TabSize        int
 	CursorBlinking bool
+	CursorShape    int
 }
 
 func NewEditor(opts EditorOptions) (*Editor, error) {
@@ -99,6 +108,8 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
 	t.Keymaps = append([]Keymap{}, editorKeymap)
+	t.CursorShape = opts.CursorShape
+	t.CursorBlinking = opts.CursorBlinking
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -195,7 +206,7 @@ func (t *Editor) calculateVisualLines() {
 func (t *Editor) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
-	if t.CursorBlinking && (time.Now().Unix())%2 == 0 {
+	if t.CursorBlinking && time.Since(t.LastCursorBlink).Milliseconds() < 1000 {
 		return
 	}
 	cursorView := Position{
@@ -211,7 +222,16 @@ func (t *Editor) renderCursor() {
 
 		}
 	}
-	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
+	switch t.CursorShape {
+	case CURSOR_SHAPE_OUTLINE:
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), t.Colors.Cursor)
+	case CURSOR_SHAPE_BLOCK:
+		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.Cursor, 0.6))
+	case CURSOR_SHAPE_LINE:
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), 2, int32(charSize.Y), t.Colors.Cursor)
+	}
+
+	t.LastCursorBlink = time.Now()
 }
 
 func (t *Editor) renderStatusBar() {

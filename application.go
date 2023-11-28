@@ -17,6 +17,7 @@ type Colors struct {
 	StatusBarBackground   color.RGBA
 	StatusBarForeground   color.RGBA
 	LineNumbersForeground color.RGBA
+	Cursor                color.RGBA
 }
 
 type Preditor struct {

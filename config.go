@@ -9,9 +9,11 @@ import (
 )
 
 type Config struct {
-	Colors   Colors
-	FontName string
-	FontSize int
+	Colors         Colors
+	FontName       string
+	FontSize       int
+	CursorShape    int
+	CursorBlinking bool
 }
 
 func mustParseHexColor(hex string) color.RGBA {
@@ -30,14 +32,31 @@ var defaultConfig = Config{
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
+		Cursor:                mustParseHexColor("#00ff00"),
 	},
-	FontName: "Consolas",
-	FontSize: 20,
+	CursorShape:    CURSOR_SHAPE_BLOCK,
+	CursorBlinking: false,
+	FontName:       "Consolas",
+	FontSize:       20,
 }
 
 func addToConfig(cfg *Config, key string, value string) error {
 	var err error
 	switch key {
+	case "cursor_shape":
+		switch value {
+		case "block":
+			cfg.CursorShape = CURSOR_SHAPE_BLOCK
+
+		case "bar":
+			cfg.CursorShape = CURSOR_SHAPE_LINE
+
+		case "outline":
+			cfg.CursorShape = CURSOR_SHAPE_OUTLINE
+		}
+
+	case "cursor_blinking":
+		cfg.CursorBlinking = value == "true"
 	case "font":
 		cfg.FontName = value
 	case "font_size":
@@ -76,6 +95,8 @@ func addToConfig(cfg *Config, key string, value string) error {
 		if err != nil {
 			return err
 		}
+	case "cursor_background":
+		cfg.Colors.Cursor, err = parseHexColor(value)
 	}
 
 	return nil
