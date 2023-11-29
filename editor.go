@@ -76,6 +76,9 @@ type EditorAction struct {
 func (t *Editor) Keymaps() []Keymap {
 	return t.keymaps
 }
+func (t *Editor) AddUndoAction(a EditorAction) {
+	t.UndoStack.Push(a)
+}
 
 func (t *Editor) SetStateDirty() {
 	t.calculateVisualLines()
@@ -352,6 +355,8 @@ func (t *Editor) renderCursor() {
 		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), 2, int32(charSize.Y), t.Colors.Cursor)
 	}
 
+	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), t.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.CursorLineBackground, 0.3))
+
 	t.LastCursorBlink = time.Now()
 }
 
@@ -501,6 +506,7 @@ func (t *Editor) renderText() {
 				highlights := t.fillInTheBlanks(t.calculateHighlights(t.Content[line.startIndex:line.endIndex], line.startIndex), line.startIndex, line.endIndex)
 
 				for _, h := range highlights {
+
 					rl.DrawTextEx(font,
 						string(t.Content[h.start:h.end+1]),
 						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
@@ -509,6 +515,7 @@ func (t *Editor) renderText() {
 						h.Color)
 				}
 			} else {
+
 				rl.DrawTextEx(font,
 					string(t.Content[line.startIndex:line.endIndex+1]),
 					rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
@@ -717,7 +724,10 @@ func (t *Editor) DeleteCharBackward() error {
 		}
 		startIndex := t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
 		endIndex := t.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
-
+		t.AddUndoAction(EditorAction{
+			Type: EditorActionType_DeleteCharBackward,
+			Data: t.Content[startIndex:endIndex],
+		})
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
 		t.SetStateDirty()
@@ -730,8 +740,16 @@ func (t *Editor) DeleteCharBackward() error {
 		return nil
 	}
 	if len(t.Content) <= idx {
+		t.AddUndoAction(EditorAction{
+			Type: EditorActionType_DeleteCharBackward,
+			Data: []byte{t.Content[idx]},
+		})
 		t.Content = t.Content[:idx]
 	} else {
+		t.AddUndoAction(EditorAction{
+			Type: EditorActionType_DeleteCharBackward,
+			Data: []byte{t.Content[idx]},
+		})
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
 	}
 	t.SetStateDirty()
@@ -746,6 +764,10 @@ func (t *Editor) DeleteCharForward() error {
 	if idx < 0 || t.Cursor.Column < 0 {
 		return nil
 	}
+	t.AddUndoAction(EditorAction{
+		Type: EditorActionType_DeleteCharForward,
+		Data: []byte{t.Content[idx]},
+	})
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
 	t.SetStateDirty()
 
@@ -1076,7 +1098,10 @@ func (t *Editor) cut() error {
 		startIndex = t.visualLines[t.Cursor.Line].startIndex
 		endIndex = t.visualLines[t.Cursor.Line].endIndex
 	}
-
+	t.AddUndoAction(EditorAction{
+		Type: EditorActionType_Cut,
+		Data: t.Content[startIndex:endIndex],
+	})
 	t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 
 	t.SetStateDirty()
@@ -1194,18 +1219,18 @@ var editorKeymap = Keymap{
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
 	Key{K: "<mouse-wheel-up>"}: makeCommand(func(e *Editor) error {
-		return e.ScrollUp(10)
+		return e.ScrollUp(20)
 
 	}),
 	Key{K: "<mouse-wheel-down>"}: makeCommand(func(e *Editor) error {
-		return e.ScrollDown(10)
+		return e.ScrollDown(20)
 	}),
 
 	Key{K: "<rmouse>-click"}: makeCommand(func(e *Editor) error {
-		return e.ScrollDown(10)
+		return e.ScrollDown(20)
 	}),
 	Key{K: "<mmouse>-click"}: makeCommand(func(e *Editor) error {
-		return e.ScrollUp(10)
+		return e.ScrollUp(20)
 	}),
 
 	Key{K: "a", Control: true}: makeCommand(func(e *Editor) error {
@@ -1447,13 +1472,13 @@ var searchModeKeymap = Keymap{
 	}),
 	Key{K: "<mouse-wheel-up>"}: makeCommand(func(e *Editor) error {
 		e.MovedAwayFromCurrentMatch = true
-		return e.ScrollUp(10)
+		return e.ScrollUp(20)
 
 	}),
 	Key{K: "<mouse-wheel-down>"}: makeCommand(func(e *Editor) error {
 		e.MovedAwayFromCurrentMatch = true
 
-		return e.ScrollDown(10)
+		return e.ScrollDown(20)
 	}),
 
 	Key{K: "<rmouse>-click"}: makeCommand(func(editor *Editor) error {
