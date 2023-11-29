@@ -174,15 +174,6 @@ func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
 			Color: t.SyntaxHighlights.Types.Color,
 		})
 	}
-	//identifiers
-	//indexesIdentifiers := t.SyntaxHighlights.Identifiers.Regex.FindAllStringIndex(string(bs), -1)
-	//for _, index := range indexesIdentifiers {
-	//	highlights = append(highlights, highlight{
-	//		start: index[0] + offset,
-	//		end:   index[1] + offset - 1,
-	//		Color: t.SyntaxHighlights.Identifiers.Color,
-	//	})
-	//}
 	return highlights
 }
 func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {

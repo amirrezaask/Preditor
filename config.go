@@ -36,7 +36,6 @@ var defaultConfig = Config{
 		Cursor:                mustParseHexColor("#00ff00"),
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
-		SyntaxIdentifiers:     mustParseHexColor("#c1d1e3"),
 	},
 	EnableSyntaxHighlighting: true,
 	CursorShape:              CURSOR_SHAPE_BLOCK,
