@@ -48,12 +48,11 @@ func main() {
 	if len(flag.Args()) > 0 {
 		filename = flag.Args()[0]
 	}
+
+	_ = filename
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetExitKey(0)
-
-	// initialize first editor
-	textEditorBuffer, err := NewEditor(EditorOptions{
-		Filename:           filename,
+	editor.Windows = append(editor.Windows, NewFilePicker(&editor, "", int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, EditorOptions{
 		LineNumbers:        true,
 		TabSize:            4,
 		MaxHeight:          int32(rl.GetRenderHeight()),
@@ -62,13 +61,7 @@ func main() {
 		CursorShape:        cfg.CursorShape,
 		CursorBlinking:     cfg.CursorBlinking,
 		SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	editor.Windows = append(editor.Windows, textEditorBuffer)
-
+	}))
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()
 		editor.HandleMouseEvents()
