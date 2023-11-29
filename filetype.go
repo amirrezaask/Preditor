@@ -51,7 +51,10 @@ func initFileTypes(cfg Colors) {
 			SyntaxHighlights: &SyntaxHighlights{
 				Keywords: SyntaxHighlight{
 					Regex: regexp.MustCompile(keywordsPat("break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
-						"import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var", "len")),
+						"import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "true", "false", "iota", "append", "cap", "clear", "close", "complex",
+						"copy", "delete", "imag", "len", "make",
+						"max", "min", "new", "panic", "print",
+						"println", "real", "recover")),
 					Color: cfg.SyntaxKeywords,
 				},
 				Types: SyntaxHighlight{
