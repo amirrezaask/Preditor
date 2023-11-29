@@ -25,7 +25,8 @@ type Editor struct {
 	File                      string
 	Content                   []byte
 	Keymaps                   []Keymap
-	SyntaxHighlights          SyntaxHighlights
+	HasSyntaxHighlights       bool
+	SyntaxHighlights          *SyntaxHighlights
 	EnableSyntaxHighlighting  bool
 	Variables                 Variables
 	Commands                  Commands
@@ -127,6 +128,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 		if exists {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
 			t.SyntaxHighlights = fileType.SyntaxHighlights
+			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
 		}
 	}
 	t.replaceTabsWithSpaces()
@@ -155,6 +157,9 @@ type visualLine struct {
 }
 
 func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
+	if !t.HasSyntaxHighlights {
+		return nil
+	}
 	var highlights []highlight
 	//keywords
 	indexes := t.SyntaxHighlights.Keywords.Regex.FindAllStringIndex(string(bs), -1)
@@ -463,7 +468,7 @@ func (t *Editor) renderText() {
 
 			}
 
-			if t.EnableSyntaxHighlighting {
+			if t.EnableSyntaxHighlighting && t.HasSyntaxHighlights {
 				for _, h := range line.Highlights {
 					rl.DrawTextEx(font,
 						string(t.Content[h.start:h.end+1]),
