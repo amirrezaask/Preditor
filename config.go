@@ -38,7 +38,7 @@ var defaultConfig = Config{
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
 	},
-	EnableSyntaxHighlighting: true,
+	EnableSyntaxHighlighting: false,
 	CursorShape:              CURSOR_SHAPE_BLOCK,
 	CursorBlinking:           false,
 	FontName:                 "Consolas",

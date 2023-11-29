@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 	defer rl.CloseWindow()
-	rl.SetTargetFPS(30)
+	rl.SetTargetFPS(60)
 	// create editor
 	editor := Preditor{
 		LineNumbers:  true,
