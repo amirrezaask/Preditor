@@ -169,7 +169,7 @@ func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
 
 	return highlights
 }
-func Sort[T any](slice []T, pred func(t1 T, t2 T) bool) {
+func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 	sort.Slice(slice, func(i, j int) bool {
 		return pred(slice[i], slice[j])
 	})
@@ -184,6 +184,15 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 		})
 	} else {
 		for i, h := range hs {
+			if i == 0 {
+				if h.start != start {
+					missing = append(missing, highlight{
+						start: start,
+						end:   h.end - 1,
+						Color: t.Colors.Foreground,
+					})
+				}
+			}
 			if i == len(hs)-1 && h.end != end {
 				missing = append(missing, highlight{
 					start: h.end + 1,
@@ -202,7 +211,7 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 	}
 
 	hs = append(hs, missing...)
-	Sort[highlight](hs, func(t1, t2 highlight) bool {
+	sortme[highlight](hs, func(t1, t2 highlight) bool {
 		return t1.start < t2.start
 	})
 
@@ -449,7 +458,6 @@ func (t *Editor) renderText() {
 
 			if t.EnableSyntaxHighlighting {
 				for _, h := range line.Highlights {
-
 					rl.DrawTextEx(font,
 						string(t.Content[h.start:h.end+1]),
 						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
