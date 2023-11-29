@@ -28,20 +28,21 @@ func mustParseHexColor(hex string) color.RGBA {
 var defaultConfig = Config{
 	Colors: Colors{
 		Background:            mustParseHexColor("#272822"),
-		Foreground:            mustParseHexColor("#f8f8f2"),
+		Foreground:            mustParseHexColor("#cdaa7d"),
 		Selection:             mustParseHexColor("#414339"),
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
 		Cursor:                mustParseHexColor("#00ff00"),
-		SyntaxKeywords:        mustParseHexColor("#ffffff"),
+		SyntaxKeywords:        mustParseHexColor("#ff0000"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
 		SyntaxIdentifiers:     mustParseHexColor("#c1d1e3"),
 	},
-	CursorShape:    CURSOR_SHAPE_BLOCK,
-	CursorBlinking: false,
-	FontName:       "Consolas",
-	FontSize:       20,
+	EnableSyntaxHighlighting: true,
+	CursorShape:              CURSOR_SHAPE_BLOCK,
+	CursorBlinking:           false,
+	FontName:                 "Consolas",
+	FontSize:                 30,
 }
 
 func addToConfig(cfg *Config, key string, value string) error {
