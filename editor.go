@@ -153,7 +153,6 @@ type visualLine struct {
 	endIndex   int
 	ActualLine int
 	Length     int
-	Highlights []highlight
 }
 
 func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
@@ -252,7 +251,6 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
-				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:idx], start), start, idx),
 			}
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
@@ -269,7 +267,6 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
-				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:], start), start, idx),
 			}
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
@@ -286,7 +283,6 @@ func (t *Editor) calculateVisualLines() {
 				endIndex:   idx,
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
-				Highlights: t.fillInTheBlanks(t.calculateHighlights(t.Content[start:idx], start), start, idx),
 			}
 
 			t.visualLines = append(t.visualLines, line)
@@ -472,7 +468,9 @@ func (t *Editor) renderText() {
 			}
 
 			if t.EnableSyntaxHighlighting && t.HasSyntaxHighlights {
-				for _, h := range line.Highlights {
+				highlights := t.fillInTheBlanks(t.calculateHighlights(t.Content[line.startIndex:line.endIndex], line.startIndex), line.startIndex, line.endIndex)
+
+				for _, h := range highlights {
 					rl.DrawTextEx(font,
 						string(t.Content[h.start:h.end+1]),
 						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
