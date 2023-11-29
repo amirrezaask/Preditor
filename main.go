@@ -67,7 +67,7 @@ func main() {
 		panic(err)
 	}
 
-	editor.Editors = append(editor.Editors, textEditorBuffer)
+	editor.Windows = append(editor.Windows, textEditorBuffer)
 
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()
