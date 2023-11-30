@@ -22,12 +22,12 @@ const (
 )
 
 type Editor struct {
+	cfg                       *Config
 	File                      string
 	Content                   []byte
 	keymaps                   []Keymap
 	HasSyntaxHighlights       bool
 	SyntaxHighlights          *SyntaxHighlights
-	EnableSyntaxHighlighting  bool
 	Variables                 Variables
 	Commands                  Commands
 	MaxHeight                 int32
@@ -40,10 +40,7 @@ type Editor struct {
 	Cursor                    Position
 	maxLine                   int32
 	maxColumn                 int32
-	Colors                    Colors
 	State                     int
-	CursorBlinking            bool
-	RenderLineNumbers         bool
 	HasSelection              bool
 	SelectionStart            *Position
 	IsSearching               bool
@@ -52,7 +49,6 @@ type Editor struct {
 	SearchMatches             [][2]Position
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
-	CursorShape               int
 	LastCursorBlink           time.Time
 	BeforeSaveHook            []func(*Editor) error
 	UndoStack                 Stack[EditorAction]
@@ -135,32 +131,13 @@ const (
 	CURSOR_SHAPE_LINE    = 3
 )
 
-type EditorOptions struct {
-	MaxHeight          int32
-	MaxWidth           int32
-	ZeroPosition       rl.Vector2
-	Colors             Colors
-	Filename           string
-	LineNumbers        bool
-	TabSize            int
-	CursorBlinking     bool
-	CursorShape        int
-	SyntaxHighlighting bool
-}
-
-func NewEditor(opts EditorOptions) (*Editor, error) {
-	t := Editor{}
-	t.File = opts.Filename
-	t.RenderLineNumbers = opts.LineNumbers
-	t.TabSize = opts.TabSize
-	t.MaxHeight = opts.MaxHeight
-	t.MaxWidth = opts.MaxWidth
-	t.ZeroPosition = opts.ZeroPosition
-	t.Colors = opts.Colors
+func NewEditor(cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*Editor, error) {
+	t := Editor{cfg: cfg}
+	t.File = filename
+	t.MaxHeight = maxH
+	t.MaxWidth = maxW
+	t.ZeroPosition = zeroPosition
 	t.keymaps = append([]Keymap{}, editorKeymap)
-	t.CursorShape = opts.CursorShape
-	t.CursorBlinking = opts.CursorBlinking
-	t.EnableSyntaxHighlighting = opts.SyntaxHighlighting
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -173,6 +150,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
 			t.SyntaxHighlights = fileType.SyntaxHighlights
 			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
+			t.TabSize = fileType.TabSize
 		}
 	}
 	t.replaceTabsWithSpaces()
@@ -239,7 +217,7 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 		missing = append(missing, highlight{
 			start: start,
 			end:   end,
-			Color: t.Colors.Foreground,
+			Color: t.cfg.Colors.Foreground,
 		})
 	} else {
 		for i, h := range hs {
@@ -248,7 +226,7 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 					missing = append(missing, highlight{
 						start: start,
 						end:   h.start - 1,
-						Color: t.Colors.Foreground,
+						Color: t.cfg.Colors.Foreground,
 					})
 				}
 			}
@@ -256,14 +234,14 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 				missing = append(missing, highlight{
 					start: h.end + 1,
 					end:   end,
-					Color: t.Colors.Foreground,
+					Color: t.cfg.Colors.Foreground,
 				})
 			}
 			if i+1 < len(hs) && hs[i+1].start-h.end != 1 {
 				missing = append(missing, highlight{
 					start: h.end + 1,
 					end:   hs[i+1].start - 1,
-					Color: t.Colors.Foreground,
+					Color: t.cfg.Colors.Foreground,
 				})
 			}
 		}
@@ -342,7 +320,7 @@ func (t *Editor) calculateVisualLines() {
 func (t *Editor) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
-	if t.CursorBlinking && time.Since(t.LastCursorBlink).Milliseconds() < 1000 {
+	if t.cfg.CursorBlinking && time.Since(t.LastCursorBlink).Milliseconds() < 1000 {
 		return
 	}
 	cursorView := Position{
@@ -350,7 +328,7 @@ func (t *Editor) renderCursor() {
 		Column: t.Cursor.Column,
 	}
 	posX := int32(cursorView.Column)*int32(charSize.X) + int32(t.ZeroPosition.X)
-	if t.RenderLineNumbers {
+	if t.cfg.LineNumbers {
 		if len(t.visualLines) > t.Cursor.Line {
 			posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
 		} else {
@@ -358,16 +336,16 @@ func (t *Editor) renderCursor() {
 
 		}
 	}
-	switch t.CursorShape {
+	switch t.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), t.Colors.Cursor)
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), t.cfg.Colors.Cursor)
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.Cursor, 0.6))
+		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(t.cfg.Colors.Cursor, 0.6))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), 2, int32(charSize.Y), t.Colors.Cursor)
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), 2, int32(charSize.Y), t.cfg.Colors.Cursor)
 	}
 
-	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), t.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.CursorLineBackground, 0.2))
+	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), t.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(t.cfg.Colors.CursorLineBackground, 0.2))
 
 	t.LastCursorBlink = time.Now()
 }
@@ -381,7 +359,7 @@ func (t *Editor) renderStatusBar() {
 		t.maxLine*int32(charSize.Y),
 		t.MaxWidth,
 		int32(charSize.Y),
-		t.Colors.StatusBarBackground,
+		t.cfg.Colors.StatusBarBackground,
 	)
 	file := t.File
 	if file == "" {
@@ -409,7 +387,7 @@ func (t *Editor) renderStatusBar() {
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
-		t.Colors.StatusBarForeground)
+		t.cfg.Colors.StatusBarForeground)
 }
 
 func (t *Editor) highilightBetweenTwoPositions(start Position, end Position, color color.RGBA) {
@@ -435,7 +413,7 @@ func (t *Editor) highilightBetweenTwoPositions(start Position, end Position, col
 		}
 		for j := thisLineStart; j <= thisLineEnd; j++ {
 			posX := int32(j)*int32(charSize.X) + int32(t.ZeroPosition.X)
-			if t.RenderLineNumbers {
+			if t.cfg.LineNumbers {
 				if len(t.visualLines) > i {
 					posX += int32((len(fmt.Sprint(t.visualLines[i].ActualLine)) + 1) * int(charSize.X))
 				} else {
@@ -488,7 +466,7 @@ func (t *Editor) renderSelection() {
 	}, Position{
 		Line:   endLine,
 		Column: endColumn,
-	}, t.Colors.Selection)
+	}, t.cfg.Colors.Selection)
 
 }
 
@@ -503,18 +481,18 @@ func (t *Editor) renderText() {
 		if t.visualLineShouldBeRendered(line) {
 			charSize := measureTextSize(font, ' ', fontSize, 0)
 			var lineNumberWidth int
-			if t.RenderLineNumbers {
+			if t.cfg.LineNumbers {
 				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
 				rl.DrawTextEx(font,
 					fmt.Sprintf("%d", line.ActualLine),
 					rl.Vector2{X: t.ZeroPosition.X, Y: float32(idx) * charSize.Y},
 					fontSize,
 					0,
-					t.Colors.LineNumbersForeground)
+					t.cfg.Colors.LineNumbersForeground)
 
 			}
 
-			if t.EnableSyntaxHighlighting && t.HasSyntaxHighlights {
+			if t.cfg.EnableSyntaxHighlighting && t.HasSyntaxHighlights {
 				highlights := t.fillInTheBlanks(t.calculateHighlights(t.Content[line.startIndex:line.endIndex], line.startIndex), line.startIndex, line.endIndex)
 
 				for _, h := range highlights {
@@ -533,7 +511,7 @@ func (t *Editor) renderText() {
 					rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
 					fontSize,
 					0,
-					t.Colors.Foreground)
+					t.cfg.Colors.Foreground)
 			}
 		}
 	}
@@ -578,7 +556,7 @@ func (t *Editor) findMatchesAndHighlight(pattern string) error {
 		}
 	}
 	for idx, match := range t.SearchMatches {
-		c := t.Colors.Selection
+		c := t.cfg.Colors.Selection
 		if idx == t.CurrentMatch {
 			c = rl.Fade(rl.Red, 0.5)
 			if !(t.VisibleStart < int32(match[0].Line) && t.VisibleEnd > int32(match[1].Line)) && !t.MovedAwayFromCurrentMatch {
@@ -976,7 +954,7 @@ func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 
 	apprLine := pos.Y / charSize.Y
 	apprColumn := pos.X / charSize.X
-	if t.RenderLineNumbers {
+	if t.cfg.LineNumbers {
 		var line int
 		if len(t.visualLines) > t.Cursor.Line {
 			line = t.visualLines[t.Cursor.Line].ActualLine
