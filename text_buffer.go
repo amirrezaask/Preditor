@@ -157,6 +157,7 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 			t.TabSize = fileType.TabSize
 		}
 	}
+
 	t.replaceTabsWithSpaces()
 	t.updateMaxLineAndColumn()
 	t.calculateVisualLines()
@@ -622,7 +623,7 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Column < 0 {
 		return false
 	}
-	if newPosition.Column > e.visualLines[newPosition.Line].Length {
+	if newPosition.Column > e.visualLines[newPosition.Line].Length+1 {
 		return false
 	}
 
@@ -760,9 +761,10 @@ func (e *TextBuffer) DeleteCharBackward() error {
 
 func (e *TextBuffer) DeleteCharForward() error {
 	idx := e.positionToBufferIndex(e.Cursor)
-	if idx < 0 || e.Cursor.Column < 0 {
+	if idx < 0 || e.Cursor.Column < 0 || len(e.Content) <= idx {
 		return nil
 	}
+
 	e.AddUndoAction(EditorAction{
 		Type: EditorActionType_Delete,
 		Data: []byte{e.Content[idx]},
@@ -837,8 +839,8 @@ func (e *TextBuffer) CursorRight(n int) error {
 	if e.Cursor.Line == len(e.visualLines) {
 		return nil
 	}
-	lineColumns := e.visualLines[e.Cursor.Line].Length
-	if newPosition.Column > lineColumns {
+
+	if int32(newPosition.Column) > e.maxColumn {
 		newPosition.Line++
 		newPosition.Column = 0
 	}
@@ -1017,7 +1019,9 @@ func (e *TextBuffer) Write() error {
 	if e.File == "" {
 		return nil
 	}
-	e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.TabSize)), []byte("\t"), -1)
+	if e.TabSize != 0 {
+		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.TabSize)), []byte("\t"), -1)
+	}
 
 	for _, hook := range e.BeforeSaveHook {
 		if err := hook(e); err != nil {
@@ -1215,24 +1219,25 @@ var editorKeymap = Keymap{
 	Key{K: "f", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.CursorRight(1)
 	}),
-	Key{K: "w", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "x", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.cut()
 	}),
-	Key{K: "y", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "v", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.paste()
 	}),
 	Key{K: "k", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.killLine()
 	}),
 
-	Key{K: "w", Alt: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "c", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.copy()
 	}),
+
 	Key{K: "s", Control: true}: makeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, searchModeKeymap)
 		return nil
 	}),
-	Key{K: "x", Control: true}: makeCommand(func(a *TextBuffer) error {
+	Key{K: "x", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		return a.Write()
 	}),
 	Key{K: "o", Control: true}: makeCommand(func(a *TextBuffer) error {
