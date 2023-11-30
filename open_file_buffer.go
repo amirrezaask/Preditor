@@ -255,7 +255,7 @@ func (f *OpenFileBuffer) copySelectiontoUserInput() error {
 func (f *OpenFileBuffer) openUserInput() error {
 	p := f.parent
 
-	e, err := NewEditor(f.parent, f.cfg, string(f.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation)
+	e, err := NewTextBuffer(f.parent, f.cfg, string(f.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation)
 	if err != nil {
 		panic(err)
 	}
