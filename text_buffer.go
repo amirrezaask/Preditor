@@ -23,6 +23,7 @@ const (
 
 type TextBuffer struct {
 	cfg                       *Config
+	parent                    *Preditor
 	File                      string
 	Content                   []byte
 	keymaps                   []Keymap
@@ -131,8 +132,9 @@ const (
 	CURSOR_SHAPE_LINE    = 3
 )
 
-func NewEditor(cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
+func NewEditor(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
 	t := TextBuffer{cfg: cfg}
+	t.parent = parent
 	t.File = filename
 	t.MaxHeight = maxH
 	t.MaxWidth = maxW
@@ -1189,6 +1191,14 @@ func (e *TextBuffer) paste() error {
 	return nil
 }
 
+func (e *TextBuffer) openFileBuffer() {
+	dir := path.Dir(e.File)
+	ofb := NewOpenFileBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
+
+	e.parent.Windows = append(e.parent.Windows, ofb)
+	e.parent.ActiveWindowIndex = len(e.parent.Windows) - 1
+}
+
 func makeCommand(f func(e *TextBuffer) error) Command {
 	return func(preditor *Preditor) error {
 		return f(preditor.ActiveWindow().(*TextBuffer))
@@ -1221,6 +1231,11 @@ var editorKeymap = Keymap{
 	}),
 	Key{K: "x", Control: true}: makeCommand(func(a *TextBuffer) error {
 		return a.Write()
+	}),
+	Key{K: "o", Control: true}: makeCommand(func(a *TextBuffer) error {
+		a.openFileBuffer()
+
+		return nil
 	}),
 	Key{K: "<esc>"}: makeCommand(func(p *TextBuffer) error {
 		if p.HasSelection {
@@ -1256,6 +1271,20 @@ var editorKeymap = Keymap{
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
 
+	Key{K: "<lmouse>-click", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return e.ScrollDown(20)
+	}),
+
+	Key{K: "<lmouse>-hold", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return e.ScrollDown(20)
+	}),
+	Key{K: "<rmouse>-click", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return e.ScrollUp(20)
+	}),
+
+	Key{K: "<rmouse>-hold", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return e.ScrollUp(20)
+	}),
 	Key{K: "<mouse-wheel-up>"}: makeCommand(func(e *TextBuffer) error {
 		return e.ScrollUp(20)
 
