@@ -55,16 +55,8 @@ func NewOpenFileBuffer(parent *Preditor,
 }
 
 func (f *OpenFileBuffer) setNewUserInput(bs []byte) {
-	old := len(f.UserInput)
 	f.UserInput = bs
-	stat, err := os.Stat(string(f.UserInput))
-	if err == nil {
-		if stat.IsDir() && f.UserInput[len(f.UserInput)-1] != '/' {
-			f.UserInput = append(f.UserInput, '/')
-		}
-	}
-
-	f.Idx += (len(f.UserInput) - old)
+	f.Idx += len(f.UserInput)
 
 	if f.Idx >= len(f.UserInput) {
 		f.Idx = len(f.UserInput)
@@ -98,18 +90,18 @@ func (f *OpenFileBuffer) Render() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, rl.Red)
+	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(font, string(f.UserInput), rl.Vector2{
-		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y,
-	}, fontSize, 0, rl.White)
+		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
+	}, fontSize, 0, f.cfg.Colors.Foreground)
 
 	switch f.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangle(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
 	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
@@ -117,7 +109,7 @@ func (f *OpenFileBuffer) Render() {
 	for idx, item := range f.Items {
 		rl.DrawTextEx(font, item.Filename, rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
-		}, fontSize, 0, rl.White)
+		}, fontSize, 0, f.cfg.Colors.Foreground)
 
 	}
 	rl.DrawRectangle(int32(f.ZeroLocation.X), int32(startOfListY)+(int32(f.Selection)*int32(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(rl.Blue, 0.2))
