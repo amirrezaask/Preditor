@@ -1,6 +1,12 @@
 # Preditor
 ## Programmable Editor
 Simple text editor implemented in Golang using Raylib with the goal of replacing Emacs for me, easier to extend and much faster and better language to work with than Elisp.
+
+## Show case
+![Opening Files](assets/file-opening.gif)
+![Opening Files](assets/searching.gif)
+![Opening Files](assets/moving-around.gif)
+
  
 ## Features So far
 
