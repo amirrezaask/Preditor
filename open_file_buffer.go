@@ -9,8 +9,6 @@ import (
 type LocationItem struct {
 	IsDir    bool
 	Filename string
-	Line     int
-	Column   int
 }
 
 type OpenFileBuffer struct {
@@ -67,22 +65,26 @@ func (f *OpenFileBuffer) setNewUserInput(bs []byte) {
 }
 
 func (f *OpenFileBuffer) calculateLocationItems() {
-	entries, err := os.ReadDir(string(f.UserInput))
+	input := f.UserInput
+	matches, err := filepath.Glob(string(input) + "*")
 	if err != nil {
 		return
 	}
 
 	f.Items = nil
-	for _, entry := range entries {
-		inf, err := entry.Info()
-		if err != nil {
-			return
+
+	for _, match := range matches {
+		var isDir bool
+		stat, err := os.Stat(match)
+		if err == nil {
+			isDir = stat.IsDir()
 		}
 		f.Items = append(f.Items, LocationItem{
-			IsDir:    entry.IsDir(),
-			Filename: inf.Name(),
+			IsDir:    isDir,
+			Filename: match,
 		})
 	}
+	return
 }
 
 func (f *OpenFileBuffer) Render() {
@@ -287,6 +289,12 @@ func (f *OpenFileBuffer) tryComplete() error {
 	}
 
 	if len(matches) == 1 {
+		stat, err := os.Stat(matches[0])
+		if err == nil {
+			if stat.IsDir() {
+				matches[0] += "/"
+			}
+		}
 		f.UserInput = []byte(matches[0])
 		f.CursorRight(len(f.UserInput) - len(input))
 	}
