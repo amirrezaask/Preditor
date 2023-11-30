@@ -41,7 +41,7 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetExitKey(0)
 
-	err = loadFont(cfg.FontName, 20)
+	err = loadFont(cfg.FontName, float32(cfg.FontSize))
 	if err != nil {
 		panic(err)
 	}
