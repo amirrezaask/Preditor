@@ -2,6 +2,7 @@ package main
 
 import "errors"
 
+// this is a comment
 type Stack[T any] struct {
 	data []T
 	size int

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"os"
 	"path/filepath"
@@ -20,7 +21,7 @@ type FilePickerBuffer struct {
 	ZeroLocation rl.Vector2
 	Items        []LocationItem
 	LastQuery    string
-	UserInputBox *UserInputBox
+	UserInputBox *UserInputComponent
 }
 
 func NewFilePickerBuffer(parent *Preditor,
@@ -43,11 +44,15 @@ func NewFilePickerBuffer(parent *Preditor,
 		maxHeight:    maxH,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
-		UserInputBox: NewuserInputBox(parent, cfg, zeroLocation, maxH, maxW),
+		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
 	}
 
 	ofb.UserInputBox.setNewUserInput([]byte(absRoot))
 	return ofb
+}
+
+func (f *FilePickerBuffer) String() string {
+	return fmt.Sprintf("File Picker@%s", f.LastQuery)
 }
 
 func (f *FilePickerBuffer) calculateLocationItems() {
@@ -137,7 +142,7 @@ func (f *FilePickerBuffer) openUserInput() error {
 		case *TextBuffer:
 			tb := window.(*TextBuffer)
 			if tb.File == string(f.UserInputBox.UserInput) {
-				p.Buffers[p.ActiveWindowIndex] = window
+				p.Buffers[p.ActiveBufferIndex] = window
 				return nil
 			}
 		}
@@ -147,7 +152,7 @@ func (f *FilePickerBuffer) openUserInput() error {
 	if err != nil {
 		panic(err)
 	}
-	p.Buffers[p.ActiveWindowIndex] = e
+	p.Buffers[p.ActiveBufferIndex] = e
 	return nil
 }
 

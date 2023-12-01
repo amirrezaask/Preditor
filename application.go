@@ -30,11 +30,12 @@ type Buffer interface {
 	GetMaxWidth() int32
 	GetMaxHeight() int32
 	Keymaps() []Keymap
+	fmt.Stringer
 }
 
 type Preditor struct {
 	Buffers           []Buffer
-	ActiveWindowIndex int
+	ActiveBufferIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -43,8 +44,14 @@ type Preditor struct {
 	Colors            Colors
 }
 
+//
+//func (e *Preditor) AddBuffer(b Buffer) int {
+//
+//
+//}
+
 func (e *Preditor) ActiveBuffer() Buffer {
-	return e.Buffers[e.ActiveWindowIndex]
+	return e.Buffers[e.ActiveBufferIndex]
 }
 
 type Command func(*Preditor) error
