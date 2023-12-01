@@ -21,8 +21,7 @@ const (
 	State_Dirty = 2
 )
 
-// TODO: add a flag to check if buffer is writable or readonly,
-// then we can use this code to add compiler output stuff
+// TODO: add a flag to check if buffer is writable or readonly, then we can use this code to add compiler output stuff
 type TextBuffer struct {
 	cfg                       *Config
 	parent                    *Preditor
@@ -83,10 +82,13 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 
 	switch last.Type {
 	case EditorActionType_Insert:
+		fmt.Println("last")
+		fmt.Printf("%+v\n", last)
 		e.Content = append(e.Content[:last.Idx], e.Content[last.Idx+1:]...)
 	case EditorActionType_Delete:
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
+	e.bufferIndex = last.Idx
 
 	e.SetStateDirty()
 }
@@ -145,6 +147,7 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	t.ZeroPosition = zeroPosition
 	t.keymaps = append([]Keymap{}, editorKeymap)
 	t.SelectionStart = -1
+	t.UndoStack = NewStack[EditorAction](1000)
 	var err error
 	if t.File != "" {
 		if _, err = os.Stat(t.File); err == nil {
@@ -261,7 +264,7 @@ func (e *TextBuffer) fillInTheBlanks(hs []highlight, start, end int) []highlight
 	if len(hs) == 0 {
 		missing = append(missing, highlight{
 			start: start,
-			end:   end,
+			end:   end - 1,
 			Color: e.cfg.Colors.Foreground,
 		})
 	} else {
@@ -642,6 +645,11 @@ func (e *TextBuffer) deleteSelectionIfSelection() {
 		return
 	}
 	if e.bufferIndex > e.SelectionStart {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  e.SelectionStart,
+			Data: e.Content[e.SelectionStart:e.bufferIndex],
+		})
 		e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
 	} else {
 		e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
@@ -652,10 +660,16 @@ func (e *TextBuffer) InsertCharAtCursor(char byte) error {
 	e.deleteSelectionIfSelection()
 	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.Content = append(e.Content, char)
+
 	} else {
 		e.Content = append(e.Content[:e.bufferIndex+1], e.Content[e.bufferIndex:]...)
 		e.Content[e.bufferIndex] = char
 	}
+	e.AddUndoAction(EditorAction{
+		Type: EditorActionType_Insert,
+		Idx:  e.bufferIndex,
+		Data: []byte{char},
+	})
 	e.SetStateDirty()
 	e.CursorRight(1)
 	return nil
@@ -1033,6 +1047,10 @@ func makeCommand(f func(e *TextBuffer) error) Command {
 
 var editorKeymap = Keymap{
 	Key{K: "/", Control: true}: makeCommand(func(e *TextBuffer) error {
+		e.PopAndReverseLastAction()
+		return nil
+	}),
+	Key{K: "z", Control: true}: makeCommand(func(e *TextBuffer) error {
 		e.PopAndReverseLastAction()
 		return nil
 	}),
