@@ -116,11 +116,14 @@ func (e *TextBuffer) replaceTabsWithSpaces() {
 func (e *TextBuffer) SetMaxWidth(w int32) {
 	e.MaxWidth = w
 	e.updateMaxLineAndColumn()
+	e.calculateVisualLines()
+
 }
 
 func (e *TextBuffer) SetMaxHeight(h int32) {
 	e.MaxHeight = h
 	e.updateMaxLineAndColumn()
+	e.calculateVisualLines()
 }
 
 func (e *TextBuffer) updateMaxLineAndColumn() {
