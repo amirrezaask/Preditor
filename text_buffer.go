@@ -128,7 +128,7 @@ func (e *TextBuffer) SetMaxHeight(h int32) {
 
 func (e *TextBuffer) updateMaxLineAndColumn() {
 	oldMaxLine := e.maxLine
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	e.maxColumn = e.MaxWidth / int32(charSize.X)
 	e.maxLine = e.MaxHeight / int32(charSize.Y)
 
@@ -375,7 +375,7 @@ func (e *TextBuffer) calculateVisualLines() {
 }
 
 func (e *TextBuffer) renderCursor() {
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	if e.cfg.CursorBlinking && time.Since(e.LastCursorBlink).Milliseconds() < 1000 {
 		return
@@ -410,7 +410,7 @@ func (e *TextBuffer) renderCursor() {
 }
 
 func (e *TextBuffer) renderStatusBar() {
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	cursor := e.getIndexPosition(e.bufferIndex)
 	//render status bar
 	rl.DrawRectangle(
@@ -449,13 +449,13 @@ func (e *TextBuffer) renderStatusBar() {
 	rl.DrawTextEx(font,
 		fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine),
 		rl.Vector2{X: e.ZeroPosition.X, Y: float32(e.maxLine) * charSize.Y},
-		FontSize,
+		fontSize,
 		0,
 		e.cfg.Colors.StatusBarForeground)
 }
 
 func (e *TextBuffer) highlightBetweenTwoIndexes(idx1 int, idx2 int, color color.RGBA) {
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	var start Position
 	var end Position
 	if idx1 > idx2 {
@@ -516,14 +516,14 @@ func (e *TextBuffer) renderText() {
 	}
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
-			charSize := measureTextSize(font, ' ', FontSize, 0)
+			charSize := measureTextSize(font, ' ', fontSize, 0)
 			var lineNumberWidth int
 			if e.cfg.LineNumbers {
 				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
 				rl.DrawTextEx(font,
 					fmt.Sprintf("%d", line.ActualLine),
 					rl.Vector2{X: e.ZeroPosition.X, Y: float32(idx) * charSize.Y},
-					FontSize,
+					fontSize,
 					0,
 					e.cfg.Colors.LineNumbersForeground)
 
@@ -535,7 +535,7 @@ func (e *TextBuffer) renderText() {
 					rl.DrawTextEx(font,
 						string(e.Content[h.start:h.end+1]),
 						rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
-						FontSize,
+						fontSize,
 						0,
 						h.Color)
 
@@ -545,7 +545,7 @@ func (e *TextBuffer) renderText() {
 				rl.DrawTextEx(font,
 					string(e.Content[line.startIndex:line.endIndex]),
 					rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
-					FontSize,
+					fontSize,
 					0,
 					e.cfg.Colors.Foreground)
 			}
@@ -880,7 +880,7 @@ func (e *TextBuffer) PreviousWord() error {
 }
 
 func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	apprLine := pos.Y / charSize.Y
 	apprColumn := pos.X / charSize.X
 
