@@ -5,10 +5,10 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type GrepLocationItem struct {
-	IsDir    bool
 	Filename string
 }
 
@@ -56,12 +56,25 @@ func (f *GrepBuffer) String() string {
 	return fmt.Sprintf("Grep Buffer@%s", f.LastQuery)
 }
 
-func (f *GrepBuffer) calculateLocationItems() {
-	return
+func (f *GrepBuffer) calculateLocationItems() error {
+	c := runRipgrep(string(f.UserInputBox.UserInput))
+	go func() {
+		lines := <-c
+		f.Items = nil
+
+		for _, line := range lines {
+			lineS := string(line)
+			segs := strings.SplitN(lineS, ":", 4)
+			f.Items = append(f.Items, GrepLocationItem{
+				Filename: segs[0],
+			})
+		}
+	}()
+
+	return nil
 }
 
 func (f *GrepBuffer) Render() {
-	f.calculateLocationItems()
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	//draw input box
@@ -170,7 +183,7 @@ func init() {
 		}),
 
 		//insertion
-		Key{K: "<enter>"}:                    makeGrepBufferCommand(func(e *GrepBuffer) error { return e.openUserInput() }),
+		Key{K: "<enter>"}:                    makeGrepBufferCommand(func(e *GrepBuffer) error { return e.calculateLocationItems() }),
 		Key{K: "<space>"}:                    makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.insertCharAtBuffer(' ') }),
 		Key{K: "<backspace>"}:                makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.DeleteCharBackward() }),
 		Key{K: "<backspace>", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.DeleteWordBackward() }),
