@@ -21,6 +21,8 @@ const (
 	State_Dirty = 2
 )
 
+// TODO: add a flag to check if buffer is writable or readonly,
+// then we can use this code to add compiler output stuff
 type TextBuffer struct {
 	cfg                       *Config
 	parent                    *Preditor
@@ -69,6 +71,7 @@ type EditorAction struct {
 func (e *TextBuffer) Keymaps() []Keymap {
 	return e.keymaps
 }
+
 func (e *TextBuffer) AddUndoAction(a EditorAction) {
 	e.UndoStack.Push(a)
 }
@@ -106,10 +109,12 @@ func (e *TextBuffer) SetMaxWidth(w int32) {
 	e.MaxWidth = w
 	e.updateMaxLineAndColumn()
 }
+
 func (e *TextBuffer) SetMaxHeight(h int32) {
 	e.MaxHeight = h
 	e.updateMaxLineAndColumn()
 }
+
 func (e *TextBuffer) updateMaxLineAndColumn() {
 	oldMaxLine := e.maxLine
 	charSize := measureTextSize(font, ' ', fontSize, 0)
@@ -617,9 +622,13 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
-	if newPosition.Line >= len(e.visualLines) {
+	if len(e.visualLines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn {
+		return true
+	}
+	if newPosition.Line >= len(e.visualLines) && (len(e.visualLines) != 0) {
 		return false
 	}
+
 	if newPosition.Column < 0 {
 		return false
 	}
@@ -733,30 +742,33 @@ func (e *TextBuffer) DeleteCharBackward() error {
 		e.SetStateDirty()
 		e.HasSelection = false
 		return nil
-	}
+	} else {
+		idx := e.positionToBufferIndex(e.Cursor)
+		if idx < 0 || idx > len(e.Content) {
+			fmt.Println("[WARN] invalid index for cursor", idx, e.Cursor)
+			return nil
+		}
+		switch {
+		case len(e.Content) == 0:
 
-	idx := e.positionToBufferIndex(e.Cursor)
-	if idx <= 0 {
+		case len(e.Content) == idx:
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Data: []byte{e.Content[idx-1]},
+			})
+			e.Content = e.Content[:idx-1]
+		default:
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Data: []byte{e.Content[idx]},
+			})
+			e.Content = append(e.Content[:idx-1], e.Content[idx:]...)
+		}
+		e.SetStateDirty()
+		e.CursorLeft()
+
 		return nil
 	}
-	if len(e.Content) <= idx {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Data: []byte{e.Content[idx]},
-		})
-		e.Content = e.Content[:idx]
-	} else {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Data: []byte{e.Content[idx]},
-		})
-		e.Content = append(e.Content[:idx-1], e.Content[idx:]...)
-	}
-	e.SetStateDirty()
-	e.CursorLeft()
-
-	return nil
-
 }
 
 func (e *TextBuffer) DeleteCharForward() error {
@@ -813,7 +825,7 @@ func (e *TextBuffer) ScrollDown(n int) error {
 func (e *TextBuffer) CursorLeft() error {
 	newPosition := e.Cursor
 	newPosition.Column--
-	if e.Cursor.Column <= 0 {
+	if e.Cursor.Column < 0 {
 		if newPosition.Line > 0 {
 			newPosition.Line--
 			lineColumns := e.visualLines[newPosition.Line].Length

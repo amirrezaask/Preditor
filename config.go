@@ -29,8 +29,8 @@ func mustParseHexColor(hex string) color.RGBA {
 var defaultConfig = Config{
 	Colors: Colors{
 		Background:            mustParseHexColor("#141414"),
-		Foreground:            mustParseHexColor("#d3b58d"),
-		Selection:             mustParseHexColor("#414339"),
+		Foreground:            mustParseHexColor("#999999"),
+		Selection:             mustParseHexColor("#0000cd"),
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
