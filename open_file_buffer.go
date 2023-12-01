@@ -255,6 +255,17 @@ func (f *OpenFileBuffer) DeleteCharForward() error {
 func (f *OpenFileBuffer) openUserInput() error {
 	p := f.parent
 
+	for _, window := range p.Windows {
+		switch window.(type) {
+		case *TextBuffer:
+			tb := window.(*TextBuffer)
+			if tb.File == string(f.UserInput) {
+				p.Windows[p.ActiveWindowIndex] = window
+				return nil
+			}
+		}
+	}
+
 	e, err := NewTextBuffer(f.parent, f.cfg, string(f.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation)
 	if err != nil {
 		panic(err)
