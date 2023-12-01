@@ -23,7 +23,7 @@ type Colors struct {
 	SyntaxTypes           color.RGBA
 }
 
-type Window interface {
+type Buffer interface {
 	Render()
 	SetMaxWidth(w int32)
 	SetMaxHeight(h int32)
@@ -33,7 +33,7 @@ type Window interface {
 }
 
 type Preditor struct {
-	Windows           []Window
+	Buffers           []Buffer
 	ActiveWindowIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
@@ -43,8 +43,8 @@ type Preditor struct {
 	Colors            Colors
 }
 
-func (e *Preditor) ActiveWindow() Window {
-	return e.Windows[e.ActiveWindowIndex]
+func (e *Preditor) ActiveBuffer() Buffer {
+	return e.Buffers[e.ActiveWindowIndex]
 }
 
 type Command func(*Preditor) error
@@ -101,8 +101,8 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 func (e *Preditor) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveWindow().Keymaps()) - 1; i >= 0; i-- {
-			cmd := e.ActiveWindow().Keymaps()[i][key]
+		for i := len(e.ActiveBuffer().Keymaps()) - 1; i >= 0; i-- {
+			cmd := e.ActiveBuffer().Keymaps()[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
@@ -115,7 +115,7 @@ func (e *Preditor) HandleKeyEvents() {
 func (e *Preditor) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
-	e.ActiveWindow().Render()
+	e.ActiveBuffer().Render()
 	rl.EndDrawing()
 }
 
@@ -124,7 +124,7 @@ func (e *Preditor) HandleWindowResize() {
 	width := rl.GetRenderWidth()
 
 	// window is resized
-	for _, buffer := range e.Windows {
+	for _, buffer := range e.Buffers {
 		if buffer.GetMaxWidth() != int32(width) {
 			buffer.SetMaxWidth(int32(width))
 		}
@@ -139,8 +139,8 @@ func (e *Preditor) HandleWindowResize() {
 func (e *Preditor) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveWindow().Keymaps()) - 1; i >= 0; i-- {
-			cmd := e.ActiveWindow().Keymaps()[i][key]
+		for i := len(e.ActiveBuffer().Keymaps()) - 1; i >= 0; i-- {
+			cmd := e.ActiveBuffer().Keymaps()[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
