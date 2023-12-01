@@ -1,4 +1,4 @@
-package main
+package preditor
 
 import rl "github.com/gen2brain/raylib-go/raylib"
 

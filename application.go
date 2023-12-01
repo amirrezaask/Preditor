@@ -1,4 +1,4 @@
-package main
+package preditor
 
 import (
 	"errors"
@@ -479,30 +479,30 @@ func measureTextSize(font rl.Font, s byte, size float32, spacing float32) rl.Vec
 var (
 	fontPath string
 	font     rl.Font
-	fontSize float32
+	FontSize float32
 )
 
-func loadFont(name string, size float32) error {
+func LoadFont(name string, size float32) error {
 	var err error
 	fontPath, err = findfont.Find(name + ".ttf")
 	if err != nil {
 		return err
 	}
 
-	fontSize = size
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
+	FontSize = size
+	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
 	return nil
 }
 
 func increaseFontSize(n int) {
-	fontSize += float32(n)
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
+	FontSize += float32(n)
+	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
 	charSizeCache = map[byte]rl.Vector2{}
 }
 
 func decreaseFontSize(n int) {
-	fontSize -= float32(n)
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
+	FontSize -= float32(n)
+	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
 	charSizeCache = map[byte]rl.Vector2{}
 
 }

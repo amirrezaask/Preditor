@@ -1,4 +1,4 @@
-package main
+package preditor
 
 import (
 	"errors"
@@ -114,7 +114,7 @@ func addToConfig(cfg *Config, key string, value string) error {
 	return nil
 }
 
-func readConfig(cfgPath string) (*Config, error) {
+func ReadConfig(cfgPath string) (*Config, error) {
 	cfg := defaultConfig
 	if _, err := os.Stat(cfgPath); errors.Is(err, os.ErrNotExist) {
 		return &cfg, nil
