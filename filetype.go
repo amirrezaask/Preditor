@@ -55,7 +55,7 @@ func initFileTypes(cfg Colors) {
 					Regex: regexp.MustCompile(keywordsPat("break", "case", "const",
 						"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
 						"import", "interface", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "iota", "append", "cap", "clear", "close", "complex",
-						"copy", "delete", "imag", "len", "make",
+						"Copy", "delete", "imag", "len", "make",
 						"max", "min", "new", "panic", "print",
 						"println", "real", "recover")),
 					Color: cfg.SyntaxKeywords,

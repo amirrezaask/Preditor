@@ -721,13 +721,15 @@ func (e *TextBuffer) DeleteCharBackward() error {
 }
 
 func (e *TextBuffer) DeleteCharForward() error {
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Delete,
-		Idx:  e.bufferIndex,
-		Data: []byte{e.Content[e.bufferIndex]},
-	})
-	e.Content = append(e.Content[:e.bufferIndex], e.Content[e.bufferIndex+1:]...)
-	e.SetStateDirty()
+	if len(e.Content) > e.bufferIndex {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  e.bufferIndex,
+			Data: []byte{e.Content[e.bufferIndex]},
+		})
+		e.Content = append(e.Content[:e.bufferIndex], e.Content[e.bufferIndex+1:]...)
+		e.SetStateDirty()
+	}
 	return nil
 }
 
@@ -801,6 +803,8 @@ func (e *TextBuffer) CursorUp() error {
 		newcol = prevLine.endIndex
 	}
 	e.bufferIndex = newcol
+
+	e.ScrollIfNeeded()
 	return nil
 }
 
@@ -818,6 +822,7 @@ func (e *TextBuffer) CursorDown() error {
 		newcol = nextLine.endIndex
 	}
 	e.bufferIndex = newcol
+	e.ScrollIfNeeded()
 
 	return nil
 }
@@ -919,6 +924,33 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 
+func (e *TextBuffer) ScrollIfNeeded() error {
+	pos := e.getIndexPosition(e.bufferIndex)
+	if int32(pos.Line) <= e.VisibleStart {
+		e.VisibleStart = int32(pos.Line) - e.maxLine/3
+		e.VisibleEnd = e.VisibleStart + e.maxLine
+
+	} else if int32(pos.Line) >= e.VisibleEnd {
+		e.VisibleEnd = int32(pos.Line) + e.maxLine/3
+		e.VisibleStart = e.VisibleEnd - e.maxLine
+	}
+	if e.VisibleStart < 0 {
+		e.VisibleStart = 0
+		e.VisibleEnd = e.maxLine
+	}
+	if e.VisibleEnd < 0 {
+		e.VisibleStart = 0
+		e.VisibleEnd = e.maxLine
+	}
+
+	if int(e.VisibleEnd) >= len(e.visualLines) {
+		e.VisibleEnd = int32(len(e.visualLines) - 1)
+		e.VisibleStart = e.VisibleEnd - e.maxLine
+	}
+
+	return nil
+}
+
 func (e *TextBuffer) Write() error {
 	if e.File == "" {
 		return nil
@@ -966,9 +998,9 @@ func (e *TextBuffer) Indent() error {
 	return nil
 }
 
-func (e *TextBuffer) copy() error {
+func (e *TextBuffer) Copy() error {
 	if e.SelectionStart != -1 {
-		// copy selection
+		// Copy selection
 		switch {
 		case e.SelectionStart < e.bufferIndex:
 			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
@@ -984,9 +1016,9 @@ func (e *TextBuffer) copy() error {
 
 	return nil
 }
-func (e *TextBuffer) killLine() error {
+func (e *TextBuffer) KillLine() error {
 	if e.SelectionStart != -1 {
-		// copy selection
+		// Copy selection
 		switch {
 		case e.SelectionStart < e.bufferIndex:
 			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
@@ -1025,9 +1057,9 @@ func (e *TextBuffer) killLine() error {
 
 	return nil
 }
-func (e *TextBuffer) cut() error {
+func (e *TextBuffer) Cut() error {
 	if e.SelectionStart != -1 {
-		// copy selection
+		// Copy selection
 		switch {
 		case e.SelectionStart < e.bufferIndex:
 			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
@@ -1065,7 +1097,7 @@ func (e *TextBuffer) cut() error {
 
 	return nil
 }
-func (e *TextBuffer) paste() error {
+func (e *TextBuffer) Paste() error {
 	e.deleteSelectionIfSelection()
 	e.SelectionStart = -1
 
@@ -1115,7 +1147,7 @@ func (e *TextBuffer) openGrepBuffer() {
 	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
 
-func (e *TextBuffer) deleteWordBackward() {
+func (e *TextBuffer) DeleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
 	if len(e.Content) > e.bufferIndex+1 {
@@ -1159,13 +1191,13 @@ var editorKeymap = Keymap{
 		return e.CursorRight(1)
 	}),
 	Key{K: "x", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.cut()
+		return e.Cut()
 	}),
 	Key{K: "v", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.paste()
+		return e.Paste()
 	}),
 	Key{K: "k", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.killLine()
+		return e.KillLine()
 	}),
 	Key{K: "g", Control: true}: makeCommand(func(e *TextBuffer) error {
 		e.keymaps = append(e.keymaps, gotoLineKeymap)
@@ -1174,7 +1206,7 @@ var editorKeymap = Keymap{
 		return nil
 	}),
 	Key{K: "c", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.copy()
+		return e.Copy()
 	}),
 
 	Key{K: "s", Control: true}: makeCommand(func(a *TextBuffer) error {
@@ -1305,7 +1337,7 @@ var editorKeymap = Keymap{
 	Key{K: "<enter>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '\n') }),
 	Key{K: "<space>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
 	Key{K: "<backspace>", Control: true}: makeCommand(func(e *TextBuffer) error {
-		e.deleteWordBackward()
+		e.DeleteWordBackward()
 		return nil
 	}),
 	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
