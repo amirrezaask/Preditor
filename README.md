@@ -11,7 +11,6 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 [![Demo](http://img.youtube.com/vi/ogmozlzDAPY/0.jpg)](http://www.youtube.com/watch?v=ogmozlzDAPY)
  
 ## Features
-
 - reading/writing files
 - simple keybindings (no key chords yet)
 - Scrolling with both mouse and keyboard
@@ -23,7 +22,7 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Support BeforeSaveHook to use formatting tools like Go fmt
 - Auto format go code using pkg/format
 - Basic Regex syntax highlighting for keywords and types.
-- Undo (still work in progress!)
+- Undo
 - Open file with glob completion
 - switch between open files
 - Grep Buffers using Ripgrep ( more backends are possible )
