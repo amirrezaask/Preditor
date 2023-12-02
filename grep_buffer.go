@@ -5,11 +5,23 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 type GrepLocationItem struct {
 	Filename string
+	Text     string
+	Line     int
+	Col      int
+}
+
+func (g GrepLocationItem) StringWithTruncate(maxLen int) string {
+	if len(g.Text) > maxLen {
+		return fmt.Sprintf("%s: %s", g.Filename, g.Text[:maxLen-1])
+	} else {
+		return fmt.Sprintf("%s: %s", g.Filename, g.Text)
+	}
 }
 
 type GrepBuffer struct {
@@ -23,6 +35,8 @@ type GrepBuffer struct {
 	Items        []GrepLocationItem
 	LastQuery    string
 	UserInputBox *UserInputComponent
+	Selection    int
+	maxColumn    int
 }
 
 func NewGrepBuffer(parent *Preditor,
@@ -38,6 +52,7 @@ func NewGrepBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	ofb := &GrepBuffer{
 		cfg:          cfg,
 		parent:       parent,
@@ -46,6 +61,7 @@ func NewGrepBuffer(parent *Preditor,
 		maxHeight:    maxH,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
+		maxColumn:    int(maxW / int32(charSize.X)),
 		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
 	}
 
@@ -65,8 +81,23 @@ func (f *GrepBuffer) calculateLocationItems() error {
 		for _, line := range lines {
 			lineS := string(line)
 			segs := strings.SplitN(lineS, ":", 4)
+			if len(segs) < 4 {
+				continue
+			}
+
+			line, err := strconv.Atoi(segs[1])
+			if err != nil {
+				continue
+			}
+			col, err := strconv.Atoi(segs[2])
+			if err != nil {
+				continue
+			}
 			f.Items = append(f.Items, GrepLocationItem{
 				Filename: segs[0],
+				Line:     line,
+				Col:      col,
+				Text:     segs[3],
 			})
 		}
 	}()
@@ -95,10 +126,12 @@ func (f *GrepBuffer) Render() {
 	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
 	//draw list of items
 	for idx, item := range f.Items {
-		rl.DrawTextEx(font, item.Filename, rl.Vector2{
+		rl.DrawTextEx(font, item.StringWithTruncate(f.maxColumn), rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, fontSize, 0, f.cfg.Colors.Foreground)
-
+	}
+	if len(f.Items) > 0 {
+		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+f.Selection*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
 }
@@ -128,6 +161,28 @@ func (f *GrepBuffer) openUserInput() error {
 	return nil
 }
 
+func (e *GrepBuffer) NextSelection() error {
+	e.Selection++
+	if e.Selection >= len(e.Items) {
+		e.Selection = len(e.Items) - 1
+	}
+
+	return nil
+}
+
+func (e *GrepBuffer) PrevSelection() error {
+	e.Selection--
+	if e.Selection < 0 {
+		e.Selection = 0
+	}
+	return nil
+}
+func (e *GrepBuffer) OpenSelection() error {
+	item := e.Items[e.Selection]
+
+	return SwitchOrOpenFileInTextBuffer(e.parent, e.cfg, item.Filename, e.maxHeight, e.maxWidth, e.ZeroLocation, &Position{Line: item.Line, Column: item.Col})
+}
+
 func makeGrepBufferCommand(f func(e *GrepBuffer) error) Command {
 	return func(preditor *Preditor) error {
 		return f(preditor.ActiveBuffer().(*GrepBuffer))
@@ -152,6 +207,8 @@ func init() {
 		}),
 		Key{K: "<esc>"}: makeGrepBufferCommand(func(p *GrepBuffer) error {
 			// maybe close ?
+			p.parent.Buffers = p.parent.Buffers[:len(p.parent.Buffers)-1]
+			p.parent.ActiveBufferIndex = len(p.parent.Buffers) - 1
 			return nil
 		}),
 
@@ -175,6 +232,18 @@ func init() {
 			return e.UserInputBox.PreviousWord()
 		}),
 
+		Key{K: "p", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			return e.PrevSelection()
+		}),
+		Key{K: "n", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			return e.NextSelection()
+		}),
+		Key{K: "<up>"}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			return e.PrevSelection()
+		}),
+		Key{K: "<down>"}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			return e.NextSelection()
+		}),
 		Key{K: "b", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
 			return e.UserInputBox.CursorLeft(1)
 		}),
@@ -184,6 +253,7 @@ func init() {
 
 		//insertion
 		Key{K: "<enter>"}:                    makeGrepBufferCommand(func(e *GrepBuffer) error { return e.calculateLocationItems() }),
+		Key{K: "<enter>", Control: true}:     makeGrepBufferCommand(func(e *GrepBuffer) error { return e.OpenSelection() }),
 		Key{K: "<space>"}:                    makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.insertCharAtBuffer(' ') }),
 		Key{K: "<backspace>"}:                makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.DeleteCharBackward() }),
 		Key{K: "<backspace>", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error { return e.UserInputBox.DeleteWordBackward() }),

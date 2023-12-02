@@ -148,6 +148,39 @@ const (
 	CURSOR_SHAPE_LINE    = 3
 )
 
+func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2, startingPos *Position) error {
+	for idx, buf := range parent.Buffers {
+		switch t := buf.(type) {
+		case *TextBuffer:
+			if t.File == filename {
+				parent.ActiveBufferIndex = idx
+				if startingPos != nil {
+					t.bufferIndex = t.positionToBufferIndex(*startingPos)
+					t.ScrollIfNeeded()
+				}
+				return nil
+			}
+		}
+	}
+
+	tb, err := NewTextBuffer(parent, cfg, filename, maxH, maxW, zeroPosition)
+	if err != nil {
+		return nil
+	}
+
+	if startingPos != nil {
+		tb.bufferIndex = tb.positionToBufferIndex(*startingPos)
+		tb.ScrollIfNeeded()
+
+	}
+
+	parent.Buffers = append(parent.Buffers, tb)
+
+	parent.ActiveBufferIndex = len(parent.Buffers) - 1
+
+	return nil
+}
+
 func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
