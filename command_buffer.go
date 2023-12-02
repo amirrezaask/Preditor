@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	rl "github.com/gen2brain/raylib-go/raylib"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 type CommandLocationItem struct {
@@ -66,15 +68,23 @@ func (f *CommandBuffer) String() string {
 }
 
 func (f *CommandBuffer) runCommand() error {
-	cmd := exec.Command("sh", "-c", string(f.UserInputBox.UserInput))
-	stdErr := &bytes.Buffer{}
-	cmd.Stdout = &f.outputBuffer
-	cmd.Stderr = stdErr
+	userCommand := string(f.UserInputBox.UserInput)
+	executable := strings.SplitN(userCommand, " ", 2)[0]
+	args := strings.SplitN(userCommand, " ", 2)[1]
+	cmd := exec.Command(executable, args)
+	go func() {
+		stdErr := &bytes.Buffer{}
+		stdOut := &bytes.Buffer{}
+		cmd.Stdout = stdOut
+		cmd.Stderr = stdErr
 
-	if err := cmd.Run(); err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
+		if err := cmd.Run(); err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		io.Copy(&f.outputBuffer, stdOut)
+	}()
 
 	return nil
 }
@@ -97,9 +107,12 @@ func (f *CommandBuffer) Render() {
 		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	startOfOutput := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
 
-	rl.DrawText(f.outputBuffer.String(), int32(f.ZeroLocation.X), startOfListY, int32(fontSize-5), rl.White)
+	rl.DrawTextEx(font, f.outputBuffer.String(), rl.Vector2{
+		X: f.ZeroLocation.X,
+		Y: float32(startOfOutput),
+	}, fontSize, 0, rl.White)
 }
 
 func (f *CommandBuffer) SetMaxWidth(w int32) {
