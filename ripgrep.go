@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-func runRipgrep(pattern string) chan [][]byte {
+func RipgrepAsync(pattern string) chan [][]byte {
 	output := make(chan [][]byte)
 	go func() {
 		cmd := exec.Command("rg", "--vimgrep", pattern)
