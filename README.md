@@ -26,6 +26,8 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Undo (still work in progress!)
 - Open file with glob completion
 - switch between open files
+- Grep Buffers using Ripgrep ( more backends are possible )
+
 
 # Design and Terminology
 
