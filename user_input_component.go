@@ -10,6 +10,7 @@ type UserInputComponent struct {
 	UserInput    []byte
 	ZeroLocation rl.Vector2
 	Idx          int
+	LastInput    string
 }
 
 func NewUserInputComponent(parent *Preditor, cfg *Config, zeroLocation rl.Vector2, maxH int32, maxW int32) *UserInputComponent {
@@ -25,6 +26,7 @@ func NewUserInputComponent(parent *Preditor, cfg *Config, zeroLocation rl.Vector
 }
 
 func (f *UserInputComponent) setNewUserInput(bs []byte) {
+	f.LastInput = string(f.UserInput)
 	f.UserInput = bs
 	f.Idx += len(f.UserInput)
 

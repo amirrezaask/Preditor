@@ -70,7 +70,7 @@ func NewFilePickerBuffer(parent *Preditor,
 	ofb := &FilePickerBuffer{
 		cfg:       cfg,
 		parent:    parent,
-		keymaps:   []Keymap{filePickerKeymap},
+		keymaps:   []Keymap{FilePickerKeymap},
 		maxHeight: maxH,
 		maxWidth:  maxW,
 		List: ListComponent[LocationItem]{
@@ -116,6 +116,10 @@ func (f *FilePickerBuffer) calculateLocationItems() {
 		})
 	}
 
+	if f.List.Selection >= len(f.List.Items) {
+		f.List.Selection = len(f.List.Items) - 1
+	}
+
 	return
 }
 
@@ -144,6 +148,10 @@ func (f *FilePickerBuffer) Render() {
 		rl.DrawTextEx(f.parent.Font, item.Filename, rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
+	}
+
+	if len(f.List.Items) > 0 {
+		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
 }
@@ -178,6 +186,14 @@ func (f *FilePickerBuffer) openUserInput() error {
 	return nil
 }
 
+func (f *FilePickerBuffer) openSelection() error {
+	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+	if err != nil {
+		panic(err)
+	}
+	return nil
+}
+
 func (f *FilePickerBuffer) tryComplete() error {
 	input := f.UserInputComponent.UserInput
 
@@ -206,7 +222,7 @@ func makeFilePickerCommand(f func(e *FilePickerBuffer) error) Command {
 }
 
 func init() {
-	filePickerKeymap = Keymap{
+	FilePickerKeymap = Keymap{
 
 		Key{K: "f", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputComponent.CursorRight(1)
@@ -241,7 +257,23 @@ func init() {
 		Key{K: "<left>", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputComponent.PreviousWord()
 		}),
+		Key{K: "p", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+			e.List.PrevItem()
+			return nil
+		}),
+		Key{K: "n", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+			e.List.NextItem()
+			return nil
+		}),
+		Key{K: "<up>"}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+			e.List.PrevItem()
 
+			return nil
+		}),
+		Key{K: "<down>"}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+			e.List.NextItem()
+			return nil
+		}),
 		Key{K: "b", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputComponent.CursorLeft(1)
 		}),
@@ -250,7 +282,8 @@ func init() {
 		}),
 
 		//insertion
-		Key{K: "<enter>"}:                    makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.openUserInput() }),
+		Key{K: "<enter>"}:                    makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.openSelection() }),
+		Key{K: "<enter>", Control: true}:     makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.openUserInput() }),
 		Key{K: "<tab>"}:                      makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.tryComplete() }),
 		Key{K: "<space>"}:                    makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.UserInputComponent.insertCharAtBuffer(' ') }),
 		Key{K: "<backspace>"}:                makeFilePickerCommand(func(e *FilePickerBuffer) error { return e.UserInputComponent.DeleteCharBackward() }),
@@ -356,4 +389,4 @@ func init() {
 	}
 }
 
-var filePickerKeymap Keymap
+var FilePickerKeymap Keymap
