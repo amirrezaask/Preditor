@@ -24,6 +24,9 @@ type FilePickerBuffer struct {
 	UserInputComponent *UserInputComponent
 }
 
+func (f *FilePickerBuffer) HandleFontChange() {
+}
+
 func NewFilePickerBuffer(parent *Preditor,
 	cfg *Config,
 	root string,
@@ -37,7 +40,7 @@ func NewFilePickerBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
-	charSize := measureTextSize(font, ' ', fontSize, 0)
+	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
 	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
 
 	ofb := &FilePickerBuffer{
@@ -47,9 +50,9 @@ func NewFilePickerBuffer(parent *Preditor,
 		maxHeight: maxH,
 		maxWidth:  maxW,
 		List: ListComponent[LocationItem]{
-			MaxLine:      int(MaxHeightToMaxLine(maxH - startOfListY)),
+			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
 			VisibleStart: 0,
-			VisibleEnd:   int(MaxHeightToMaxLine(maxH - startOfListY)),
+			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
 		},
 		ZeroLocation:       zeroLocation,
 		UserInputComponent: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
@@ -94,13 +97,13 @@ func (f *FilePickerBuffer) calculateLocationItems() {
 
 func (f *FilePickerBuffer) Render() {
 	f.calculateLocationItems()
-	charSize := measureTextSize(font, ' ', fontSize, 0)
+	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
 
 	//draw input box
 	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
-	rl.DrawTextEx(font, string(f.UserInputComponent.UserInput), rl.Vector2{
+	rl.DrawTextEx(f.parent.Font, string(f.UserInputComponent.UserInput), rl.Vector2{
 		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
-	}, fontSize, 0, f.cfg.Colors.Foreground)
+	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
@@ -114,9 +117,9 @@ func (f *FilePickerBuffer) Render() {
 	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
 	//draw list of items
 	for idx, item := range f.List.Items {
-		rl.DrawTextEx(font, item.Filename, rl.Vector2{
+		rl.DrawTextEx(f.parent.Font, item.Filename, rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
-		}, fontSize, 0, f.cfg.Colors.Foreground)
+		}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 	}
 
 }

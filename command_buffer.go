@@ -46,7 +46,7 @@ func NewCommandBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
-	charSize := measureTextSize(font, ' ', fontSize, 0)
+	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
 	ofb := &CommandBuffer{
 		cfg:          cfg,
 		parent:       parent,
@@ -61,6 +61,9 @@ func NewCommandBuffer(parent *Preditor,
 	}
 
 	return ofb
+}
+
+func (f *CommandBuffer) HandleFontChange() {
 }
 
 func (f *CommandBuffer) String() string {
@@ -90,13 +93,13 @@ func (f *CommandBuffer) runCommand() error {
 }
 
 func (f *CommandBuffer) Render() {
-	charSize := measureTextSize(font, ' ', fontSize, 0)
+	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
 
 	//draw input box
 	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
-	rl.DrawTextEx(font, string(f.UserInputBox.UserInput), rl.Vector2{
+	rl.DrawTextEx(f.parent.Font, string(f.UserInputBox.UserInput), rl.Vector2{
 		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
-	}, fontSize, 0, f.cfg.Colors.Foreground)
+	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
@@ -109,10 +112,10 @@ func (f *CommandBuffer) Render() {
 
 	startOfOutput := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
 
-	rl.DrawTextEx(font, f.outputBuffer.String(), rl.Vector2{
+	rl.DrawTextEx(f.parent.Font, f.outputBuffer.String(), rl.Vector2{
 		X: f.ZeroLocation.X,
 		Y: float32(startOfOutput),
-	}, fontSize, 0, rl.White)
+	}, float32(f.parent.FontSize), 0, rl.White)
 }
 
 func (f *CommandBuffer) SetMaxWidth(w int32) {

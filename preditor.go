@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/flopp/go-findfont"
 	"golang.design/x/clipboard"
 	"image/color"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flopp/go-findfont"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -36,6 +36,7 @@ type Buffer interface {
 	GetMaxWidth() int32
 	GetMaxHeight() int32
 	Keymaps() []Keymap
+	HandleFontChange()
 	fmt.Stringer
 }
 
@@ -47,6 +48,46 @@ type Preditor struct {
 	GlobalVariables   Variables
 	Commands          Commands
 	Colors            Colors
+	FontPath          string
+	Font              rl.Font
+	FontSize          int32
+}
+
+var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
+func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vector2 {
+	if charSize, exists := charSizeCache[s]; exists {
+		return charSize
+	}
+	charSize := rl.MeasureTextEx(font, string(s), float32(size), spacing)
+	charSizeCache[s] = charSize
+	return charSize
+}
+
+func (p *Preditor) LoadFont(name string, size int32) error {
+	var err error
+	p.FontPath, err = findfont.Find(name + ".ttf")
+	if err != nil {
+		return err
+	}
+
+	p.FontSize = size
+	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+	return nil
+}
+
+func (p *Preditor) IncreaseFontSize(n int) {
+	p.FontSize += int32(n)
+	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+	charSizeCache = map[byte]rl.Vector2{}
+	p.HandleFontChange()
+}
+
+func (p *Preditor) DecreaseFontSize(n int) {
+	p.FontSize -= int32(n)
+	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+	charSizeCache = map[byte]rl.Vector2{}
+	p.HandleFontChange()
+
 }
 
 func (e *Preditor) ActiveBuffer() Buffer {
@@ -123,6 +164,13 @@ func (e *Preditor) Render() {
 	rl.ClearBackground(e.Colors.Background)
 	e.ActiveBuffer().Render()
 	rl.EndDrawing()
+}
+func (e *Preditor) HandleFontChange() {
+
+	// window is resized
+	for _, buffer := range e.Buffers {
+		buffer.HandleFontChange()
+	}
 }
 
 func (e *Preditor) HandleWindowResize() {
@@ -465,73 +513,32 @@ func getKeyPressedString() string {
 	}
 }
 
-var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
-func measureTextSize(font rl.Font, s byte, size float32, spacing float32) rl.Vector2 {
-	if charSize, exists := charSizeCache[s]; exists {
-		return charSize
-	}
-	charSize := rl.MeasureTextEx(font, string(s), size, spacing)
-	charSizeCache[s] = charSize
-	return charSize
-}
-
-var (
-	fontPath string
-	font     rl.Font
-	fontSize float32
-)
-
-func LoadFont(name string, size float32) error {
-	var err error
-	fontPath, err = findfont.Find(name + ".ttf")
-	if err != nil {
-		return err
-	}
-
-	fontSize = size
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
-	return nil
-}
-
-func increaseFontSize(n int) {
-	fontSize += float32(n)
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
-	charSizeCache = map[byte]rl.Vector2{}
-}
-
-func decreaseFontSize(n int) {
-	fontSize -= float32(n)
-	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
-	charSizeCache = map[byte]rl.Vector2{}
-
-}
-
-func setupRaylib() {
+func setupRaylib(cfg *Config) {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
 	rl.SetTargetFPS(60)
-	rl.SetTextLineSpacing(int(fontSize))
+	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
 
 func New(cfg *Config) (*Preditor, error) {
-	setupRaylib()
+	setupRaylib(cfg)
 	initFileTypes(cfg.Colors)
 
 	if err := clipboard.Init(); err != nil {
 		panic(err)
 	}
-
-	err := LoadFont(cfg.FontName, float32(cfg.FontSize))
+	p := &Preditor{
+		Cfg: cfg,
+	}
+	err := p.LoadFont(cfg.FontName, int32(cfg.FontSize))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Preditor{
-		Cfg: cfg,
-	}, nil
+	return p, nil
 }
 
 func (p *Preditor) StartMainLoop() {
@@ -549,12 +556,17 @@ func (p *Preditor) StartMainLoop() {
 
 	}()
 
-	panic("DOOM")
-
 	for !rl.WindowShouldClose() {
 		p.HandleWindowResize()
 		p.HandleMouseEvents()
 		p.HandleKeyEvents()
 		p.Render()
 	}
+}
+
+func (p *Preditor) MaxHeightToMaxLine(maxH int32) int32 {
+	return maxH / int32(measureTextSize(p.Font, ' ', p.FontSize, 0).Y)
+}
+func (p *Preditor) MaxWidthToMaxColumn(maxW int32) int32 {
+	return maxW / int32(measureTextSize(p.Font, ' ', p.FontSize, 0).X)
 }
