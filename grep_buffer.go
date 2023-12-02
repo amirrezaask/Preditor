@@ -32,10 +32,9 @@ type GrepBuffer struct {
 	maxHeight    int32
 	maxWidth     int32
 	ZeroLocation rl.Vector2
-	ListComponent[GrepLocationItem]
+	List         ListComponent[GrepLocationItem]
 	LastQuery    string
 	UserInputBox *UserInputComponent
-	Selection    int
 	maxColumn    int
 }
 
@@ -53,17 +52,22 @@ func NewGrepBuffer(parent *Preditor,
 		panic(err)
 	}
 	charSize := measureTextSize(font, ' ', fontSize, 0)
+	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
+
 	ofb := &GrepBuffer{
-		cfg:           cfg,
-		parent:        parent,
-		root:          absRoot,
-		keymaps:       []Keymap{GrepBufferKeymap},
-		maxHeight:     maxH,
-		maxWidth:      maxW,
-		ZeroLocation:  zeroLocation,
-		ListComponent: ListComponent[GrepLocationItem]{},
-		maxColumn:     int(maxW / int32(charSize.X)),
-		UserInputBox:  NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		cfg:          cfg,
+		parent:       parent,
+		root:         absRoot,
+		keymaps:      []Keymap{GrepBufferKeymap},
+		maxHeight:    maxH,
+		maxWidth:     maxW,
+		ZeroLocation: zeroLocation,
+		List: ListComponent[GrepLocationItem]{
+			MaxLine:      int(MaxHeightToMaxLine(maxH - startOfListY)),
+			VisibleStart: 0, VisibleEnd: int(MaxHeightToMaxLine(maxH - startOfListY)),
+		},
+		maxColumn:    int(maxW / int32(charSize.X)),
+		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
 	}
 
 	return ofb
@@ -77,7 +81,7 @@ func (f *GrepBuffer) calculateLocationItems() error {
 	c := RipgrepAsync(string(f.UserInputBox.UserInput))
 	go func() {
 		lines := <-c
-		f.Items = nil
+		f.List.Items = nil
 
 		for _, line := range lines {
 			lineS := string(line)
@@ -94,7 +98,7 @@ func (f *GrepBuffer) calculateLocationItems() error {
 			if err != nil {
 				continue
 			}
-			f.Items = append(f.Items, GrepLocationItem{
+			f.List.Items = append(f.List.Items, GrepLocationItem{
 				Filename: segs[0],
 				Line:     line,
 				Col:      col,
@@ -126,13 +130,13 @@ func (f *GrepBuffer) Render() {
 
 	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
 	//draw list of items
-	for idx, item := range f.Items {
+	for idx, item := range f.List.VisibleView() {
 		rl.DrawTextEx(font, item.StringWithTruncate(f.maxColumn), rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, fontSize, 0, f.cfg.Colors.Foreground)
 	}
-	if len(f.Items) > 0 {
-		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+f.Selection*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
+	if len(f.List.Items) > 0 {
+		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
 }
@@ -157,29 +161,8 @@ func (f *GrepBuffer) Keymaps() []Keymap {
 	return f.keymaps
 }
 
-func (f *GrepBuffer) openUserInput() error {
-
-	return nil
-}
-
-func (e *GrepBuffer) NextSelection() error {
-	e.Selection++
-	if e.Selection >= len(e.Items) {
-		e.Selection = len(e.Items) - 1
-	}
-
-	return nil
-}
-
-func (e *GrepBuffer) PrevSelection() error {
-	e.Selection--
-	if e.Selection < 0 {
-		e.Selection = 0
-	}
-	return nil
-}
 func (e *GrepBuffer) OpenSelection() error {
-	item := e.Items[e.Selection]
+	item := e.List.Items[e.List.Selection]
 
 	return SwitchOrOpenFileInTextBuffer(e.parent, e.cfg, item.Filename, e.maxHeight, e.maxWidth, e.ZeroLocation, &Position{Line: item.Line, Column: item.Col})
 }
@@ -234,16 +217,21 @@ func init() {
 		}),
 
 		Key{K: "p", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
-			return e.PrevSelection()
+			e.List.PrevItem()
+			return nil
 		}),
 		Key{K: "n", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
-			return e.NextSelection()
+			e.List.NextItem()
+			return nil
 		}),
 		Key{K: "<up>"}: makeGrepBufferCommand(func(e *GrepBuffer) error {
-			return e.PrevSelection()
+			e.List.PrevItem()
+
+			return nil
 		}),
 		Key{K: "<down>"}: makeGrepBufferCommand(func(e *GrepBuffer) error {
-			return e.NextSelection()
+			e.List.NextItem()
+			return nil
 		}),
 		Key{K: "b", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
 			return e.UserInputBox.CursorLeft(1)
