@@ -3,9 +3,14 @@ package preditor
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"golang.design/x/clipboard"
 	"image/color"
+	"os"
+	"path"
+	"runtime/debug"
 	"strconv"
+	"time"
 
 	"github.com/flopp/go-findfont"
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -530,11 +535,26 @@ func New(cfg *Config) (*Preditor, error) {
 }
 
 func (p *Preditor) StartMainLoop() {
+	defer func() {
+
+		if err := recover(); err != nil {
+			err = os.WriteFile(path.Join(os.Getenv("HOME"),
+				fmt.Sprintf("preditor-crashlog-%d", time.Now().Unix())),
+				[]byte(fmt.Sprintf("%v\n%s\n%s", err, string(debug.Stack()), spew.Sdump(p))), 0644)
+			if err != nil {
+				fmt.Println("we are doomed")
+				fmt.Println(err)
+			}
+		}
+
+	}()
+
+	panic("DOOM")
+
 	for !rl.WindowShouldClose() {
 		p.HandleWindowResize()
 		p.HandleMouseEvents()
 		p.HandleKeyEvents()
 		p.Render()
 	}
-
 }
