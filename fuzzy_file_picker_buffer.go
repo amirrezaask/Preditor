@@ -173,7 +173,7 @@ func makeFuzzyFilePickerCommand(f func(e *FuzzyFilePickerBuffer) error) Command 
 }
 
 func init() {
-	FilePickerKeymap = Keymap{
+	FuzzyFilePickerKeymap = Keymap{
 
 		Key{K: "f", Control: true}: makeFuzzyFilePickerCommand(func(e *FuzzyFilePickerBuffer) error {
 			return e.UserInputComponent.CursorRight(1)
