@@ -544,14 +544,16 @@ func New(cfg *Config) (*Preditor, error) {
 func (p *Preditor) StartMainLoop() {
 	defer func() {
 
-		if err := recover(); err != nil {
-			err = os.WriteFile(path.Join(os.Getenv("HOME"),
+		if r := recover(); r != nil {
+			err := os.WriteFile(path.Join(os.Getenv("HOME"),
 				fmt.Sprintf("preditor-crashlog-%d", time.Now().Unix())),
-				[]byte(fmt.Sprintf("%v\n%s\n%s", err, string(debug.Stack()), spew.Sdump(p))), 0644)
+				[]byte(fmt.Sprintf("%v\n%s\n%s", r, string(debug.Stack()), spew.Sdump(p))), 0644)
 			if err != nil {
 				fmt.Println("we are doomed")
 				fmt.Println(err)
 			}
+
+			fmt.Printf("%v\n%s\n%s\n", r, string(debug.Stack()), spew.Sdump(p))
 		}
 
 	}()

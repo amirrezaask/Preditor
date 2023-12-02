@@ -39,7 +39,30 @@ type GrepBuffer struct {
 }
 
 func (f *GrepBuffer) HandleFontChange() {
+	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
+	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	oldEnd := f.List.VisibleEnd
+	oldStart := f.List.VisibleStart
+	f.List.MaxLine = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
+	f.List.VisibleEnd = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
+	f.List.VisibleStart += (f.List.VisibleEnd - oldEnd)
 
+	if int(f.List.VisibleEnd) >= len(f.List.Items) {
+		f.List.VisibleEnd = len(f.List.Items) - 1
+		f.List.VisibleStart = f.List.VisibleEnd - f.List.MaxLine
+	}
+
+	if f.List.VisibleStart < 0 {
+		f.List.VisibleStart = 0
+		f.List.VisibleEnd = f.List.MaxLine
+	}
+	if f.List.VisibleEnd < 0 {
+		f.List.VisibleStart = 0
+		f.List.VisibleEnd = f.List.MaxLine
+	}
+
+	diff := f.List.VisibleStart - oldStart
+	f.List.Selection += diff
 }
 
 func NewGrepBuffer(parent *Preditor,
@@ -147,10 +170,12 @@ func (f *GrepBuffer) Render() {
 
 func (f *GrepBuffer) SetMaxWidth(w int32) {
 	f.maxWidth = w
+	f.HandleFontChange()
 }
 
 func (f *GrepBuffer) SetMaxHeight(h int32) {
 	f.maxHeight = h
+	f.HandleFontChange()
 }
 
 func (f *GrepBuffer) GetMaxWidth() int32 {
@@ -179,7 +204,16 @@ func makeGrepBufferCommand(f func(e *GrepBuffer) error) Command {
 
 func init() {
 	GrepBufferKeymap = Keymap{
+		Key{K: "=", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			e.parent.IncreaseFontSize(5)
 
+			return nil
+		}),
+		Key{K: "-", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
+			e.parent.DecreaseFontSize(5)
+
+			return nil
+		}),
 		Key{K: "f", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
 			return e.UserInputBox.CursorRight(1)
 		}),
