@@ -17,47 +17,14 @@ type FilePickerBuffer struct {
 	cfg                *Config
 	parent             *Preditor
 	keymaps            []Keymap
-	maxHeight          int32
-	maxWidth           int32
-	ZeroLocation       rl.Vector2
 	List               ListComponent[LocationItem]
 	LastQuery          string
 	UserInputComponent *UserInputComponent
 }
 
-func (f *FilePickerBuffer) HandleFontChange() {
-	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
-	oldEnd := f.List.VisibleEnd
-	oldStart := f.List.VisibleStart
-	f.List.MaxLine = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleEnd = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleStart += (f.List.VisibleEnd - oldEnd)
-
-	if int(f.List.VisibleEnd) >= len(f.List.Items) {
-		f.List.VisibleEnd = len(f.List.Items) - 1
-		f.List.VisibleStart = f.List.VisibleEnd - f.List.MaxLine
-	}
-
-	if f.List.VisibleStart < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-	if f.List.VisibleEnd < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-
-	diff := f.List.VisibleStart - oldStart
-	f.List.Selection += diff
-}
-
 func NewFilePickerBuffer(parent *Preditor,
 	cfg *Config,
-	root string,
-	maxH int32,
-	maxW int32,
-	zeroLocation rl.Vector2) *FilePickerBuffer {
+	root string) *FilePickerBuffer {
 	if root == "" {
 		root, _ = os.Getwd()
 	}
@@ -65,22 +32,13 @@ func NewFilePickerBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
-	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
-	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
 
 	ofb := &FilePickerBuffer{
-		cfg:       cfg,
-		parent:    parent,
-		keymaps:   []Keymap{FilePickerKeymap},
-		maxHeight: maxH,
-		maxWidth:  maxW,
-		List: ListComponent[LocationItem]{
-			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
-			VisibleStart: 0,
-			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH-startOfListY) - 1),
-		},
-		ZeroLocation:       zeroLocation,
-		UserInputComponent: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		cfg:                cfg,
+		parent:             parent,
+		keymaps:            []Keymap{FilePickerKeymap},
+		List:               ListComponent[LocationItem]{},
+		UserInputComponent: NewUserInputComponent(parent, cfg),
 	}
 
 	ofb.UserInputComponent.setNewUserInput([]byte(absRoot))
@@ -128,55 +86,37 @@ func (f *FilePickerBuffer) calculateLocationItems() {
 	return
 }
 
-func (f *FilePickerBuffer) Render() {
+func (f *FilePickerBuffer) Render(ZeroLocation rl.Vector2, maxH int32, maxW int32) {
 	f.calculateLocationItems()
 	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(ZeroLocation.X), int32(ZeroLocation.Y), maxW, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(f.parent.Font, string(f.UserInputComponent.UserInput), rl.Vector2{
-		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
+		X: ZeroLocation.X, Y: ZeroLocation.Y + charSize.Y/2,
 	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	startOfListY := int32(ZeroLocation.Y) + int32(3*(charSize.Y))
 	//draw list of items
 	for idx, item := range f.List.Items {
 		rl.DrawTextEx(f.parent.Font, item.Filename, rl.Vector2{
-			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
+			X: ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 	}
 
 	if len(f.List.Items) > 0 {
-		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
+		rl.DrawRectangle(int32(ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), maxW, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
-}
-
-func (f *FilePickerBuffer) SetMaxWidth(w int32) {
-	f.maxWidth = w
-	f.HandleFontChange()
-}
-
-func (f *FilePickerBuffer) SetMaxHeight(h int32) {
-	f.maxHeight = h
-	f.HandleFontChange()
-}
-
-func (f *FilePickerBuffer) GetMaxWidth() int32 {
-	return f.maxWidth
-}
-
-func (f *FilePickerBuffer) GetMaxHeight() int32 {
-	return f.maxHeight
 }
 
 func (f *FilePickerBuffer) Keymaps() []Keymap {
@@ -185,7 +125,7 @@ func (f *FilePickerBuffer) Keymaps() []Keymap {
 
 func (f *FilePickerBuffer) openUserInput() error {
 	f.parent.KillBuffer(f.parent.ActiveBufferID)
-	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -195,13 +135,13 @@ func (f *FilePickerBuffer) openUserInput() error {
 func (f *FilePickerBuffer) openSelection() error {
 	f.parent.KillBuffer(f.parent.ActiveBufferID)
 	if f.List.Selection < 0 || f.List.Selection >= len(f.List.Items) {
-		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), nil)
 		if err != nil {
 			panic(err)
 		}
 	} else {
 
-		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, nil)
 		if err != nil {
 			panic(err)
 		}

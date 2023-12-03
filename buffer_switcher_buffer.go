@@ -7,101 +7,45 @@ import (
 
 type BufferSwitcherBuffer struct {
 	BaseBuffer
-	cfg          *Config
-	parent       *Preditor
-	keymaps      []Keymap
-	maxHeight    int32
-	maxWidth     int32
-	ZeroLocation rl.Vector2
-	List         ListComponent[Buffer]
+	cfg     *Config
+	parent  *Preditor
+	keymaps []Keymap
+	List    ListComponent[Buffer]
 }
 
 func NewBufferSwitcherBuffer(parent *Preditor,
-	cfg *Config,
-	maxH int32,
-	maxW int32,
-	zeroLocation rl.Vector2) *BufferSwitcherBuffer {
+	cfg *Config) *BufferSwitcherBuffer {
 	var buffers []Buffer
 	for _, v := range parent.Buffers {
 		buffers = append(buffers, v)
 	}
 	bufferSwitcher := &BufferSwitcherBuffer{
-		cfg:          cfg,
-		parent:       parent,
-		keymaps:      []Keymap{bufferSwitcherKeymap},
-		maxHeight:    maxH,
-		maxWidth:     maxW,
-		ZeroLocation: zeroLocation,
+		cfg:     cfg,
+		parent:  parent,
+		keymaps: []Keymap{bufferSwitcherKeymap},
 		List: ListComponent[Buffer]{
 			Items:        buffers,
-			MaxLine:      int(parent.MaxHeightToMaxLine(maxH)),
 			VisibleStart: 0,
-			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH) - 1),
 		},
 	}
 	return bufferSwitcher
 }
 
-func (b *BufferSwitcherBuffer) HandleFontChange() {
+func (b *BufferSwitcherBuffer) Render(zeroPosition rl.Vector2, maxH int32, maxW int32) {
 	charSize := measureTextSize(b.parent.Font, ' ', b.parent.FontSize, 0)
-	startOfListY := int32(b.ZeroLocation.Y) + int32(3*(charSize.Y))
-	oldEnd := b.List.VisibleEnd
-	oldStart := b.List.VisibleStart
-	b.List.MaxLine = int(b.parent.MaxHeightToMaxLine(b.maxHeight - startOfListY))
-	b.List.VisibleEnd = int(b.parent.MaxHeightToMaxLine(b.maxHeight - startOfListY))
-	b.List.VisibleStart += (b.List.VisibleEnd - oldEnd)
-
-	if int(b.List.VisibleEnd) >= len(b.List.Items) {
-		b.List.VisibleEnd = len(b.List.Items) - 1
-		b.List.VisibleStart = b.List.VisibleEnd - b.List.MaxLine
-	}
-
-	if b.List.VisibleStart < 0 {
-		b.List.VisibleStart = 0
-		b.List.VisibleEnd = b.List.MaxLine
-	}
-	if b.List.VisibleEnd < 0 {
-		b.List.VisibleStart = 0
-		b.List.VisibleEnd = b.List.MaxLine
-	}
-
-	diff := b.List.VisibleStart - oldStart
-	b.List.Selection += diff
-}
-
-func (b *BufferSwitcherBuffer) Render() {
-	charSize := measureTextSize(b.parent.Font, ' ', b.parent.FontSize, 0)
-
+	maxLine := maxH / int32(charSize.Y)
 	//draw list of items
-	for idx, item := range b.List.VisibleView() {
+	for idx, item := range b.List.VisibleView(int(maxLine)) {
 		rl.DrawTextEx(b.parent.Font, item.String(), rl.Vector2{
-			X: b.ZeroLocation.X, Y: b.ZeroLocation.Y + float32(idx)*charSize.Y,
+			X: zeroPosition.X, Y: zeroPosition.Y + float32(idx)*charSize.Y,
 		}, float32(b.parent.FontSize), 0, b.cfg.Colors.Foreground)
 	}
 	//draw selection
-	rl.DrawRectangle(int32(b.ZeroLocation.X), int32(b.ZeroLocation.Y+float32(float32(b.List.Selection)*charSize.Y)), b.maxWidth, int32(charSize.Y), rl.Fade(b.cfg.Colors.Selection, 0.3))
+	rl.DrawRectangle(int32(zeroPosition.X), int32(zeroPosition.Y+float32(float32(b.List.Selection)*charSize.Y)), maxW, int32(charSize.Y), rl.Fade(b.cfg.Colors.Selection, 0.3))
 }
 
 func (b *BufferSwitcherBuffer) String() string {
 	return fmt.Sprintf("BufferSwitcher")
-}
-
-func (b *BufferSwitcherBuffer) SetMaxWidth(w int32) {
-	b.maxWidth = w
-	b.HandleFontChange()
-}
-
-func (b *BufferSwitcherBuffer) SetMaxHeight(h int32) {
-	b.maxHeight = h
-	b.HandleFontChange()
-}
-
-func (b *BufferSwitcherBuffer) GetMaxWidth() int32 {
-	return b.maxWidth
-}
-
-func (b *BufferSwitcherBuffer) GetMaxHeight() int32 {
-	return b.maxHeight
 }
 
 func (b *BufferSwitcherBuffer) Keymaps() []Keymap {
@@ -111,8 +55,8 @@ func (b *BufferSwitcherBuffer) Keymaps() []Keymap {
 var bufferSwitcherKeymap = Keymap{
 	Key{K: "<enter>"}: func(preditor *Preditor) error {
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
+		preditor.KillBuffer(buffer.ID)
 		preditor.MarkBufferAsActive(buffer.List.Items[buffer.List.Selection].GetID())
-
 		return nil
 	},
 	Key{K: "<up>"}: func(preditor *Preditor) error {

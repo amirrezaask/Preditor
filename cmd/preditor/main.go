@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"github.com/amirrezaask/preditor"
-	rl "github.com/gen2brain/raylib-go/raylib"
 	"os"
 	"path"
 )
@@ -36,7 +35,7 @@ func main() {
 		}
 	}
 
-	err = preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, editor.OSWindowHeight, editor.OSWindowWidth, rl.Vector2{}, nil)
+	err = preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, nil)
 	if err != nil {
 		panic(err)
 	}
