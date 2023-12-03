@@ -47,7 +47,6 @@ type Preditor struct {
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
 	Commands          Commands
-	Colors            Colors
 	FontPath          string
 	Font              rl.Font
 	FontSize          int32
@@ -161,7 +160,7 @@ func (e *Preditor) HandleKeyEvents() {
 
 func (e *Preditor) Render() {
 	rl.BeginDrawing()
-	rl.ClearBackground(e.Colors.Background)
+	rl.ClearBackground(e.Cfg.Colors.Background)
 	e.ActiveBuffer().Render()
 	rl.EndDrawing()
 }

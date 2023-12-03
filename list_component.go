@@ -14,7 +14,7 @@ func (l *ListComponent[T]) NextItem() {
 		l.Selection = len(l.Items) - 1
 	}
 
-	if l.Selection > l.VisibleEnd {
+	if l.Selection >= l.VisibleEnd {
 		l.VisibleEnd++
 		l.VisibleStart++
 		if l.VisibleEnd >= len(l.Items)-1 {
@@ -22,6 +22,7 @@ func (l *ListComponent[T]) NextItem() {
 		}
 	}
 }
+
 func (l *ListComponent[T]) PrevItem() {
 	l.Selection--
 	if l.Selection < 0 {

@@ -91,7 +91,7 @@ func NewGrepBuffer(parent *Preditor,
 		ZeroLocation: zeroLocation,
 		List: ListComponent[GrepLocationItem]{
 			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
-			VisibleStart: 0, VisibleEnd: int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
+			VisibleStart: 0, VisibleEnd: int(parent.MaxHeightToMaxLine(maxH-startOfListY) - 1),
 		},
 		maxColumn:    int(maxW / int32(charSize.X)),
 		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
