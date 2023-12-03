@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"image/color"
+	"math"
 	"os"
 	"path"
 	"sort"
@@ -916,18 +917,12 @@ func (e *TextBuffer) PreviousWord() error {
 
 func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	apprLine := pos.Y / charSize.Y
-	apprColumn := pos.X / charSize.X
+	apprLine := math.Floor(float64(pos.Y / charSize.Y))
+	apprColumn := math.Floor(float64(pos.X / charSize.X))
 
-	//TODO: fix this for line numbers feature
-	//if e.cfg.LineNumbers {
-	//	var line int
-	//	if len(e.visualLines) > cursor.Line {
-	//		line = e.visualLines[cursor.Line].ActualLine
-	//	}
-	//	apprColumn -= float32((len(fmt.Sprint(line)) + 1))
-	//
-	//}
+	if e.cfg.LineNumbers {
+		apprColumn -= float64((len(fmt.Sprint(apprLine)) + 1))
+	}
 
 	if len(e.visualLines) < 1 {
 		return nil
@@ -1244,7 +1239,7 @@ var EditorKeymap = Keymap{
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
 		return nil
 	}),
-	Key{K: "x", Alt: true}: makeCommand(func(a *TextBuffer) error {
+	Key{K: "w", Control: true}: makeCommand(func(a *TextBuffer) error {
 		return a.Write()
 	}),
 

@@ -65,7 +65,8 @@ func addToConfig(cfg *Config, key string, value string) error {
 		case "outline":
 			cfg.CursorShape = CURSOR_SHAPE_OUTLINE
 		}
-
+	case "line_numbers":
+		cfg.LineNumbers = value == "true"
 	case "cursor_blinking":
 		cfg.CursorBlinking = value == "true"
 	case "font":
