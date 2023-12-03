@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"os"
 	"path"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -584,24 +583,15 @@ func (e *TextBuffer) convertBufferIndexToLineAndColumn(idx int) *Position {
 
 	return nil
 }
-func (e *TextBuffer) findMatchesRegex(pattern string) error {
+func (e *TextBuffer) findMatches(pattern string) error {
 	e.SearchMatches = [][]int{}
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return err
-	}
-
-	matches := re.FindAllStringIndex(string(e.Content), -1)
-	for _, match := range matches {
-		e.SearchMatches = append(e.SearchMatches, match)
-	}
-
+	matchPatternAsync(&e.SearchMatches, e.Content, []byte(pattern))
 	return nil
 }
 
 func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2) error {
 	if pattern != e.LastSearchString {
-		if err := e.findMatchesRegex(pattern); err != nil {
+		if err := e.findMatches(pattern); err != nil {
 			return err
 		}
 	}
@@ -1543,8 +1533,9 @@ var SearchTextBufferKeymap = Keymap{
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
 		}
-
-		editor.bufferIndex = editor.SearchMatches[editor.CurrentMatch][0]
+		if len(editor.SearchMatches) > 0 {
+			editor.bufferIndex = editor.SearchMatches[editor.CurrentMatch][0]
+		}
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
