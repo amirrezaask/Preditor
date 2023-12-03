@@ -28,9 +28,10 @@ func NewBufferSwitcherBuffer(parent *Preditor,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
 		List: ListComponent[Buffer]{
+			Items:        parent.Buffers,
 			MaxLine:      int(parent.MaxHeightToMaxLine(maxH)),
 			VisibleStart: 0,
-			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH)),
+			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH) - 1),
 		},
 	}
 	return bufferSwitcher
@@ -67,7 +68,7 @@ func (b *BufferSwitcherBuffer) Render() {
 	charSize := measureTextSize(b.parent.Font, ' ', b.parent.FontSize, 0)
 
 	//draw list of items
-	for idx, item := range b.List.Items {
+	for idx, item := range b.List.VisibleView() {
 		rl.DrawTextEx(b.parent.Font, item.String(), rl.Vector2{
 			X: b.ZeroLocation.X, Y: b.ZeroLocation.Y + float32(idx)*charSize.Y,
 		}, float32(b.parent.FontSize), 0, b.cfg.Colors.Foreground)

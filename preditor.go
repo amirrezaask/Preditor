@@ -42,14 +42,18 @@ type Buffer interface {
 
 type Preditor struct {
 	Cfg               *Config
+	ScratchBufferID   int
+	MessageBufferID   int
 	Buffers           []Buffer
 	ActiveBufferIndex int
-	GlobalKeymaps     []Keymap
+	GlobalKeymap      Keymap
 	GlobalVariables   Variables
 	Commands          Commands
 	FontPath          string
 	Font              rl.Font
 	FontSize          int32
+	OSWindowHeight    int32
+	OSWindowWidth     int32
 }
 
 var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
@@ -144,11 +148,24 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 	return
 }
 
+func (e *Preditor) KillBuffer(id int) {
+	if id == len(e.Buffers)-1 {
+		e.Buffers = e.Buffers[:len(e.Buffers)-1]
+	} else {
+		e.Buffers = append(e.Buffers[:id], e.Buffers[id+1:]...)
+	}
+
+	if id == e.ActiveBufferIndex {
+		e.ActiveBufferIndex = len(e.Buffers) - 1
+	}
+}
+
 func (e *Preditor) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveBuffer().Keymaps()) - 1; i >= 0; i-- {
-			cmd := e.ActiveBuffer().Keymaps()[i][key]
+		keymaps := append([]Keymap{e.GlobalKeymap}, e.ActiveBuffer().Keymaps()...)
+		for i := len(keymaps) - 1; i >= 0; i-- {
+			cmd := keymaps[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
@@ -173,17 +190,17 @@ func (e *Preditor) HandleFontChange() {
 }
 
 func (e *Preditor) HandleWindowResize() {
-	height := rl.GetRenderHeight()
-	width := rl.GetRenderWidth()
+	e.OSWindowHeight = int32(rl.GetRenderHeight())
+	e.OSWindowWidth = int32(rl.GetRenderWidth())
 
 	// window is resized
 	for _, buffer := range e.Buffers {
-		if buffer.GetMaxWidth() != int32(width) {
-			buffer.SetMaxWidth(int32(width))
+		if buffer.GetMaxWidth() != int32(e.OSWindowHeight) {
+			buffer.SetMaxWidth(int32(e.OSWindowWidth))
 		}
 
-		if buffer.GetMaxHeight() != int32(height) {
-			buffer.SetMaxHeight(int32(height))
+		if buffer.GetMaxHeight() != int32(e.OSWindowHeight) {
+			buffer.SetMaxHeight(int32(e.OSWindowWidth))
 
 		}
 	}
@@ -192,8 +209,9 @@ func (e *Preditor) HandleWindowResize() {
 func (e *Preditor) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveBuffer().Keymaps()) - 1; i >= 0; i-- {
-			cmd := e.ActiveBuffer().Keymaps()[i][key]
+		keymaps := append([]Keymap{e.GlobalKeymap}, e.ActiveBuffer().Keymaps()...)
+		for i := len(keymaps) - 1; i >= 0; i-- {
+			cmd := keymaps[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
@@ -530,12 +548,30 @@ func New(cfg *Config) (*Preditor, error) {
 		panic(err)
 	}
 	p := &Preditor{
-		Cfg: cfg,
+		Cfg:            cfg,
+		OSWindowHeight: int32(rl.GetRenderHeight()),
+		OSWindowWidth:  int32(rl.GetRenderWidth()),
 	}
 	err := p.LoadFont(cfg.FontName, int32(cfg.FontSize))
 	if err != nil {
 		return nil, err
 	}
+	scratch, err := NewTextBuffer(p, p.Cfg, "*Scratch*", p.OSWindowHeight, p.OSWindowWidth, rl.Vector2{})
+	if err != nil {
+		return nil, err
+	}
+	message, err := NewTextBuffer(p, p.Cfg, "*Messages*", p.OSWindowHeight, p.OSWindowWidth, rl.Vector2{})
+	if err != nil {
+		return nil, err
+	}
+
+	p.Buffers = append(p.Buffers, scratch)
+	p.ScratchBufferID = len(p.Buffers) - 1
+
+	p.Buffers = append(p.Buffers, message)
+	p.MessageBufferID = len(p.Buffers) - 1
+
+	p.GlobalKeymap = GlobalKeymap
 
 	return p, nil
 }
