@@ -12,6 +12,7 @@ type LocationItemScored struct {
 }
 
 type FuzzyFilePickerBuffer struct {
+	BaseBuffer
 	Root                           string
 	cfg                            *Config
 	parent                         *Preditor

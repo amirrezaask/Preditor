@@ -6,6 +6,7 @@ import (
 )
 
 type BufferSwitcherBuffer struct {
+	BaseBuffer
 	cfg          *Config
 	parent       *Preditor
 	keymaps      []Keymap
@@ -20,6 +21,10 @@ func NewBufferSwitcherBuffer(parent *Preditor,
 	maxH int32,
 	maxW int32,
 	zeroLocation rl.Vector2) *BufferSwitcherBuffer {
+	var buffers []Buffer
+	for _, v := range parent.Buffers {
+		buffers = append(buffers, v)
+	}
 	bufferSwitcher := &BufferSwitcherBuffer{
 		cfg:          cfg,
 		parent:       parent,
@@ -28,7 +33,7 @@ func NewBufferSwitcherBuffer(parent *Preditor,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
 		List: ListComponent[Buffer]{
-			Items:        parent.Buffers,
+			Items:        buffers,
 			MaxLine:      int(parent.MaxHeightToMaxLine(maxH)),
 			VisibleStart: 0,
 			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH) - 1),
@@ -106,7 +111,7 @@ func (b *BufferSwitcherBuffer) Keymaps() []Keymap {
 var bufferSwitcherKeymap = Keymap{
 	Key{K: "<enter>"}: func(preditor *Preditor) error {
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
-		preditor.ActiveBufferIndex = buffer.List.Selection
+		preditor.MarkBufferAsActive(buffer.List.Items[buffer.List.Selection].GetID())
 
 		return nil
 	},

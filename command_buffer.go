@@ -19,6 +19,7 @@ type CommandLocationItem struct {
 }
 
 type CommandBuffer struct {
+	BaseBuffer
 	cfg          *Config
 	parent       *Preditor
 	keymaps      []Keymap
@@ -167,9 +168,7 @@ func init() {
 			return nil
 		}),
 		Key{K: "<esc>"}: makeCommandBufferCommand(func(p *CommandBuffer) error {
-			// maybe close ?
-			p.parent.Buffers = p.parent.Buffers[:len(p.parent.Buffers)-1]
-			p.parent.ActiveBufferIndex = len(p.parent.Buffers) - 1
+			p.parent.KillBuffer(p.ID)
 			return nil
 		}),
 

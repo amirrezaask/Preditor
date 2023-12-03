@@ -24,6 +24,7 @@ const (
 
 // TODO: add a flag to check if buffer is writable or readonly, then we can use this code to add compiler output stuff
 type TextBuffer struct {
+	BaseBuffer
 	cfg                       *Config
 	parent                    *Preditor
 	File                      string
@@ -56,6 +57,7 @@ type TextBuffer struct {
 	UndoStack                 Stack[EditorAction]
 	isGotoLine                bool
 	gotoLineBuffer            []byte
+	Readonly                  bool
 }
 
 const (
@@ -78,7 +80,7 @@ func (e *TextBuffer) Keymaps() []Keymap {
 	return e.keymaps
 }
 
-func (e *TextBuffer) IsNormalFile() bool {
+func (e *TextBuffer) IsSpecial() bool {
 	return e.File != "" && e.File[0] != '*'
 }
 
@@ -166,7 +168,7 @@ func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string
 		switch t := buf.(type) {
 		case *TextBuffer:
 			if t.File == filename {
-				parent.ActiveBufferIndex = idx
+				parent.ActiveBufferID = idx
 				if startingPos != nil {
 					t.bufferIndex = t.positionToBufferIndex(*startingPos)
 					t.ScrollIfNeeded()
@@ -186,11 +188,8 @@ func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string
 		tb.ScrollIfNeeded()
 
 	}
-
-	parent.Buffers = append(parent.Buffers, tb)
-
-	parent.ActiveBufferIndex = len(parent.Buffers) - 1
-
+	parent.AddBuffer(tb)
+	parent.MarkBufferAsActive(tb.ID)
 	return nil
 }
 
@@ -468,9 +467,7 @@ func (e *TextBuffer) renderStatusBar() {
 		e.cfg.Colors.StatusBarBackground,
 	)
 	file := e.File
-	if file == "" {
-		file = "[scratch]"
-	}
+
 	var state string
 	if e.State == State_Dirty {
 		state = "**"
@@ -493,8 +490,9 @@ func (e *TextBuffer) renderStatusBar() {
 		gotoLine = fmt.Sprintf("Goto Line: %s", e.gotoLineBuffer)
 	}
 
+	statusbar := fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
 	rl.DrawTextEx(e.parent.Font,
-		fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine),
+		statusbar,
 		rl.Vector2{X: e.ZeroPosition.X, Y: float32(e.maxLine) * charSize.Y},
 		float32(e.parent.FontSize),
 		0,
@@ -703,6 +701,9 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 }
 
 func (e *TextBuffer) deleteSelectionIfSelection() {
+	if e.Readonly {
+		return
+	}
 	if e.SelectionStart == -1 {
 		return
 	}
@@ -719,6 +720,9 @@ func (e *TextBuffer) deleteSelectionIfSelection() {
 }
 
 func (e *TextBuffer) InsertCharAtCursor(char byte) error {
+	if e.Readonly {
+		return nil
+	}
 	e.deleteSelectionIfSelection()
 	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.Content = append(e.Content, char)
@@ -738,6 +742,9 @@ func (e *TextBuffer) InsertCharAtCursor(char byte) error {
 }
 
 func (e *TextBuffer) DeleteCharBackward() error {
+	if e.Readonly {
+		return nil
+	}
 	if e.SelectionStart != -1 {
 		e.deleteSelectionIfSelection()
 		e.SelectionStart = -1
@@ -768,6 +775,9 @@ func (e *TextBuffer) DeleteCharBackward() error {
 }
 
 func (e *TextBuffer) DeleteCharForward() error {
+	if e.Readonly {
+		return nil
+	}
 	if len(e.Content) > e.bufferIndex {
 		e.AddUndoAction(EditorAction{
 			Type: EditorActionType_Delete,
@@ -1000,7 +1010,7 @@ func (e *TextBuffer) ScrollIfNeeded() error {
 }
 
 func (e *TextBuffer) Write() error {
-	if e.IsNormalFile() {
+	if e.Readonly && e.IsSpecial() {
 		return nil
 	}
 
@@ -1066,6 +1076,9 @@ func (e *TextBuffer) Copy() error {
 	return nil
 }
 func (e *TextBuffer) KillLine() error {
+	if e.Readonly {
+		return nil
+	}
 	if e.SelectionStart != -1 {
 		// Copy selection
 		switch {
@@ -1107,6 +1120,9 @@ func (e *TextBuffer) KillLine() error {
 	return nil
 }
 func (e *TextBuffer) Cut() error {
+	if e.Readonly {
+		return nil
+	}
 	if e.SelectionStart != -1 {
 		// Copy selection
 		switch {
@@ -1147,6 +1163,9 @@ func (e *TextBuffer) Cut() error {
 	return nil
 }
 func (e *TextBuffer) Paste() error {
+	if e.Readonly {
+		return nil
+	}
 	e.deleteSelectionIfSelection()
 	e.SelectionStart = -1
 
@@ -1174,6 +1193,9 @@ func (e *TextBuffer) Paste() error {
 }
 
 func (e *TextBuffer) DeleteWordBackward() {
+	if e.Readonly {
+		return
+	}
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
 	if len(e.Content) > e.bufferIndex+1 {

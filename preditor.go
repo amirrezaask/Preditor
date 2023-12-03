@@ -30,6 +30,8 @@ type Colors struct {
 }
 
 type Buffer interface {
+	GetID() int
+	SetID(int)
 	Render()
 	SetMaxWidth(w int32)
 	SetMaxHeight(h int32)
@@ -39,22 +41,32 @@ type Buffer interface {
 	HandleFontChange()
 	fmt.Stringer
 }
+type BaseBuffer struct {
+	ID int
+}
+
+func (b BaseBuffer) GetID() int {
+	return b.ID
+}
+func (b *BaseBuffer) SetID(i int) {
+	b.ID = i
+}
 
 type Preditor struct {
-	CWD               string
-	Cfg               *Config
-	ScratchBufferID   int
-	MessageBufferID   int
-	Buffers           []Buffer
-	ActiveBufferIndex int
-	GlobalKeymap      Keymap
-	GlobalVariables   Variables
-	Commands          Commands
-	FontPath          string
-	Font              rl.Font
-	FontSize          int32
-	OSWindowHeight    int32
-	OSWindowWidth     int32
+	CWD             string
+	Cfg             *Config
+	ScratchBufferID int
+	MessageBufferID int
+	Buffers         map[int]Buffer
+	ActiveBufferID  int
+	GlobalKeymap    Keymap
+	GlobalVariables Variables
+	Commands        Commands
+	FontPath        string
+	Font            rl.Font
+	FontSize        int32
+	OSWindowHeight  int32
+	OSWindowWidth   int32
 }
 
 var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
@@ -67,12 +79,33 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 	return charSize
 }
 func (p *Preditor) getCWD() string {
-	if tb, isTextBuffer := p.ActiveBuffer().(*TextBuffer); isTextBuffer && tb.IsNormalFile() {
+	if tb, isTextBuffer := p.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.File)
 	} else {
 		return p.CWD
 	}
 }
+func (p *Preditor) AddBuffer(b Buffer) {
+	id := len(p.Buffers) + 1
+	p.Buffers[id] = b
+	b.SetID(id)
+}
+func (p *Preditor) MarkBufferAsActive(id int) {
+	p.ActiveBufferID = id
+}
+
+func (p *Preditor) GetBuffer(id int) Buffer {
+	return p.Buffers[id]
+}
+
+func (e *Preditor) KillBuffer(id int) {
+	delete(e.Buffers, id)
+
+	for k := range e.Buffers {
+		e.ActiveBufferID = k
+	}
+}
+
 func (p *Preditor) LoadFont(name string, size int32) error {
 	var err error
 	p.FontPath, err = findfont.Find(name + ".ttf")
@@ -101,7 +134,7 @@ func (p *Preditor) DecreaseFontSize(n int) {
 }
 
 func (e *Preditor) ActiveBuffer() Buffer {
-	return e.Buffers[e.ActiveBufferIndex]
+	return e.Buffers[e.ActiveBufferID]
 }
 
 type Command func(*Preditor) error
@@ -153,18 +186,6 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 	out.B = uint8(blue)
 	out.A = 255
 	return
-}
-
-func (e *Preditor) KillBuffer(id int) {
-	if id == len(e.Buffers)-1 {
-		e.Buffers = e.Buffers[:len(e.Buffers)-1]
-	} else {
-		e.Buffers = append(e.Buffers[:id], e.Buffers[id+1:]...)
-	}
-
-	if id == e.ActiveBufferIndex {
-		e.ActiveBufferIndex = len(e.Buffers) - 1
-	}
 }
 
 func (e *Preditor) HandleKeyEvents() {
@@ -556,6 +577,7 @@ func New(cfg *Config) (*Preditor, error) {
 	}
 	p := &Preditor{
 		Cfg:            cfg,
+		Buffers:        map[int]Buffer{},
 		OSWindowHeight: int32(rl.GetRenderHeight()),
 		OSWindowWidth:  int32(rl.GetRenderWidth()),
 	}
@@ -572,12 +594,10 @@ func New(cfg *Config) (*Preditor, error) {
 		return nil, err
 	}
 
-	p.Buffers = append(p.Buffers, scratch)
-	p.ScratchBufferID = len(p.Buffers) - 1
+	p.AddBuffer(scratch)
+	p.AddBuffer(message)
 
-	p.Buffers = append(p.Buffers, message)
-	p.MessageBufferID = len(p.Buffers) - 1
-
+	p.MarkBufferAsActive(scratch.ID)
 	p.GlobalKeymap = GlobalKeymap
 
 	return p, nil
@@ -617,26 +637,25 @@ func (p *Preditor) MaxWidthToMaxColumn(maxW int32) int32 {
 
 func (e *Preditor) openFileBuffer() {
 	ofb := NewFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
-	e.Buffers = append(e.Buffers, ofb)
-	e.ActiveBufferIndex = len(e.Buffers) - 1
+	e.AddBuffer(ofb)
+	e.MarkBufferAsActive(ofb.ID)
 }
 
 func (e *Preditor) openFuzzyFilePicker() {
 	ofb := NewFuzzyFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	e.AddBuffer(ofb)
+	e.MarkBufferAsActive(ofb.ID)
 
-	e.Buffers = append(e.Buffers, ofb)
-	e.ActiveBufferIndex = len(e.Buffers) - 1
 }
 func (e *Preditor) openBufferSwitcher() {
 	ofb := NewBufferSwitcherBuffer(e, e.Cfg, e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	e.AddBuffer(ofb)
+	e.MarkBufferAsActive(ofb.ID)
 
-	e.Buffers = append(e.Buffers, ofb)
-	e.ActiveBufferIndex = len(e.Buffers) - 1
 }
 
 func (e *Preditor) openGrepBuffer() {
 	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
-
-	e.Buffers = append(e.Buffers, ofb)
-	e.ActiveBufferIndex = len(e.Buffers) - 1
+	e.AddBuffer(ofb)
+	e.MarkBufferAsActive(ofb.ID)
 }
