@@ -1543,6 +1543,8 @@ var SearchTextBufferKeymap = Keymap{
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
 		}
+
+		editor.bufferIndex = editor.SearchMatches[editor.CurrentMatch][0]
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
