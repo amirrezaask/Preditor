@@ -41,6 +41,7 @@ type Buffer interface {
 }
 
 type Preditor struct {
+	CWD               string
 	Cfg               *Config
 	ScratchBufferID   int
 	MessageBufferID   int
@@ -65,7 +66,13 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 	charSizeCache[s] = charSize
 	return charSize
 }
-
+func (p *Preditor) getCWD() string {
+	if tb, isTextBuffer := p.ActiveBuffer().(*TextBuffer); isTextBuffer && tb.IsNormalFile() {
+		return path.Dir(tb.File)
+	} else {
+		return p.CWD
+	}
+}
 func (p *Preditor) LoadFont(name string, size int32) error {
 	var err error
 	p.FontPath, err = findfont.Find(name + ".ttf")
@@ -606,4 +613,30 @@ func (p *Preditor) MaxHeightToMaxLine(maxH int32) int32 {
 }
 func (p *Preditor) MaxWidthToMaxColumn(maxW int32) int32 {
 	return maxW / int32(measureTextSize(p.Font, ' ', p.FontSize, 0).X)
+}
+
+func (e *Preditor) openFileBuffer() {
+	ofb := NewFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	e.Buffers = append(e.Buffers, ofb)
+	e.ActiveBufferIndex = len(e.Buffers) - 1
+}
+
+func (e *Preditor) openFuzzyFilePicker() {
+	ofb := NewFuzzyFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+
+	e.Buffers = append(e.Buffers, ofb)
+	e.ActiveBufferIndex = len(e.Buffers) - 1
+}
+func (e *Preditor) openBufferSwitcher() {
+	ofb := NewBufferSwitcherBuffer(e, e.Cfg, e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+
+	e.Buffers = append(e.Buffers, ofb)
+	e.ActiveBufferIndex = len(e.Buffers) - 1
+}
+
+func (e *Preditor) openGrepBuffer() {
+	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+
+	e.Buffers = append(e.Buffers, ofb)
+	e.ActiveBufferIndex = len(e.Buffers) - 1
 }

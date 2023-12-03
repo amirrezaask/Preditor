@@ -78,6 +78,10 @@ func (e *TextBuffer) Keymaps() []Keymap {
 	return e.keymaps
 }
 
+func (e *TextBuffer) IsNormalFile() bool {
+	return e.File != "" && e.File[0] != '*'
+}
+
 func (e *TextBuffer) AddUndoAction(a EditorAction) {
 	a.BufferIndex = e.bufferIndex
 	a.Data = bytes.Clone(a.Data)
@@ -996,7 +1000,7 @@ func (e *TextBuffer) ScrollIfNeeded() error {
 }
 
 func (e *TextBuffer) Write() error {
-	if e.File == "" || e.File[0] == '*' {
+	if e.IsNormalFile() {
 		return nil
 	}
 
@@ -1169,47 +1173,6 @@ func (e *TextBuffer) Paste() error {
 	return nil
 }
 
-func (e *TextBuffer) openFileBuffer() {
-	dir := path.Dir(e.File)
-	ofb := NewFilePickerBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
-
-	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
-}
-func (e *TextBuffer) openFuzzyFilePicker() {
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Cannot get wd: ", err.Error())
-		return
-	}
-	ofb := NewFuzzyFilePickerBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
-
-	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
-}
-func (e *TextBuffer) openBufferSwitcher() {
-	ofb := NewBufferSwitcherBuffer(e.parent, e.cfg, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
-
-	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
-}
-
-func (e *TextBuffer) openGrepBuffer() {
-	dir := path.Dir(e.File)
-	ofb := NewGrepBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
-
-	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
-}
-
-func (e *TextBuffer) openCommandBuffer() {
-	dir := path.Dir(e.File)
-	ofb := NewCommandBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
-
-	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
-}
-
 func (e *TextBuffer) DeleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
@@ -1289,31 +1252,7 @@ var EditorKeymap = Keymap{
 	Key{K: "x", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		return a.Write()
 	}),
-	Key{K: "o", Alt: true}: makeCommand(func(a *TextBuffer) error {
-		a.openFileBuffer()
 
-		return nil
-	}),
-	Key{K: "o", Alt: true, Shift: true}: makeCommand(func(a *TextBuffer) error {
-		a.openFuzzyFilePicker()
-
-		return nil
-	}),
-	Key{K: "b", Alt: true}: makeCommand(func(a *TextBuffer) error {
-		a.openBufferSwitcher()
-
-		return nil
-	}),
-	Key{K: "s", Alt: true}: makeCommand(func(a *TextBuffer) error {
-		a.openGrepBuffer()
-
-		return nil
-	}),
-	Key{K: "c", Alt: true}: makeCommand(func(a *TextBuffer) error {
-		a.openCommandBuffer()
-
-		return nil
-	}),
 	Key{K: "<esc>"}: makeCommand(func(p *TextBuffer) error {
 		if p.SelectionStart != -1 {
 			p.SelectionStart = -1
