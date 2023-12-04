@@ -413,17 +413,7 @@ func (e *TextBuffer) calculateVisualLines() {
 }
 
 func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH int32, maxW int32) {
-	//selections := map[string]struct{}{}
-	//for i := range e.Selections {
-	//	selections[fmt.Sprintf("%d:%d", e.Selections[i].Start, e.Selections[i].End)] = struct{}{}
-	//}
-	//
-	//e.Selections = nil
-	//for k := range selections {
-	//	start, _ := strconv.Atoi(strings.Split(k, ":")[0])
-	//	end, _ := strconv.Atoi(strings.Split(k, ":")[1])
-	//	e.Selections = append(e.Selections, Selection{Start: start, End: end})
-	//}
+
 	//TODO:
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 
@@ -560,14 +550,6 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 	}
 
 }
-
-//func (e *TextBuffer) renderSelection(zeroLocation rl.Vector2) {
-//	if e.SelectionStart == -1 {
-//		return
-//	}
-//	e.highlightBetweenTwoIndexes(zeroLocation, e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
-//
-//}
 
 func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	e.calculateVisualLines()
@@ -745,14 +727,30 @@ func (e *TextBuffer) sortSelections() {
 	})
 }
 
+func (e *TextBuffer) removeDuplicateSelectionsAndSort() {
+	selections := map[string]struct{}{}
+	for i := range e.Selections {
+		selections[fmt.Sprintf("%d:%d", e.Selections[i].Start, e.Selections[i].End)] = struct{}{}
+	}
+
+	e.Selections = nil
+	for k := range selections {
+		start, _ := strconv.Atoi(strings.Split(k, ":")[0])
+		end, _ := strconv.Atoi(strings.Split(k, ":")[1])
+		e.Selections = append(e.Selections, Selection{Start: start, End: end})
+	}
+
+	e.sortSelections()
+}
+
 func (e *TextBuffer) InsertCharAtCursor(char byte) error {
 	if e.Readonly {
 		return nil
 	}
-	e.sortSelections()
+	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionIfSelection()
 	for i := range e.Selections {
-		e.CursorRight(&e.Selections[i], i*1)
+		e.MoveRight(&e.Selections[i], i*1)
 
 		if e.Selections[i].Start >= len(e.Content) { // end of file, appending
 			e.Content = append(e.Content, char)
@@ -766,7 +764,7 @@ func (e *TextBuffer) InsertCharAtCursor(char byte) error {
 			Idx:  e.Selections[i].Start,
 			Data: []byte{char},
 		})
-		e.CursorRight(&e.Selections[i], 1)
+		e.MoveRight(&e.Selections[i], 1)
 	}
 	e.SetStateDirty()
 	e.ScrollIfNeeded()
@@ -777,11 +775,11 @@ func (e *TextBuffer) DeleteCharBackward() error {
 	if e.Readonly {
 		return nil
 	}
-	e.sortSelections()
+	e.removeDuplicateSelectionsAndSort()
 
 	e.deleteSelectionIfSelection()
 	for i := range e.Selections {
-		e.CursorLeft(&e.Selections[i], i*1)
+		e.MoveLeft(&e.Selections[i], i*1)
 
 		switch {
 		case e.Selections[i].Start == 0:
@@ -802,7 +800,7 @@ func (e *TextBuffer) DeleteCharBackward() error {
 			e.Content = e.Content[:e.Selections[i].Start-1]
 		}
 
-		e.CursorLeft(&e.Selections[i], 1)
+		e.MoveLeft(&e.Selections[i], 1)
 
 	}
 
@@ -814,7 +812,7 @@ func (e *TextBuffer) DeleteCharForward() error {
 	if e.Readonly {
 		return nil
 	}
-	e.sortSelections()
+	e.removeDuplicateSelectionsAndSort()
 
 	for i := range e.Selections {
 		if len(e.Content) > e.Selections[i].Start {
@@ -825,7 +823,7 @@ func (e *TextBuffer) DeleteCharForward() error {
 			})
 			e.Content = append(e.Content[:e.Selections[i].Start], e.Content[e.Selections[i].Start+1:]...)
 			e.SetStateDirty()
-			e.CursorLeft(&e.Selections[i], i)
+			e.MoveLeft(&e.Selections[i], i)
 		}
 	}
 
@@ -866,7 +864,7 @@ func (e *TextBuffer) ScrollDown(n int) error {
 
 }
 
-func (e *TextBuffer) CursorLeft(s *Selection, n int) {
+func (e *TextBuffer) MoveLeft(s *Selection, n int) {
 	s.Start -= n
 	if s.Start < 0 {
 		s.Start = 0
@@ -875,14 +873,16 @@ func (e *TextBuffer) CursorLeft(s *Selection, n int) {
 
 }
 
-func (e *TextBuffer) CursorsLeft(n int) error {
+func (e *TextBuffer) MoveAllLeft(n int) error {
 	for i := range e.Selections {
-		e.CursorLeft(&e.Selections[i], n)
+		e.MoveLeft(&e.Selections[i], n)
 	}
+	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 
 }
-func (e *TextBuffer) CursorRight(s *Selection, n int) {
+func (e *TextBuffer) MoveRight(s *Selection, n int) {
 	s.Start += n
 	if s.Start > len(e.Content) {
 		s.Start = len(e.Content)
@@ -892,18 +892,20 @@ func (e *TextBuffer) CursorRight(s *Selection, n int) {
 		s.Start = int(e.maxColumn)
 	}
 	s.End = s.Start
+
 }
 
-func (e *TextBuffer) CursorsRight(n int) error {
+func (e *TextBuffer) MoveAllRight(n int) error {
 	for i := range e.Selections {
-		e.CursorRight(&e.Selections[i], n)
+		e.MoveRight(&e.Selections[i], n)
 	}
+	e.removeDuplicateSelectionsAndSort()
 
 	return nil
 
 }
 
-func (e *TextBuffer) CursorUp() error {
+func (e *TextBuffer) MoveUp() error {
 	for i := range e.Selections {
 		currentLine := e.getIndexVisualLine(e.Selections[i].Start)
 		prevLineIndex := currentLine.Index - 1
@@ -922,10 +924,12 @@ func (e *TextBuffer) CursorUp() error {
 
 		e.ScrollIfNeeded()
 	}
+	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 }
 
-func (e *TextBuffer) CursorDown() error {
+func (e *TextBuffer) MoveDown() error {
 	for i := range e.Selections {
 		currentLine := e.getIndexVisualLine(e.Selections[i].Start)
 		nextLineIndex := currentLine.Index + 1
@@ -944,6 +948,8 @@ func (e *TextBuffer) CursorDown() error {
 		e.ScrollIfNeeded()
 
 	}
+	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 }
 
@@ -981,34 +987,62 @@ func PlaceAnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 	idx := e.positionToBufferIndex(Position{Line: line, Column: col})
 	e.Selections = append(e.Selections, Selection{Start: idx, End: idx})
 
+	e.removeDuplicateSelectionsAndSort()
 	return nil
 }
 
-func (e *TextBuffer) BeginningOfTheLine() error {
+func (e *TextBuffer) MoveToBeginningOfTheLine() error {
 	for i := range e.Selections {
 		line := e.getIndexVisualLine(e.Selections[i].Start)
 		e.Selections[i].Start = line.startIndex
 		e.Selections[i].End = line.startIndex
 	}
+	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 
 }
 
-func (e *TextBuffer) EndOfTheLine() error {
+func (e *TextBuffer) MoveToEndOfTheLine() error {
 	for i := range e.Selections {
 		line := e.getIndexVisualLine(e.Selections[i].Start)
 		e.Selections[i].Start = line.endIndex
 		e.Selections[i].End = line.endIndex
 	}
+	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 }
 
+func PlaceAnotherCursorNextLine(e *TextBuffer) error {
+	pos := e.getIndexPosition(e.Selections[len(e.Selections)-1].Start)
+	pos.Line++
+	if e.isValidCursorPosition(pos) {
+		newidx := e.positionToBufferIndex(pos)
+		e.Selections = append(e.Selections, Selection{Start: newidx, End: newidx})
+	}
+	e.removeDuplicateSelectionsAndSort()
+
+	return nil
+}
+
+func PlaceAnotherCursorPreviousLine(e *TextBuffer) error {
+	pos := e.getIndexPosition(e.Selections[len(e.Selections)-1].Start)
+	pos.Line--
+	if e.isValidCursorPosition(pos) {
+		newidx := e.positionToBufferIndex(pos)
+		e.Selections = append(e.Selections, Selection{Start: newidx, End: newidx})
+	}
+	e.removeDuplicateSelectionsAndSort()
+
+	return nil
+}
 func (e *TextBuffer) PreviousLine() error {
-	return e.CursorUp()
+	return e.MoveUp()
 }
 
 func (e *TextBuffer) NextLine() error {
-	return e.CursorDown()
+	return e.MoveDown()
 }
 func (e *TextBuffer) indexOfFirstNonLetter(bs []byte) int {
 
@@ -1143,8 +1177,10 @@ func (e *TextBuffer) Write() error {
 }
 
 func (e *TextBuffer) Indent() error {
-	for i := range e.Selections {
+	e.removeDuplicateSelectionsAndSort()
 
+	for i := range e.Selections {
+		e.MoveRight(&e.Selections[i], i*e.TabSize)
 		if e.Selections[i].Start >= len(e.Content) { // end of file, appending
 			e.AddUndoAction(EditorAction{
 				Type: EditorActionType_Insert,
@@ -1160,15 +1196,68 @@ func (e *TextBuffer) Indent() error {
 			})
 			e.Content = append(e.Content[:e.Selections[i].Start], append([]byte(strings.Repeat(" ", e.TabSize)), e.Content[e.Selections[i].Start:]...)...)
 		}
+		e.MoveRight(&e.Selections[i], e.TabSize)
 
 	}
 	e.SetStateDirty()
-	e.CursorsRight(e.TabSize)
 
 	return nil
 }
 
+func (e *TextBuffer) KillLine() error {
+	if e.Readonly {
+		return nil
+	}
+	var lastChange int
+	for i := range e.Selections {
+		old := len(e.Content)
+		cur := &e.Selections[i]
+		e.MoveLeft(cur, -1*lastChange)
+		line := e.getIndexVisualLine(cur.Start)
+		writeToClipboard(e.Content[cur.Start:line.endIndex])
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  cur.Start,
+			Data: e.Content[cur.Start:line.endIndex],
+		})
+		e.Content = append(e.Content[:cur.Start], e.Content[line.endIndex:]...)
+		lastChange += len(e.Content) - old
+	}
+	e.SetStateDirty()
+
+	return nil
+}
+
+func (e *TextBuffer) DeleteWordBackward() {
+	if e.Readonly || len(e.Selections) > 1 {
+		return
+	}
+	cur := e.Selections[0]
+	previousWordEndIdx := previousWordInBuffer(e.Content, cur.Start)
+	oldLen := len(e.Content)
+	if len(e.Content) > cur.Start+1 {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  previousWordEndIdx + 1,
+			Data: e.Content[previousWordEndIdx+1 : cur.Start],
+		})
+		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[cur.Start+1:]...)
+	} else {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  previousWordEndIdx + 1,
+			Data: e.Content[previousWordEndIdx+1:],
+		})
+		e.Content = e.Content[:previousWordEndIdx+1]
+	}
+	cur.Start += len(e.Content) - oldLen
+	e.SetStateDirty()
+}
+
 func (e *TextBuffer) Copy() error {
+	if len(e.Selections) > 1 {
+		return nil
+	}
 	cur := e.Selections[0]
 	if cur.Start != cur.End {
 		// Copy selection
@@ -1185,24 +1274,7 @@ func (e *TextBuffer) Copy() error {
 
 	return nil
 }
-func (e *TextBuffer) KillLine() error {
-	if e.Readonly || len(e.Selections) > 1 { // TODO: Not available when multi cursor is active, FIXME
-		return nil
-	}
-	cur := &e.Selections[0]
-	line := e.getIndexVisualLine(cur.Start)
-	fmt.Printf("copied to clipboard: '%s'\n", string(e.Content[cur.Start:line.endIndex]))
-	writeToClipboard(e.Content[cur.Start:line.endIndex])
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Delete,
-		Idx:  cur.Start,
-		Data: e.Content[cur.Start:line.endIndex],
-	})
-	e.Content = append(e.Content[:cur.Start], e.Content[line.endIndex:]...)
-	e.SetStateDirty()
 
-	return nil
-}
 func (e *TextBuffer) Cut() error {
 	if e.Readonly || len(e.Selections) > 1 {
 		return nil
@@ -1268,34 +1340,8 @@ func (e *TextBuffer) Paste() error {
 
 	e.SetStateDirty()
 
-	e.CursorsRight(len(contentToPaste))
+	e.MoveAllRight(len(contentToPaste))
 	return nil
-}
-
-func (e *TextBuffer) DeleteWordBackward() {
-	if e.Readonly || len(e.Selections) > 1 {
-		return
-	}
-	cur := e.Selections[0]
-	previousWordEndIdx := previousWordInBuffer(e.Content, cur.Start)
-	oldLen := len(e.Content)
-	if len(e.Content) > cur.Start+1 {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  previousWordEndIdx + 1,
-			Data: e.Content[previousWordEndIdx+1 : cur.Start],
-		})
-		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[cur.Start+1:]...)
-	} else {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  previousWordEndIdx + 1,
-			Data: e.Content[previousWordEndIdx+1:],
-		})
-		e.Content = e.Content[:previousWordEndIdx+1]
-	}
-	cur.Start += len(e.Content) - oldLen
-	e.SetStateDirty()
 }
 
 func makeCommand(f func(e *TextBuffer) error) Command {
@@ -1312,6 +1358,16 @@ var EditorKeymap = Keymap{
 	}),
 	Key{K: "<lmouse>-click", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
+	}),
+	Key{K: "<lmouse>-hold", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
+	}),
+	Key{K: "<up>", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return PlaceAnotherCursorPreviousLine(e)
+	}),
+
+	Key{K: "<down>", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return PlaceAnotherCursorNextLine(e)
 	}),
 	Key{K: "-", Control: true}: makeCommand(func(e *TextBuffer) error {
 		e.parent.DecreaseFontSize(10)
@@ -1330,7 +1386,7 @@ var EditorKeymap = Keymap{
 		return nil
 	}),
 	Key{K: "f", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorsRight(1)
+		return e.MoveAllRight(1)
 	}),
 	Key{K: "x", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.Cut()
@@ -1374,10 +1430,10 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "a", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.BeginningOfTheLine()
+		return e.MoveToBeginningOfTheLine()
 	}),
 	Key{K: "e", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.EndOfTheLine()
+		return e.MoveToEndOfTheLine()
 	}),
 
 	Key{K: "p", Control: true}: makeCommand(func(e *TextBuffer) error {
@@ -1389,29 +1445,29 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "<up>"}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorUp()
+		return e.MoveUp()
 	}),
 	Key{K: "<down>"}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorDown()
+		return e.MoveDown()
 	}),
 	Key{K: "<right>"}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorsRight(1)
+		return e.MoveAllRight(1)
 	}),
 	Key{K: "<right>", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.NextWord()
 	}),
 	Key{K: "<left>"}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorsLeft(1)
+		return e.MoveAllLeft(1)
 	}),
 	Key{K: "<left>", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.PreviousWord()
 	}),
 
 	Key{K: "b", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.CursorsLeft(1)
+		return e.MoveAllLeft(1)
 	}),
 	Key{K: "<home>"}: makeCommand(func(e *TextBuffer) error {
-		return e.BeginningOfTheLine()
+		return e.MoveToBeginningOfTheLine()
 	}),
 	Key{K: "<pagedown>"}: makeCommand(func(e *TextBuffer) error {
 		return e.ScrollDown(1)
