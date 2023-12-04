@@ -453,6 +453,8 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW i
 		int32(charSize.Y),
 		e.cfg.Colors.StatusBarBackground,
 	)
+	var sections []string
+
 	file := e.File
 
 	var state string
@@ -461,25 +463,28 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW i
 	} else {
 		state = "--"
 	}
+	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 	var line int
 	if len(e.visualLines) > cursor.Line {
 		line = e.visualLines[cursor.Line].ActualLine
 	} else {
 		line = 0
 	}
+	sections = append(sections, fmt.Sprintf("Line#%d Col#%d", line, cursor.Column))
 	var searchString string
 	if e.SearchString != nil {
 		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.SearchString, e.CurrentMatch, len(e.SearchMatches)-1)
+		sections = append(sections, searchString)
 	}
 
 	var gotoLine string
 	if e.isGotoLine {
 		gotoLine = fmt.Sprintf("Goto Line: %s", e.GotoLineUserInput)
+		sections = append(sections, gotoLine)
 	}
 
-	statusbar := fmt.Sprintf("%s %s Row:%d Col:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
 	rl.DrawTextEx(e.parent.Font,
-		statusbar,
+		strings.Join(sections, " | "),
 		rl.Vector2{X: zeroLocation.X, Y: float32(e.maxLine) * charSize.Y},
 		float32(e.parent.FontSize),
 		0,
