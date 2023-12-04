@@ -92,7 +92,7 @@ func (e *TextBuffer) Keymaps() []Keymap {
 }
 
 func (e *TextBuffer) IsSpecial() bool {
-	return e.File != "" && e.File[0] != '*'
+	return e.File == "" || e.File[0] == '*'
 }
 
 func (e *TextBuffer) AddUndoAction(a EditorAction) {
