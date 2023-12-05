@@ -2,6 +2,7 @@ package preditor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/amirrezaask/preditor/byteutils"
 	"image/color"
@@ -142,7 +143,7 @@ func (e *TextBuffer) AddUndoAction(a EditorAction) {
 func (e *TextBuffer) PopAndReverseLastAction() {
 	last, err := e.UndoStack.Pop()
 	if err != nil {
-		if err == EmptyStack {
+		if errors.Is(err, EmptyStack) {
 			e.SetStateClean()
 		}
 		return
@@ -154,8 +155,6 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 	case EditorActionType_Delete:
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
-	//e.bufferIndex = last.BufferIndex
-
 	e.SetStateDirty()
 }
 
@@ -746,8 +745,8 @@ func (e *TextBuffer) deleteSelectionsIfAnySelection() {
 		}
 		e.AddUndoAction(EditorAction{
 			Type: EditorActionType_Delete,
-			Idx:  sel.End(),
-			Data: e.Content[sel.Start():sel.End()],
+			Idx:  sel.Start(),
+			Data: e.Content[sel.Start() : sel.End()+1],
 		})
 		e.Content = append(e.Content[:sel.Start()], e.Content[sel.End()+1:]...)
 		sel.Static = sel.Moving
