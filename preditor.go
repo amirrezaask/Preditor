@@ -49,7 +49,7 @@ func (b *BaseBuffer) SetID(i int) {
 	b.ID = i
 }
 
-type Preditor struct {
+type Context struct {
 	CWD             string
 	Cfg             *Config
 	ScratchBufferID int
@@ -75,67 +75,67 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 	charSizeCache[s] = charSize
 	return charSize
 }
-func (p *Preditor) WriteMessage(msg string) {
-	p.GetBuffer(p.MessageBufferID).(*TextBuffer).Content = append(p.GetBuffer(p.MessageBufferID).(*TextBuffer).Content, []byte(fmt.Sprintln(msg))...)
+func (c *Context) WriteMessage(msg string) {
+	c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content = append(c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content, []byte(fmt.Sprintln(msg))...)
 }
-func (p *Preditor) getCWD() string {
-	if tb, isTextBuffer := p.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
+func (c *Context) getCWD() string {
+	if tb, isTextBuffer := c.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.File)
 	} else {
-		return p.CWD
+		return c.CWD
 	}
 }
-func (p *Preditor) AddBuffer(b Buffer) {
-	id := len(p.Buffers) + 1
-	p.Buffers[id] = b
+func (c *Context) AddBuffer(b Buffer) {
+	id := len(c.Buffers) + 1
+	c.Buffers[id] = b
 	b.SetID(id)
 }
-func (p *Preditor) MarkBufferAsActive(id int) {
-	p.ActiveBufferID = id
+func (c *Context) MarkBufferAsActive(id int) {
+	c.ActiveBufferID = id
 }
 
-func (p *Preditor) GetBuffer(id int) Buffer {
-	return p.Buffers[id]
+func (c *Context) GetBuffer(id int) Buffer {
+	return c.Buffers[id]
 }
 
-func (e *Preditor) KillBuffer(id int) {
-	delete(e.Buffers, id)
+func (c *Context) KillBuffer(id int) {
+	delete(c.Buffers, id)
 
-	for k := range e.Buffers {
-		e.ActiveBufferID = k
+	for k := range c.Buffers {
+		c.ActiveBufferID = k
 	}
 }
 
-func (p *Preditor) LoadFont(name string, size int32) error {
+func (c *Context) LoadFont(name string, size int32) error {
 	var err error
-	p.FontPath, err = findfont.Find(name + ".ttf")
+	c.FontPath, err = findfont.Find(name + ".ttf")
 	if err != nil {
 		return err
 	}
 
-	p.FontSize = size
-	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+	c.FontSize = size
+	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
 	return nil
 }
 
-func (p *Preditor) IncreaseFontSize(n int) {
-	p.FontSize += int32(n)
-	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+func (c *Context) IncreaseFontSize(n int) {
+	c.FontSize += int32(n)
+	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
 	charSizeCache = map[byte]rl.Vector2{}
 }
 
-func (p *Preditor) DecreaseFontSize(n int) {
-	p.FontSize -= int32(n)
-	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
+func (c *Context) DecreaseFontSize(n int) {
+	c.FontSize -= int32(n)
+	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
 	charSizeCache = map[byte]rl.Vector2{}
 
 }
 
-func (e *Preditor) ActiveBuffer() Buffer {
-	return e.Buffers[e.ActiveBufferID]
+func (c *Context) ActiveBuffer() Buffer {
+	return c.Buffers[c.ActiveBufferID]
 }
 
-type Command func(*Preditor) error
+type Command func(*Context) error
 type Variables map[string]any
 type Key struct {
 	Control bool
@@ -186,14 +186,14 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 	return
 }
 
-func (e *Preditor) HandleKeyEvents() {
+func (c *Context) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		keymaps := append([]Keymap{e.GlobalKeymap}, e.ActiveBuffer().Keymaps()...)
+		keymaps := append([]Keymap{c.GlobalKeymap}, c.ActiveBuffer().Keymaps()...)
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
-				cmd(e)
+				cmd(c)
 				break
 			}
 		}
@@ -201,26 +201,26 @@ func (e *Preditor) HandleKeyEvents() {
 
 }
 
-func (e *Preditor) Render() {
+func (c *Context) Render() {
 	rl.BeginDrawing()
-	rl.ClearBackground(e.Cfg.Colors.Background)
-	e.ActiveBuffer().Render(rl.Vector2{}, e.OSWindowHeight, e.OSWindowWidth)
+	rl.ClearBackground(c.Cfg.Colors.Background)
+	c.ActiveBuffer().Render(rl.Vector2{}, c.OSWindowHeight, c.OSWindowWidth)
 	rl.EndDrawing()
 }
 
-func (e *Preditor) HandleWindowResize() {
-	e.OSWindowHeight = int32(rl.GetRenderHeight())
-	e.OSWindowWidth = int32(rl.GetRenderWidth())
+func (c *Context) HandleWindowResize() {
+	c.OSWindowHeight = int32(rl.GetRenderHeight())
+	c.OSWindowWidth = int32(rl.GetRenderWidth())
 }
 
-func (e *Preditor) HandleMouseEvents() {
+func (c *Context) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		keymaps := append([]Keymap{e.GlobalKeymap}, e.ActiveBuffer().Keymaps()...)
+		keymaps := append([]Keymap{c.GlobalKeymap}, c.ActiveBuffer().Keymaps()...)
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
-				cmd(e)
+				cmd(c)
 				break
 			}
 		}
@@ -532,13 +532,13 @@ func setupRaylib(cfg *Config) {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.SetTraceLogLevel(rl.LogError)
-	rl.InitWindow(1920, 1080, "Preditor")
+	rl.InitWindow(1920, 1080, "Context")
 	rl.SetTargetFPS(120)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
 
-func New() (*Preditor, error) {
+func New() (*Context, error) {
 	var configPath string
 	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".preditor"), "path to config file, defaults to: ~/.preditor")
 	flag.Parse()
@@ -556,7 +556,7 @@ func New() (*Preditor, error) {
 	if err := clipboard.Init(); err != nil {
 		panic(err)
 	}
-	p := &Preditor{
+	p := &Context{
 		Cfg:            cfg,
 		Buffers:        map[int]Buffer{},
 		OSWindowHeight: int32(rl.GetRenderHeight()),
@@ -621,63 +621,70 @@ func New() (*Preditor, error) {
 	return p, nil
 }
 
-func (p *Preditor) StartMainLoop() {
+func (c *Context) StartMainLoop() {
 	defer func() {
 
 		if r := recover(); r != nil {
 			err := os.WriteFile(path.Join(os.Getenv("HOME"),
 				fmt.Sprintf("preditor-crashlog-%d", time.Now().Unix())),
-				[]byte(fmt.Sprintf("%v\n%s\n%s", r, string(debug.Stack()), spew.Sdump(p))), 0644)
+				[]byte(fmt.Sprintf("%v\n%s\n%s", r, string(debug.Stack()), spew.Sdump(c))), 0644)
 			if err != nil {
 				fmt.Println("we are doomed")
 				fmt.Println(err)
 			}
 
-			fmt.Printf("%v\n%s\n%s\n", r, string(debug.Stack()), spew.Sdump(p))
+			fmt.Printf("%v\n%s\n%s\n", r, string(debug.Stack()), spew.Sdump(c))
 		}
 
 	}()
 
 	for !rl.WindowShouldClose() {
-		p.HandleWindowResize()
-		p.HandleMouseEvents()
-		p.HandleKeyEvents()
-		p.Render()
+		c.HandleWindowResize()
+		c.HandleMouseEvents()
+		c.HandleKeyEvents()
+		c.Render()
 	}
 }
 
-func (p *Preditor) MaxHeightToMaxLine(maxH int32) int32 {
-	return maxH / int32(measureTextSize(p.Font, ' ', p.FontSize, 0).Y)
-}
-func (p *Preditor) MaxWidthToMaxColumn(maxW int32) int32 {
-	return maxW / int32(measureTextSize(p.Font, ' ', p.FontSize, 0).X)
-}
-
-func (e *Preditor) openFileBuffer() {
-	ofb := NewFilePickerBuffer(e, e.Cfg, e.getCWD())
-	e.AddBuffer(ofb)
-	e.MarkBufferAsActive(ofb.ID)
+func MakeCommand[T Buffer](f func(t T) error) Command {
+	return func(c *Context) error {
+		defer handlePanicAndWriteMessage(c)
+		return f(c.ActiveBuffer().(T))
+	}
 }
 
-func (e *Preditor) openFuzzyFilePicker() {
-	ofb := NewFuzzyFileBuffer(e, e.Cfg)
-	e.AddBuffer(ofb)
-	e.MarkBufferAsActive(ofb.ID)
-
+func (c *Context) MaxHeightToMaxLine(maxH int32) int32 {
+	return maxH / int32(measureTextSize(c.Font, ' ', c.FontSize, 0).Y)
 }
-func (e *Preditor) openBufferSwitcher() {
-	ofb := NewBufferSwitcher(e, e.Cfg)
-	e.AddBuffer(ofb)
-	e.MarkBufferAsActive(ofb.ID)
+func (c *Context) MaxWidthToMaxColumn(maxW int32) int32 {
+	return maxW / int32(measureTextSize(c.Font, ' ', c.FontSize, 0).X)
 }
 
-func (e *Preditor) openGrepBuffer() {
-	ofb := NewGrepBuffer(e, e.Cfg)
-	e.AddBuffer(ofb)
-	e.MarkBufferAsActive(ofb.ID)
+func (c *Context) openFileBuffer() {
+	ofb := NewFilePickerBuffer(c, c.Cfg, c.getCWD())
+	c.AddBuffer(ofb)
+	c.MarkBufferAsActive(ofb.ID)
 }
 
-func handlePanicAndWriteMessage(p *Preditor) {
+func (c *Context) openFuzzyFilePicker() {
+	ofb := NewFuzzyFileBuffer(c, c.Cfg)
+	c.AddBuffer(ofb)
+	c.MarkBufferAsActive(ofb.ID)
+
+}
+func (c *Context) openBufferSwitcher() {
+	ofb := NewBufferSwitcher(c, c.Cfg)
+	c.AddBuffer(ofb)
+	c.MarkBufferAsActive(ofb.ID)
+}
+
+func (c *Context) openGrepBuffer() {
+	ofb := NewGrepBuffer(c, c.Cfg)
+	c.AddBuffer(ofb)
+	c.MarkBufferAsActive(ofb.ID)
+}
+
+func handlePanicAndWriteMessage(p *Context) {
 	r := recover()
 	if r != nil {
 		msg := fmt.Sprintf("%v\n%s", r, string(debug.Stack()))
