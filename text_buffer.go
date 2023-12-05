@@ -991,6 +991,28 @@ func PlaceAnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 	return nil
 }
 
+func (e *TextBuffer) PlaceSelectionOnNextMatch() error {
+	whitespace := bytes.Index(e.Content[e.Selections[0].Start:], []byte(" "))
+	if whitespace == -1 {
+		return nil
+	}
+
+	whitespace += e.Selections[0].Start
+
+	next := findNextMatch(e.Content[e.Selections[0].Start:], e.Content[e.Selections[0].Start:whitespace])
+
+	if len(next) == 0 {
+		return nil
+	}
+
+	e.Selections = append(e.Selections, Selection{
+		Start: next[0] + e.Selections[0].Start,
+		End:   next[1] + e.Selections[0].Start,
+	})
+
+	return nil
+}
+
 func (e *TextBuffer) MoveToBeginningOfTheLine() error {
 	for i := range e.Selections {
 		line := e.getIndexVisualLine(e.Selections[i].Start)
@@ -1346,6 +1368,7 @@ func (e *TextBuffer) Paste() error {
 
 func makeCommand(f func(e *TextBuffer) error) Command {
 	return func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
 		return f(preditor.ActiveBuffer().(*TextBuffer))
 	}
 }
@@ -1355,6 +1378,10 @@ var EditorKeymap = Keymap{
 		e.parent.IncreaseFontSize(10)
 
 		return nil
+	}),
+
+	Key{K: ".", Control: true}: makeCommand(func(e *TextBuffer) error {
+		return e.PlaceSelectionOnNextMatch()
 	}),
 	Key{K: "<lmouse>-click", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())

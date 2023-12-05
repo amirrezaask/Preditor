@@ -116,6 +116,7 @@ func (f *CommandBuffer) openUserInput() error {
 
 func makeCommandBufferCommand(f func(e *CommandBuffer) error) Command {
 	return func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
 		return f(preditor.ActiveBuffer().(*CommandBuffer))
 	}
 }

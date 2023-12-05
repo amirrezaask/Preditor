@@ -54,12 +54,16 @@ func (b *BufferSwitcherBuffer) Keymaps() []Keymap {
 
 var bufferSwitcherKeymap = Keymap{
 	Key{K: "<enter>"}: func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
+
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
 		preditor.KillBuffer(buffer.ID)
 		preditor.MarkBufferAsActive(buffer.List.Items[buffer.List.Selection].GetID())
 		return nil
 	},
 	Key{K: "<up>"}: func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
+
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
 
 		buffer.List.Selection--
@@ -70,6 +74,8 @@ var bufferSwitcherKeymap = Keymap{
 		return nil
 	},
 	Key{K: "<down>"}: func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
+
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
 
 		buffer.List.Selection++

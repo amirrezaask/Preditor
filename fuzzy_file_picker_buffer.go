@@ -109,6 +109,7 @@ func (f *FuzzyFilePickerBuffer) openSelection() error {
 
 func makeFuzzyFilePickerCommand(f func(e *FuzzyFilePickerBuffer) error) Command {
 	return func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
 		return f(preditor.ActiveBuffer().(*FuzzyFilePickerBuffer))
 	}
 }
