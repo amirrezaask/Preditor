@@ -171,11 +171,11 @@ func (e *TextBuffer) replaceTabsWithSpaces() {
 	e.Content = bytes.Replace(e.Content, []byte("\t"), []byte(strings.Repeat(" ", e.TabSize)), -1)
 }
 
-func (e *TextBuffer) updateMaxLineAndColumn(maxH int32, maxW int32) {
+func (e *TextBuffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	oldMaxLine := e.maxLine
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	e.maxColumn = maxW / int32(charSize.X)
-	e.maxLine = maxH / int32(charSize.Y)
+	e.maxColumn = int32(maxW / float64(charSize.X))
+	e.maxLine = int32(maxH / float64(charSize.Y))
 
 	// reserve one line for status bar
 	e.maxLine--
@@ -450,7 +450,7 @@ func (e *TextBuffer) calculateVisualLines() {
 	}
 }
 
-func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
 	//TODO:
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
@@ -490,13 +490,13 @@ func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH int32, maxW 
 
 }
 
-func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	//render status bar
 	rl.DrawRectangle(
 		int32(zeroLocation.X),
 		e.maxLine*int32(charSize.Y),
-		maxW,
+		int32(maxW),
 		int32(charSize.Y),
 		e.cfg.Colors.StatusBarBackground,
 	)
@@ -589,7 +589,7 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 
 }
 
-func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.calculateVisualLines()
 	var visibleLines []visualLine
 	if e.VisibleEnd > int32(len(e.visualLines)) {
@@ -697,7 +697,7 @@ func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
 	}
 }
 
-func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearchResults(zeroLocation)
