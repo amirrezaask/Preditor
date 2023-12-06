@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/amirrezaask/preditor/byteutils"
 	"image/color"
 	"math"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/amirrezaask/preditor/byteutils"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
@@ -443,7 +444,7 @@ func (e *TextBuffer) calculateVisualLines() {
 			e.visualLines = append(e.visualLines, line)
 			totalVisualLines++
 			lineCharCounter = 0
-			start = idx
+			start = idx + 1
 			continue
 		}
 	}
@@ -922,10 +923,6 @@ func (e *TextBuffer) MoveRight(s *Range, n int) {
 	if s.Start() > len(e.Content) {
 		s.SetBoth(len(e.Content))
 	}
-	line := e.getIndexVisualLine(s.Start())
-	if s.Start()-line.startIndex > int(e.maxColumn) {
-		s.SetBoth(int(e.maxColumn))
-	}
 }
 
 func (e *TextBuffer) MoveAllRight(n int) error {
@@ -948,12 +945,11 @@ func (e *TextBuffer) MoveUp() error {
 
 		prevLine := e.visualLines[prevLineIndex]
 		col := e.Ranges[i].Static - currentLine.startIndex
-		newcol := prevLine.startIndex + col
-		if newcol > prevLine.endIndex {
-			newcol = prevLine.endIndex
+		newidx := prevLine.startIndex + col
+		if newidx > prevLine.endIndex {
+			newidx = prevLine.endIndex
 		}
-		e.Ranges[i].SetBoth(newcol)
-
+		e.Ranges[i].SetBoth(newidx)
 		e.ScrollIfNeeded()
 	}
 	e.removeDuplicateSelectionsAndSort()
@@ -971,11 +967,14 @@ func (e *TextBuffer) MoveDown() error {
 
 		nextLine := e.visualLines[nextLineIndex]
 		col := e.Ranges[i].Static - currentLine.startIndex
-		newcol := nextLine.startIndex + col
-		if newcol > nextLine.endIndex {
-			newcol = nextLine.endIndex
+		newIndex := nextLine.startIndex + col
+		if newIndex > nextLine.endIndex {
+			newIndex = nextLine.endIndex
 		}
-		e.Ranges[i].SetBoth(newcol)
+		e.Ranges[i].SetBoth(newIndex)
+		fmt.Printf("range: %+v\n", e.Ranges[i])
+		fmt.Printf("currentline: %+v\n", currentLine)
+		fmt.Printf("nextline: %+v\n", nextLine)
 		e.ScrollIfNeeded()
 
 	}
@@ -1008,34 +1007,32 @@ func SelectionsToLeft(e *TextBuffer, n int) error {
 }
 func SelectionsUp(e *TextBuffer, n int) error {
 	for i := range e.Ranges {
-		sel := &e.Ranges[i]
-		pos := e.getIndexPosition(sel.Moving)
-		pos.Line -= n
-		if !e.isValidCursorPosition(pos) {
-			continue
+		currentLine := e.getIndexVisualLine(e.Ranges[i].Moving)
+		nextLineIndex := currentLine.Index - n
+		if nextLineIndex >= len(e.visualLines) || nextLineIndex < 0 {
+			return nil
 		}
-		newidx := e.positionToBufferIndex(pos)
-		sel.Moving += newidx - sel.Moving
-		if sel.Moving < 0 {
-			sel.Moving = 0
-		}
+
+		nextLine := e.visualLines[nextLineIndex]
+		newcol := nextLine.startIndex
+		e.Ranges[i].Moving = newcol
+		e.ScrollIfNeeded()
 	}
 
 	return nil
 }
 func SelectionsDown(e *TextBuffer, n int) error {
 	for i := range e.Ranges {
-		sel := &e.Ranges[i]
-		pos := e.getIndexPosition(sel.Moving)
-		pos.Line += n
-		if !e.isValidCursorPosition(pos) {
-			continue
+		currentLine := e.getIndexVisualLine(e.Ranges[i].Moving)
+		nextLineIndex := currentLine.Index + n
+		if nextLineIndex >= len(e.visualLines) {
+			return nil
 		}
-		newidx := e.positionToBufferIndex(pos)
-		sel.Moving += newidx - sel.Moving
-		if sel.Moving > len(e.Content) {
-			sel.Moving = len(e.Content)
-		}
+
+		nextLine := e.visualLines[nextLineIndex]
+		newcol := nextLine.startIndex
+		e.Ranges[i].Moving = newcol
+		e.ScrollIfNeeded()
 	}
 
 	return nil
