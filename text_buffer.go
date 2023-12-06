@@ -850,15 +850,15 @@ func (e *TextBuffer) DeleteCharForward() error {
 	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
 	for i := range e.Ranges {
-		if len(e.Content) > e.Ranges[i].Start() {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  e.Ranges[i].Start(),
-				Data: []byte{e.Content[e.Ranges[i].Start()]},
-			})
+		if len(e.Content) > e.Ranges[i].Start()+1 {
+			e.MoveLeft(&e.Ranges[i], i*1)
+			//e.AddUndoAction(EditorAction{
+			//	Type: EditorActionType_Delete,
+			//	Idx:  e.Ranges[i].Start(),
+			//	Data: []byte{e.Content[e.Ranges[i].Start()]},
+			//})
 			e.Content = append(e.Content[:e.Ranges[i].Start()], e.Content[e.Ranges[i].Start()+1:]...)
 			e.SetStateDirty()
-			e.MoveLeft(&e.Ranges[i], i)
 		}
 	}
 
@@ -1584,11 +1584,11 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "p", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveDown()
+		return e.MoveUp()
 	}),
 
 	Key{K: "n", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveUp()
+		return e.MoveDown()
 	}),
 
 	Key{K: "<up>"}: MakeCommand(func(e *TextBuffer) error {
@@ -1632,9 +1632,6 @@ var EditorKeymap = Keymap{
 	}),
 	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackward()
-	}),
-	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharForward()
 	}),
 	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharForward()
