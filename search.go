@@ -28,11 +28,10 @@ func matchPatternCaseInsensitive(data []byte, pattern []byte) [][]int {
 	return matched
 }
 
-func findNextMatch(data []byte, pattern []byte) []int {
+func findNextMatch(data []byte, idx int, pattern []byte) []int {
 	var buf []byte
 	start := -1
-	for i, b := range data {
-
+	for i := idx; i < len(data); i++ {
 		if len(pattern) == len(buf) {
 			return []int{start, i - 1}
 		}
@@ -40,8 +39,8 @@ func findNextMatch(data []byte, pattern []byte) []int {
 		if idxToCheck == 0 {
 			start = i
 		}
-		if unicode.ToLower(rune(pattern[idxToCheck])) == unicode.ToLower(rune(b)) {
-			buf = append(buf, b)
+		if unicode.ToLower(rune(pattern[idxToCheck])) == unicode.ToLower(rune(data[i])) {
+			buf = append(buf, data[i])
 		} else {
 			buf = nil
 			start = -1

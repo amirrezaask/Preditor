@@ -972,9 +972,6 @@ func (e *TextBuffer) MoveDown() error {
 			newIndex = nextLine.endIndex
 		}
 		e.Ranges[i].SetBoth(newIndex)
-		fmt.Printf("range: %+v\n", e.Ranges[i])
-		fmt.Printf("currentline: %+v\n", currentLine)
-		fmt.Printf("nextline: %+v\n", nextLine)
 		e.ScrollIfNeeded()
 
 	}
@@ -1038,7 +1035,7 @@ func SelectionsDown(e *TextBuffer, n int) error {
 	return nil
 }
 
-func PlaceAnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
+func AnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	apprLine := math.Floor(float64(pos.Y / charSize.Y))
 	apprColumn := math.Floor(float64(pos.X / charSize.X))
@@ -1076,24 +1073,42 @@ func PlaceAnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 	return nil
 }
 
-func (e *TextBuffer) PlaceSelectionOnNextMatch() error {
+func (e *TextBuffer) AnotherSelectionOnMatch() error {
 	lastSel := e.Ranges[len(e.Ranges)-1]
-	next := findNextMatch(e.Content[lastSel.End():], e.Content[lastSel.Start():lastSel.End()+1])
+	var thingToSearch []byte
+	if lastSel.Static != lastSel.Moving {
+		thingToSearch = e.Content[lastSel.Start():lastSel.End()]
+		next := findNextMatch(e.Content, lastSel.End()+1, thingToSearch)
+		if len(next) == 0 {
+			return nil
+		}
+		e.Ranges = append(e.Ranges, Range{
+			Static: next[0],
+			Moving: next[1],
+		})
 
-	if len(next) == 0 {
-		return nil
+	} else {
+		start := byteutils.SeekPreviousNonLetter(e.Content, lastSel.Static)
+		end := byteutils.SeekNextNonLetter(e.Content, lastSel.Static)
+		e.Ranges[len(e.Ranges)-1].Static = start + 1
+		e.Ranges[len(e.Ranges)-1].Moving = start + 1
+		thingToSearch = e.Content[start+1 : end]
+		next := findNextMatch(e.Content, lastSel.End()+1, thingToSearch)
+		if len(next) == 0 {
+			return nil
+		}
+		e.Ranges = append(e.Ranges, Range{
+			Static: next[0],
+			Moving: next[0],
+		})
+
 	}
-
-	e.Ranges = append(e.Ranges, Range{
-		Static: next[0],
-		Moving: next[1],
-	})
 
 	return nil
 }
 func SelectionPreviousWord(e *TextBuffer) error {
 	for i := range e.Ranges {
-		previousWord := byteutils.SeekPreviousWhitespace(e.Content, e.Ranges[i].Moving)
+		previousWord := byteutils.SeekPreviousNonLetter(e.Content, e.Ranges[i].Moving)
 		if previousWord < 0 {
 			continue
 		}
@@ -1104,7 +1119,7 @@ func SelectionPreviousWord(e *TextBuffer) error {
 }
 func SelectionNextWord(e *TextBuffer) error {
 	for i := range e.Ranges {
-		nextWord := byteutils.SeekNextWhitespace(e.Content, e.Ranges[i].Moving)
+		nextWord := byteutils.SeekNextNonLetter(e.Content, e.Ranges[i].Moving)
 		if nextWord > len(e.Content) {
 			continue
 		}
@@ -1447,7 +1462,7 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.PlaceSelectionOnNextMatch()
+		return e.AnotherSelectionOnMatch()
 	}),
 	Key{K: "<right>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
 		SelectionsToRight(e, 1)
@@ -1480,10 +1495,10 @@ var EditorKeymap = Keymap{
 		return nil
 	}),
 	Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
+		return AnotherSelectionHere(e, rl.GetMousePosition())
 	}),
 	Key{K: "<lmouse>-hold", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
+		return AnotherSelectionHere(e, rl.GetMousePosition())
 	}),
 	Key{K: "<up>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherCursorPreviousLine(e)
