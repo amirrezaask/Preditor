@@ -25,6 +25,7 @@ type Colors struct {
 	StatusBarBackground   color.RGBA
 	StatusBarForeground   color.RGBA
 	LineNumbersForeground color.RGBA
+	ActiveWindowBorder    color.RGBA
 	Cursor                color.RGBA
 	CursorLineBackground  color.RGBA
 	SyntaxKeywords        color.RGBA
@@ -58,7 +59,9 @@ type Window struct {
 }
 
 func (w *Window) Render(c *Context) {
-	c.Buffers[w.BufferID].Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
+	if buf := c.Buffers[w.BufferID]; buf != nil {
+		buf.Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
+	}
 }
 
 type Context struct {
@@ -229,7 +232,10 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 func (c *Context) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		keymaps := append([]Keymap{c.GlobalKeymap}, c.ActiveBuffer().Keymaps()...)
+		keymaps := []Keymap{c.GlobalKeymap}
+		if c.ActiveBuffer() != nil {
+			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
+		}
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
@@ -252,7 +258,7 @@ func (c *Context) Render() {
 				Y:      float32(win.ZeroLocation.Y),
 				Width:  float32(win.MaxWidth),
 				Height: float32(win.MaxHeight),
-			}, 1, rl.Red)
+			}, 1, c.Cfg.Colors.ActiveWindowBorder)
 		}
 	}
 	rl.EndDrawing()
@@ -264,12 +270,14 @@ func (c *Context) HandleWindowResize() {
 
 	for _, win := range c.Windows {
 		if newHeight != c.OSWindowHeight {
-			win.MaxHeight = newHeight * (win.MaxHeight / c.OSWindowHeight)
+			win.MaxHeight = newHeight
 		}
 
 		if newWidth != c.OSWindowWidth {
-			win.MaxWidth = newWidth * (win.MaxWidth / c.OSWindowWidth)
-
+			win.MaxWidth = newWidth / float64(len(c.Windows))
+			if win.ZeroLocation.X != 0 {
+				win.ZeroLocation.X += float32(float64(newWidth-c.OSWindowWidth) / float64(len(c.Windows)))
+			}
 		}
 
 	}
@@ -281,7 +289,10 @@ func (c *Context) HandleWindowResize() {
 func (c *Context) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		keymaps := append([]Keymap{c.GlobalKeymap}, c.ActiveBuffer().Keymaps()...)
+		keymaps := []Keymap{c.GlobalKeymap}
+		if c.ActiveBuffer() != nil {
+			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
+		}
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
@@ -747,6 +758,26 @@ func (c *Context) openGrepBuffer() {
 	ofb := NewGrepBuffer(c, c.Cfg)
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
+}
+
+func (c *Context) VSplit() {
+	c.AddWindow(&Window{})
+	for i, win := range c.Windows {
+		win.MaxWidth = c.OSWindowWidth / float64(len(c.Windows))
+		win.MaxHeight = c.OSWindowHeight
+		win.ZeroLocation = rl.Vector2{
+			X: float32(float64(i) * (float64(c.OSWindowWidth) / float64(len(c.Windows)))),
+			Y: 0,
+		}
+	}
+}
+
+func (c *Context) OtherWindow() {
+	if c.ActiveWindowIndex+1 >= len(c.Windows) {
+		c.MarkWindowAsActive(0)
+	} else {
+		c.MarkWindowAsActive(c.ActiveWindowIndex + 1)
+	}
 }
 
 func handlePanicAndWriteMessage(p *Context) {
