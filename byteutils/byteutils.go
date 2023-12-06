@@ -5,7 +5,7 @@ import (
 )
 
 func SeekNextWhitespace(bs []byte, i int) int {
-	idx := bytes.IndexAny(bs[i:], " \n\r")
+	idx := bytes.IndexAny(bytes.TrimLeft(bs[i:], " \n\r"), " \n\r")
 	return i + idx
 }
 

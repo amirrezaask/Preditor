@@ -1091,6 +1091,28 @@ func (e *TextBuffer) PlaceSelectionOnNextMatch() error {
 
 	return nil
 }
+func SelectionPreviousWord(e *TextBuffer) error {
+	for i := range e.Ranges {
+		previousWord := byteutils.SeekPreviousWhitespace(e.Content, e.Ranges[i].Moving)
+		if previousWord < 0 {
+			continue
+		}
+		e.Ranges[i].Moving = previousWord
+	}
+
+	return nil
+}
+func SelectionNextWord(e *TextBuffer) error {
+	for i := range e.Ranges {
+		nextWord := byteutils.SeekNextWhitespace(e.Content, e.Ranges[i].Moving)
+		if nextWord > len(e.Content) {
+			continue
+		}
+		e.Ranges[i].Moving = nextWord
+	}
+
+	return nil
+}
 
 func (e *TextBuffer) MoveToBeginningOfTheLine() error {
 	for i := range e.Ranges {
@@ -1136,13 +1158,7 @@ func PlaceAnotherCursorPreviousLine(e *TextBuffer) error {
 
 	return nil
 }
-func (e *TextBuffer) PreviousLine() error {
-	return e.MoveUp()
-}
 
-func (e *TextBuffer) NextLine() error {
-	return e.MoveDown()
-}
 func (e *TextBuffer) indexOfFirstNonLetter(bs []byte) int {
 
 	for idx, b := range bs {
@@ -1154,7 +1170,7 @@ func (e *TextBuffer) indexOfFirstNonLetter(bs []byte) int {
 	return -1
 }
 
-func (e *TextBuffer) NextWord() error {
+func (e *TextBuffer) MoveToNextWord() error {
 	for i := range e.Ranges {
 		newidx := byteutils.NextWordInBuffer(e.Content, e.Ranges[i].Start())
 		if newidx == -1 {
@@ -1169,7 +1185,7 @@ func (e *TextBuffer) NextWord() error {
 	return nil
 }
 
-func (e *TextBuffer) PreviousWord() error {
+func (e *TextBuffer) MoveToPreviousWord() error {
 	for i := range e.Ranges {
 		newidx := byteutils.PreviousWordInBuffer(e.Content, e.Ranges[i].Start())
 		if newidx == -1 {
@@ -1438,6 +1454,16 @@ var EditorKeymap = Keymap{
 
 		return nil
 	}),
+	Key{K: "<right>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionNextWord(e)
+
+		return nil
+	}),
+	Key{K: "<left>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionPreviousWord(e)
+
+		return nil
+	}),
 	Key{K: "<left>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
 		SelectionsToLeft(e, 1)
 
@@ -1543,11 +1569,11 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "p", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.PreviousLine()
+		return e.MoveDown()
 	}),
 
 	Key{K: "n", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.NextLine()
+		return e.MoveUp()
 	}),
 
 	Key{K: "<up>"}: MakeCommand(func(e *TextBuffer) error {
@@ -1560,13 +1586,13 @@ var EditorKeymap = Keymap{
 		return e.MoveAllRight(1)
 	}),
 	Key{K: "<right>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.NextWord()
+		return e.MoveToNextWord()
 	}),
 	Key{K: "<left>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveAllLeft(1)
 	}),
 	Key{K: "<left>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.PreviousWord()
+		return e.MoveToPreviousWord()
 	}),
 
 	Key{K: "b", Control: true}: MakeCommand(func(e *TextBuffer) error {
