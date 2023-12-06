@@ -185,6 +185,11 @@ func (k Key) IsEmpty() bool {
 }
 
 type Keymap map[Key]Command
+
+func (k Keymap) SetKeyCommand(key Key, command Command) {
+	k[key] = command
+}
+
 type Commands map[string]Command
 type Position struct {
 	Line   int
