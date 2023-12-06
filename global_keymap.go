@@ -2,7 +2,7 @@ package preditor
 
 var GlobalKeymap = Keymap{
 	Key{K: "q", Alt: true}: func(preditor *Context) error {
-		preditor.KillBuffer(preditor.ActiveBufferID)
+		preditor.KillBuffer(preditor.ActiveBufferID())
 
 		return nil
 	},
