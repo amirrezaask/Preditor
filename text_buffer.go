@@ -432,7 +432,7 @@ func (e *TextBuffer) calculateVisualLines() {
 			continue
 		}
 
-		if int32(lineCharCounter) > e.maxColumn {
+		if int32(lineCharCounter) > e.maxColumn-int32(len(fmt.Sprint(totalVisualLines)))-1 {
 			line := visualLine{
 				Index:      totalVisualLines,
 				startIndex: start,
@@ -717,7 +717,7 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
-	if len(e.visualLines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn {
+	if len(e.visualLines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn-int32(len(fmt.Sprint(newPosition.Line)))-1 {
 		return true
 	}
 	if newPosition.Line >= len(e.visualLines) && (len(e.visualLines) != 0) {
