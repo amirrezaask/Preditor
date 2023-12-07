@@ -5,15 +5,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/flopp/go-findfont"
-	"golang.design/x/clipboard"
 	"image/color"
 	"os"
 	"path"
 	"runtime/debug"
 	"strconv"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/flopp/go-findfont"
+	"golang.design/x/clipboard"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -51,16 +52,13 @@ func (b *BaseBuffer) SetID(i int) {
 }
 
 type Window struct {
-	ID           int
-	BufferID     int
-	ZeroLocation rl.Vector2
-	MaxHeight    float64
-	MaxWidth     float64
+	ID       int
+	BufferID int
 }
 
-func (w *Window) Render(c *Context) {
+func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
 	if buf := c.Buffers[w.BufferID]; buf != nil {
-		buf.Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
+		buf.Render(zeroLocation, maxHeight, maxWidth)
 	}
 }
 
@@ -79,6 +77,7 @@ type Context struct {
 	OSWindowHeight    float64
 	OSWindowWidth     float64
 	Windows           []*Window
+	WindowLayout      [][]int
 	ActiveWindowIndex int
 }
 
@@ -106,9 +105,11 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 	charSizeCache[s] = charSize
 	return charSize
 }
+
 func (c *Context) WriteMessage(msg string) {
 	c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content = append(c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content, []byte(fmt.Sprintln(msg))...)
 }
+
 func (c *Context) getCWD() string {
 	if tb, isTextBuffer := c.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.File)
@@ -248,43 +249,46 @@ func (c *Context) HandleKeyEvents() {
 
 }
 
+func (c *Context) GetWindow(id int) *Window {
+	if id < 0 || id >= len(c.Windows) {
+		return nil
+	}
+
+	return c.Windows[id]
+}
+
 func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.Colors.Background)
-	for _, win := range c.Windows {
-		win.Render(c)
-		if win.ID == c.ActiveWindowIndex && len(c.Windows) > 1 {
-			rl.DrawRectangleLinesEx(rl.Rectangle{
-				X:      float32(win.ZeroLocation.X),
-				Y:      float32(win.ZeroLocation.Y),
-				Width:  float32(win.MaxWidth),
-				Height: float32(win.MaxHeight),
-			}, 1, c.Cfg.Colors.ActiveWindowBorder)
+	for i, column := range c.WindowLayout {
+		columnWidth := c.OSWindowWidth / float64(len(c.WindowLayout))
+		columnZeroX := float64(i) * float64(columnWidth)
+		for j, winid := range column {
+			win := c.GetWindow(winid)
+			if win == nil {
+				continue
+			}
+			winHeight := c.OSWindowHeight / float64(len(column))
+			winZeroY := float64(j) * winHeight
+			zeroLocation := rl.Vector2{X: float32(columnZeroX), Y: float32(winZeroY)}
+			win.Render(c, zeroLocation, winHeight, columnWidth)
+			if win.ID == c.ActiveWindowIndex && len(c.Windows) > 1 {
+				rl.DrawRectangleLinesEx(rl.Rectangle{
+					X:      float32(columnZeroX),
+					Y:      float32(winZeroY),
+					Width:  float32(columnWidth),
+					Height: float32(winHeight),
+				}, 1, c.Cfg.Colors.ActiveWindowBorder)
+			}
 		}
+
 	}
 	rl.EndDrawing()
 }
 
 func (c *Context) HandleWindowResize() {
-	newHeight := float64(rl.GetRenderHeight())
-	newWidth := float64(rl.GetRenderWidth())
-
-	for _, win := range c.Windows {
-		if newHeight != c.OSWindowHeight {
-			win.MaxHeight = newHeight
-		}
-
-		if newWidth != c.OSWindowWidth {
-			win.MaxWidth = newWidth / float64(len(c.Windows))
-			if win.ZeroLocation.X != 0 {
-				win.ZeroLocation.X += float32(float64(newWidth-c.OSWindowWidth) / float64(len(c.Windows)))
-			}
-		}
-
-	}
-
-	c.OSWindowHeight = newHeight
-	c.OSWindowWidth = newWidth
+	c.OSWindowHeight = float64(rl.GetRenderHeight())
+	c.OSWindowWidth = float64(rl.GetRenderWidth())
 }
 
 func (c *Context) HandleMouseEvents() {
@@ -632,6 +636,7 @@ func New() (*Context, error) {
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        []*Window{},
+		WindowLayout:   [][]int{},
 	}
 
 	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
@@ -653,16 +658,16 @@ func New() (*Context, error) {
 	p.MessageBufferID = message.ID
 	p.ScratchBufferID = scratch.ID
 
-	mainWindow := Window{
-		ZeroLocation: rl.Vector2{},
-		MaxWidth:     p.OSWindowWidth,
-		MaxHeight:    p.OSWindowHeight,
-	}
+	mainWindow := Window{}
 	p.AddWindow(&mainWindow)
 
 	p.MarkWindowAsActive(mainWindow.ID)
 
 	p.MarkBufferAsActive(scratch.ID)
+
+	p.WindowLayout = [][]int{
+		{mainWindow.ID},
+	}
 	p.GlobalKeymap = GlobalKeymap
 
 	// handle command line argument
@@ -762,23 +767,28 @@ func (c *Context) openGrepBuffer() {
 }
 
 func (c *Context) VSplit() {
-	c.AddWindow(&Window{})
-	for i, win := range c.Windows {
-		win.MaxWidth = c.OSWindowWidth / float64(len(c.Windows))
-		win.MaxHeight = c.OSWindowHeight
-		win.ZeroLocation = rl.Vector2{
-			X: float32(float64(i) * (float64(c.OSWindowWidth) / float64(len(c.Windows)))),
-			Y: 0,
+	win := &Window{}
+	c.AddWindow(win)
+	activeColID := -1
+	for colid, col := range c.WindowLayout {
+		for _, winid := range col {
+			if winid == c.ActiveWindowIndex {
+				activeColID = colid
+				break
+			}
 		}
+	}
+	if activeColID != -1 {
+		c.WindowLayout = append(c.WindowLayout[:activeColID+1], append([][]int{{win.ID}}, c.WindowLayout[activeColID+1:]...)...)
 	}
 }
 
 func (c *Context) OtherWindow() {
-	if c.ActiveWindowIndex+1 >= len(c.Windows) {
-		c.MarkWindowAsActive(0)
-	} else {
-		c.MarkWindowAsActive(c.ActiveWindowIndex + 1)
+	c.ActiveWindowIndex++
+	if c.ActiveWindowIndex >= len(c.Windows) {
+		c.ActiveWindowIndex = 0
 	}
+
 }
 
 func handlePanicAndWriteMessage(p *Context) {
