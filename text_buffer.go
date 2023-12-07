@@ -67,6 +67,21 @@ func (r *Cursor) End() int {
 	}
 }
 
+type View struct {
+	StartLine int32
+	EndLine   int32
+	Lines     []visualLine
+}
+
+type IncrementalSearch struct {
+	IsSearching               bool
+	LastSearchString          string
+	SearchString              *string
+	SearchMatches             [][]int
+	CurrentMatch              int
+	MovedAwayFromCurrentMatch bool
+}
+
 type TextBuffer struct {
 	BaseBuffer
 	cfg            *Config
@@ -76,6 +91,8 @@ type TextBuffer struct {
 	State          int
 	BeforeSaveHook []func(*TextBuffer) error
 	Readonly       bool
+	maxLine        int32
+	maxColumn      int32
 
 	keymaps []Keymap
 
@@ -84,23 +101,13 @@ type TextBuffer struct {
 
 	TabSize int
 
-	VisibleStart int32
-	VisibleEnd   int32
-	visualLines  []visualLine
-
-	maxLine   int32
-	maxColumn int32
+	View View
 
 	// Cursor
 	Cursors []Cursor
 
 	// Searching
-	IsSearching               bool
-	LastSearchString          string
-	SearchString              *string
-	SearchMatches             [][]int
-	CurrentMatch              int
-	MovedAwayFromCurrentMatch bool
+	IncrementalSearch IncrementalSearch
 
 	UndoStack Stack[EditorAction]
 
@@ -181,7 +188,7 @@ func (e *TextBuffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	e.maxLine--
 
 	diff := e.maxLine - oldMaxLine
-	e.VisibleEnd += diff
+	e.View.EndLine += diff
 }
 func (e *TextBuffer) Type() string {
 	return "text_editor_buffer"
@@ -254,14 +261,14 @@ func NewTextBuffer(parent *Context, cfg *Config, filename string) (*TextBuffer, 
 
 }
 func (e *TextBuffer) getIndexVisualLine(i int) visualLine {
-	for _, line := range e.visualLines {
+	for _, line := range e.View.Lines {
 		if line.startIndex <= i && line.endIndex >= i {
 			return line
 		}
 	}
 
-	if len(e.visualLines) > 0 {
-		lastLine := e.visualLines[len(e.visualLines)-1]
+	if len(e.View.Lines) > 0 {
+		lastLine := e.View.Lines[len(e.View.Lines)-1]
 		lastLine.endIndex++
 		return lastLine
 	}
@@ -269,7 +276,7 @@ func (e *TextBuffer) getIndexVisualLine(i int) visualLine {
 }
 
 func (e *TextBuffer) getIndexPosition(i int) Position {
-	if len(e.visualLines) == 0 {
+	if len(e.View.Lines) == 0 {
 		return Position{Line: 0, Column: i}
 	}
 
@@ -282,11 +289,11 @@ func (e *TextBuffer) getIndexPosition(i int) Position {
 }
 
 func (e *TextBuffer) positionToBufferIndex(pos Position) int {
-	if len(e.visualLines) <= pos.Line {
+	if len(e.View.Lines) <= pos.Line {
 		return len(e.Content)
 	}
 
-	return e.visualLines[pos.Line].startIndex + pos.Column
+	return e.View.Lines[pos.Line].startIndex + pos.Column
 }
 
 func (e *TextBuffer) Destroy() error {
@@ -390,13 +397,13 @@ func (e *TextBuffer) fillInTheBlanks(hs []highlight, start, end int) []highlight
 }
 
 func (e *TextBuffer) calculateVisualLines() {
-	e.visualLines = []visualLine{}
+	e.View.Lines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
 	var actualLineIndex int
 	var start int
-	if e.VisibleEnd == 0 {
-		e.VisibleEnd = e.maxLine
+	if e.View.EndLine == 0 {
+		e.View.EndLine = e.maxLine
 	}
 
 	for idx, char := range e.Content {
@@ -409,7 +416,7 @@ func (e *TextBuffer) calculateVisualLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-			e.visualLines = append(e.visualLines, line)
+			e.View.Lines = append(e.View.Lines, line)
 			totalVisualLines++
 			actualLineIndex++
 			lineCharCounter = 0
@@ -424,7 +431,7 @@ func (e *TextBuffer) calculateVisualLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-			e.visualLines = append(e.visualLines, line)
+			e.View.Lines = append(e.View.Lines, line)
 			totalVisualLines++
 			actualLineIndex++
 			lineCharCounter = 0
@@ -441,7 +448,7 @@ func (e *TextBuffer) calculateVisualLines() {
 				ActualLine: actualLineIndex,
 			}
 
-			e.visualLines = append(e.visualLines, line)
+			e.View.Lines = append(e.View.Lines, line)
 			totalVisualLines++
 			lineCharCounter = 0
 			start = idx + 1
@@ -459,13 +466,13 @@ func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, max
 		if sel.Start() == sel.End() {
 			cursor := e.getIndexPosition(sel.Start())
 			cursorView := Position{
-				Line:   cursor.Line - int(e.VisibleStart),
+				Line:   cursor.Line - int(e.View.StartLine),
 				Column: cursor.Column,
 			}
 			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
-				if len(e.visualLines) > cursor.Line {
-					posX += int32((len(fmt.Sprint(e.visualLines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
+				if len(e.View.Lines) > cursor.Line {
+					posX += int32((len(fmt.Sprint(e.View.Lines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
 				} else {
 					posX += int32(charSize.X)
 
@@ -525,8 +532,8 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 
 	var searchString string
-	if e.SearchString != nil {
-		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.SearchString, e.CurrentMatch, len(e.SearchMatches)-1)
+	if e.IncrementalSearch.SearchString != nil {
+		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.IncrementalSearch.SearchString, e.IncrementalSearch.CurrentMatch, len(e.IncrementalSearch.SearchMatches)-1)
 		sections = append(sections, searchString)
 	}
 
@@ -556,12 +563,12 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 		end = e.getIndexPosition(idx2)
 	}
 	for i := start.Line; i <= end.Line; i++ {
-		if len(e.visualLines) <= i {
+		if len(e.View.Lines) <= i {
 			break
 		}
 		var thisLineEnd int
 		var thisLineStart int
-		line := e.visualLines[i]
+		line := e.View.Lines[i]
 		if i == start.Line {
 			thisLineStart = start.Column
 		} else {
@@ -576,14 +583,14 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 		for j := thisLineStart; j <= thisLineEnd; j++ {
 			posX := int32(j)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
-				if len(e.visualLines) > i {
-					posX += int32((len(fmt.Sprint(e.visualLines[i].ActualLine)) + 1) * int(charSize.X))
+				if len(e.View.Lines) > i {
+					posX += int32((len(fmt.Sprint(e.View.Lines[i].ActualLine)) + 1) * int(charSize.X))
 				} else {
 					posX += int32(charSize.X)
 
 				}
 			}
-			rl.DrawRectangle(posX, int32(i-int(e.VisibleStart))*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
+			rl.DrawRectangle(posX, int32(i-int(e.View.StartLine))*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
 		}
 	}
 
@@ -592,10 +599,10 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.calculateVisualLines()
 	var visibleLines []visualLine
-	if e.VisibleEnd > int32(len(e.visualLines)) {
-		visibleLines = e.visualLines[e.VisibleStart:]
+	if e.View.EndLine > int32(len(e.View.Lines)) {
+		visibleLines = e.View.Lines[e.View.StartLine:]
 	} else {
-		visibleLines = e.visualLines[e.VisibleStart:e.VisibleEnd]
+		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
 	}
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
@@ -636,7 +643,7 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 	}
 }
 func (e *TextBuffer) convertBufferIndexToLineAndColumn(idx int) *Position {
-	for lineIndex, line := range e.visualLines {
+	for lineIndex, line := range e.View.Lines {
 		if line.startIndex <= idx && line.endIndex >= idx {
 			return &Position{
 				Line:   lineIndex,
@@ -648,52 +655,52 @@ func (e *TextBuffer) convertBufferIndexToLineAndColumn(idx int) *Position {
 	return nil
 }
 func (e *TextBuffer) findMatches(pattern string) error {
-	e.SearchMatches = [][]int{}
-	matchPatternAsync(&e.SearchMatches, e.Content, []byte(pattern))
+	e.IncrementalSearch.SearchMatches = [][]int{}
+	matchPatternAsync(&e.IncrementalSearch.SearchMatches, e.Content, []byte(pattern))
 	return nil
 }
 
 func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2) error {
-	if pattern != e.LastSearchString {
+	if pattern != e.IncrementalSearch.LastSearchString {
 		if err := e.findMatches(pattern); err != nil {
 			return err
 		}
 	}
-	for idx, match := range e.SearchMatches {
+	for idx, match := range e.IncrementalSearch.SearchMatches {
 		c := e.cfg.Colors.Selection
 		_ = c
-		if idx == e.CurrentMatch {
+		if idx == e.IncrementalSearch.CurrentMatch {
 			c = rl.Fade(rl.Red, 0.5)
 			matchStartLine := e.getIndexPosition(match[0])
 			matchEndLine := e.getIndexPosition(match[0])
-			if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd > int32(matchEndLine.Line)) && !e.MovedAwayFromCurrentMatch {
+			if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.IncrementalSearch.MovedAwayFromCurrentMatch {
 				// current match is not in view
 				// move the view
-				oldStart := e.VisibleStart
-				e.VisibleStart = int32(matchStartLine.Line) - e.maxLine/2
-				if e.VisibleStart < 0 {
-					e.VisibleStart = int32(matchStartLine.Line)
+				oldStart := e.View.StartLine
+				e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
+				if e.View.StartLine < 0 {
+					e.View.StartLine = int32(matchStartLine.Line)
 				}
 
-				diff := e.VisibleStart - oldStart
-				e.VisibleEnd += diff
+				diff := e.View.StartLine - oldStart
+				e.View.EndLine += diff
 			}
 		}
 		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], c)
 	}
-	e.LastSearchString = pattern
+	e.IncrementalSearch.LastSearchString = pattern
 
 	return nil
 }
 func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
-	if e.SearchString == nil || len(*e.SearchString) < 1 {
+	if e.IncrementalSearch.SearchString == nil || len(*e.IncrementalSearch.SearchString) < 1 {
 		return
 	}
-	e.findMatchesAndHighlight(*e.SearchString, zeroLocation)
-	if len(e.SearchMatches) > 0 {
+	e.findMatchesAndHighlight(*e.IncrementalSearch.SearchString, zeroLocation)
+	if len(e.IncrementalSearch.SearchMatches) > 0 {
 		e.Cursors = e.Cursors[:1]
-		e.Cursors[0].Point = e.SearchMatches[e.CurrentMatch][0]
-		e.Cursors[0].Mark = e.SearchMatches[e.CurrentMatch][0]
+		e.Cursors[0].Point = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
+		e.Cursors[0].Mark = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
 	}
 }
 
@@ -706,7 +713,7 @@ func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 }
 
 func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
-	if e.VisibleStart <= int32(line.Index) && line.Index <= int(e.VisibleEnd) {
+	if e.View.StartLine <= int32(line.Index) && line.Index <= int(e.View.EndLine) {
 		return true
 	}
 
@@ -717,17 +724,17 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
-	if len(e.visualLines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn-int32(len(fmt.Sprint(newPosition.Line)))-1 {
+	if len(e.View.Lines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn-int32(len(fmt.Sprint(newPosition.Line)))-1 {
 		return true
 	}
-	if newPosition.Line >= len(e.visualLines) && (len(e.visualLines) != 0) {
+	if newPosition.Line >= len(e.View.Lines) && (len(e.View.Lines) != 0) {
 		return false
 	}
 
 	if newPosition.Column < 0 {
 		return false
 	}
-	if newPosition.Column > e.visualLines[newPosition.Line].Length+1 {
+	if newPosition.Column > e.View.Lines[newPosition.Line].Length+1 {
 		return false
 	}
 
@@ -869,17 +876,17 @@ func (e *TextBuffer) DeleteCharForward() error {
 }
 
 func (e *TextBuffer) ScrollUp(n int) error {
-	if e.VisibleStart <= 0 {
+	if e.View.StartLine <= 0 {
 		return nil
 	}
-	e.VisibleEnd += int32(-1 * n)
-	e.VisibleStart += int32(-1 * n)
+	e.View.EndLine += int32(-1 * n)
+	e.View.StartLine += int32(-1 * n)
 
-	diff := e.VisibleEnd - e.VisibleStart
+	diff := e.View.EndLine - e.View.StartLine
 
-	if e.VisibleStart < 0 {
-		e.VisibleStart = 0
-		e.VisibleEnd = diff
+	if e.View.StartLine < 0 {
+		e.View.StartLine = 0
+		e.View.EndLine = diff
 	}
 
 	return nil
@@ -887,15 +894,15 @@ func (e *TextBuffer) ScrollUp(n int) error {
 }
 
 func (e *TextBuffer) ScrollDown(n int) error {
-	if int(e.VisibleEnd) >= len(e.visualLines) {
+	if int(e.View.EndLine) >= len(e.View.Lines) {
 		return nil
 	}
-	e.VisibleEnd += int32(n)
-	e.VisibleStart += int32(n)
-	diff := e.VisibleEnd - e.VisibleStart
-	if int(e.VisibleEnd) >= len(e.visualLines) {
-		e.VisibleEnd = int32(len(e.visualLines) - 1)
-		e.VisibleStart = e.VisibleEnd - diff
+	e.View.EndLine += int32(n)
+	e.View.StartLine += int32(n)
+	diff := e.View.EndLine - e.View.StartLine
+	if int(e.View.EndLine) >= len(e.View.Lines) {
+		e.View.EndLine = int32(len(e.View.Lines) - 1)
+		e.View.StartLine = e.View.EndLine - diff
 	}
 
 	return nil
@@ -946,7 +953,7 @@ func (e *TextBuffer) MoveUp() error {
 			return nil
 		}
 
-		prevLine := e.visualLines[prevLineIndex]
+		prevLine := e.View.Lines[prevLineIndex]
 		col := e.Cursors[i].Point - currentLine.startIndex
 		newidx := prevLine.startIndex + col
 		if newidx > prevLine.endIndex {
@@ -964,11 +971,11 @@ func (e *TextBuffer) MoveDown() error {
 	for i := range e.Cursors {
 		currentLine := e.getIndexVisualLine(e.Cursors[i].Point)
 		nextLineIndex := currentLine.Index + 1
-		if nextLineIndex >= len(e.visualLines) {
+		if nextLineIndex >= len(e.View.Lines) {
 			return nil
 		}
 
-		nextLine := e.visualLines[nextLineIndex]
+		nextLine := e.View.Lines[nextLineIndex]
 		col := e.Cursors[i].Point - currentLine.startIndex
 		newIndex := nextLine.startIndex + col
 		if newIndex > nextLine.endIndex {
@@ -1009,11 +1016,11 @@ func SelectionsUp(e *TextBuffer, n int) error {
 	for i := range e.Cursors {
 		currentLine := e.getIndexVisualLine(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index - n
-		if nextLineIndex >= len(e.visualLines) || nextLineIndex < 0 {
+		if nextLineIndex >= len(e.View.Lines) || nextLineIndex < 0 {
 			return nil
 		}
 
-		nextLine := e.visualLines[nextLineIndex]
+		nextLine := e.View.Lines[nextLineIndex]
 		newcol := nextLine.startIndex
 		e.Cursors[i].Mark = newcol
 		e.ScrollIfNeeded()
@@ -1025,11 +1032,11 @@ func SelectionsDown(e *TextBuffer, n int) error {
 	for i := range e.Cursors {
 		currentLine := e.getIndexVisualLine(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index + n
-		if nextLineIndex >= len(e.visualLines) {
+		if nextLineIndex >= len(e.View.Lines) {
 			return nil
 		}
 
-		nextLine := e.visualLines[nextLineIndex]
+		nextLine := e.View.Lines[nextLineIndex]
 		newcol := nextLine.startIndex
 		e.Cursors[i].Mark = newcol
 		e.ScrollIfNeeded()
@@ -1047,15 +1054,15 @@ func AnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 		apprColumn -= float64(len(fmt.Sprint(apprLine)) + 1)
 	}
 
-	if len(e.visualLines) < 1 {
+	if len(e.View.Lines) < 1 {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.VisibleStart)
+	line := int(apprLine) + int(e.View.StartLine)
 	col := int(apprColumn)
 
-	if line >= len(e.visualLines) {
-		line = len(e.visualLines) - 1
+	if line >= len(e.View.Lines) {
+		line = len(e.View.Lines) - 1
 	}
 
 	if line < 0 {
@@ -1063,8 +1070,8 @@ func AnotherSelectionHere(e *TextBuffer, pos rl.Vector2) error {
 	}
 
 	// check if cursor should be moved back
-	if col > e.visualLines[line].Length {
-		col = e.visualLines[line].Length
+	if col > e.View.Lines[line].Length {
+		col = e.View.Lines[line].Length
 	}
 	if col < 0 {
 		col = 0
@@ -1227,15 +1234,15 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 		apprColumn -= float64((len(fmt.Sprint(apprLine)) + 1))
 	}
 
-	if len(e.visualLines) < 1 {
+	if len(e.View.Lines) < 1 {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.VisibleStart)
+	line := int(apprLine) + int(e.View.StartLine)
 	col := int(apprColumn)
 
-	if line >= len(e.visualLines) {
-		line = len(e.visualLines) - 1
+	if line >= len(e.View.Lines) {
+		line = len(e.View.Lines) - 1
 	}
 
 	if line < 0 {
@@ -1243,8 +1250,8 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 	}
 
 	// check if cursor should be moved back
-	if col > e.visualLines[line].Length {
-		col = e.visualLines[line].Length
+	if col > e.View.Lines[line].Length {
+		col = e.View.Lines[line].Length
 	}
 	if col < 0 {
 		col = 0
@@ -1257,27 +1264,27 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 
 func (e *TextBuffer) ScrollIfNeeded() error {
 	pos := e.getIndexPosition(e.Cursors[0].End())
-	if int32(pos.Line) <= e.VisibleStart {
-		e.VisibleStart = int32(pos.Line) - e.maxLine/3
-		e.VisibleEnd = e.VisibleStart + e.maxLine
+	if int32(pos.Line) <= e.View.StartLine {
+		e.View.StartLine = int32(pos.Line) - e.maxLine/3
+		e.View.EndLine = e.View.StartLine + e.maxLine
 
-	} else if int32(pos.Line) >= e.VisibleEnd {
-		e.VisibleEnd = int32(pos.Line) + e.maxLine/3
-		e.VisibleStart = e.VisibleEnd - e.maxLine
+	} else if int32(pos.Line) >= e.View.EndLine {
+		e.View.EndLine = int32(pos.Line) + e.maxLine/3
+		e.View.StartLine = e.View.EndLine - e.maxLine
 	}
 
-	if int(e.VisibleEnd) >= len(e.visualLines) {
-		e.VisibleEnd = int32(len(e.visualLines) - 1)
-		e.VisibleStart = e.VisibleEnd - e.maxLine
+	if int(e.View.EndLine) >= len(e.View.Lines) {
+		e.View.EndLine = int32(len(e.View.Lines) - 1)
+		e.View.StartLine = e.View.EndLine - e.maxLine
 	}
 
-	if e.VisibleStart < 0 {
-		e.VisibleStart = 0
-		e.VisibleEnd = e.maxLine
+	if e.View.StartLine < 0 {
+		e.View.StartLine = 0
+		e.View.EndLine = e.maxLine
 	}
-	if e.VisibleEnd < 0 {
-		e.VisibleStart = 0
-		e.VisibleEnd = e.maxLine
+	if e.View.EndLine < 0 {
+		e.View.StartLine = 0
+		e.View.EndLine = e.maxLine
 	}
 
 	return nil
@@ -1776,11 +1783,11 @@ func writeToClipboard(bs []byte) {
 }
 
 func insertCharAtSearchString(editor *TextBuffer, char byte) error {
-	if editor.SearchString == nil {
-		editor.SearchString = new(string)
+	if editor.IncrementalSearch.SearchString == nil {
+		editor.IncrementalSearch.SearchString = new(string)
 	}
 
-	*editor.SearchString += string(char)
+	*editor.IncrementalSearch.SearchString += string(char)
 
 	return nil
 }
@@ -1804,16 +1811,16 @@ func (e *TextBuffer) readFileFromDisk() error {
 }
 
 func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
-	if e.SearchString == nil {
+	if e.IncrementalSearch.SearchString == nil {
 		return nil
 	}
-	s := []byte(*e.SearchString)
+	s := []byte(*e.IncrementalSearch.SearchString)
 	if len(s) < 1 {
 		return nil
 	}
 	s = s[:len(s)-1]
 
-	e.SearchString = &[]string{string(s)}[0]
+	e.IncrementalSearch.SearchString = &[]string{string(s)}[0]
 
 	return nil
 }
@@ -1833,77 +1840,77 @@ var SearchTextBufferKeymap = Keymap{
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
 	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.CurrentMatch++
-		if editor.CurrentMatch >= len(editor.SearchMatches) {
-			editor.CurrentMatch = 0
+		editor.IncrementalSearch.CurrentMatch++
+		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
+			editor.IncrementalSearch.CurrentMatch = 0
 		}
-		editor.MovedAwayFromCurrentMatch = false
+		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 
 	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *TextBuffer) error {
-		editor.CurrentMatch--
-		if editor.CurrentMatch >= len(editor.SearchMatches) {
-			editor.CurrentMatch = 0
+		editor.IncrementalSearch.CurrentMatch--
+		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
+			editor.IncrementalSearch.CurrentMatch = 0
 		}
-		if editor.CurrentMatch < 0 {
-			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		if editor.IncrementalSearch.CurrentMatch < 0 {
+			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
 		}
-		editor.MovedAwayFromCurrentMatch = false
+		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
-		editor.IsSearching = false
-		editor.LastSearchString = ""
-		editor.SearchString = nil
-		editor.SearchMatches = nil
-		editor.CurrentMatch = 0
-		editor.MovedAwayFromCurrentMatch = false
+		editor.IncrementalSearch.IsSearching = false
+		editor.IncrementalSearch.LastSearchString = ""
+		editor.IncrementalSearch.SearchString = nil
+		editor.IncrementalSearch.SearchMatches = nil
+		editor.IncrementalSearch.CurrentMatch = 0
+		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
 	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
-		e.MovedAwayFromCurrentMatch = true
+		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
 		return e.ScrollUp(20)
 
 	}),
 	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
-		e.MovedAwayFromCurrentMatch = true
+		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollDown(20)
 	}),
 
 	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.CurrentMatch++
-		if editor.CurrentMatch >= len(editor.SearchMatches) {
-			editor.CurrentMatch = 0
+		editor.IncrementalSearch.CurrentMatch++
+		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
+			editor.IncrementalSearch.CurrentMatch = 0
 		}
-		if editor.CurrentMatch < 0 {
-			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		if editor.IncrementalSearch.CurrentMatch < 0 {
+			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
 		}
-		editor.MovedAwayFromCurrentMatch = false
+		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<mmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.CurrentMatch--
-		if editor.CurrentMatch >= len(editor.SearchMatches) {
-			editor.CurrentMatch = 0
+		editor.IncrementalSearch.CurrentMatch--
+		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
+			editor.IncrementalSearch.CurrentMatch = 0
 		}
-		if editor.CurrentMatch < 0 {
-			editor.CurrentMatch = len(editor.SearchMatches) - 1
+		if editor.IncrementalSearch.CurrentMatch < 0 {
+			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
 		}
-		editor.MovedAwayFromCurrentMatch = false
+		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
-		e.MovedAwayFromCurrentMatch = true
+		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
 		return e.ScrollDown(1)
 	}),
 	Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
-		e.MovedAwayFromCurrentMatch = true
+		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollUp(1)
 	}),
@@ -2016,17 +2023,17 @@ var GotoLineKeymap = Keymap{
 			return nil
 		}
 
-		for _, line := range editor.visualLines {
+		for _, line := range editor.View.Lines {
 			if line.Index == number {
-				if !(editor.VisibleStart < int32(line.Index)) || !(editor.VisibleEnd > int32(line.Index)) {
-					editor.VisibleStart = int32(int32(line.Index) - editor.maxLine/2)
-					if editor.VisibleStart < 0 {
-						editor.VisibleStart = 0
+				if !(editor.View.StartLine < int32(line.Index)) || !(editor.View.EndLine > int32(line.Index)) {
+					editor.View.StartLine = int32(int32(line.Index) - editor.maxLine/2)
+					if editor.View.StartLine < 0 {
+						editor.View.StartLine = 0
 					}
 
-					editor.VisibleEnd = int32(int32(line.Index) + editor.maxLine/2)
-					if editor.VisibleEnd > int32(len(editor.visualLines)) {
-						editor.VisibleEnd = int32(len(editor.visualLines))
+					editor.View.EndLine = int32(int32(line.Index) + editor.maxLine/2)
+					if editor.View.EndLine > int32(len(editor.View.Lines)) {
+						editor.View.EndLine = int32(len(editor.View.Lines))
 					}
 
 					editor.isGotoLine = false
