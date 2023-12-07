@@ -788,7 +788,38 @@ func (c *Context) OtherWindow() {
 	if c.ActiveWindowIndex >= len(c.Windows) {
 		c.ActiveWindowIndex = 0
 	}
+}
 
+func removeSliceIndex[T any](s []T, i int) []T {
+	if i == len(s)-1 {
+		s = s[:i]
+	} else {
+		s = append(s[:i], s[i+1:]...)
+	}
+
+	return s
+}
+
+func (c *Context) CloseWindow(id int) {
+	c.Windows[id] = nil
+	if c.ActiveWindowIndex == id {
+		c.ActiveWindowIndex = 0
+	}
+	for i := 0; i < len(c.WindowLayout); i++ {
+		checkCol := -1
+		for j := 0; j < len(c.WindowLayout[i]); j++ {
+			if c.WindowLayout[i][j] == id {
+				c.WindowLayout[i] = removeSliceIndex(c.WindowLayout[i], j)
+				checkCol = i
+				break
+			}
+		}
+
+		if checkCol != -1 && len(c.WindowLayout[checkCol]) == 0 {
+			c.WindowLayout = removeSliceIndex(c.WindowLayout, checkCol)
+		}
+
+	}
 }
 
 func handlePanicAndWriteMessage(p *Context) {
