@@ -497,8 +497,9 @@ func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, max
 			case CURSOR_SHAPE_LINE:
 				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
 			}
-
-			rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
+			if e.cfg.CursorLineHighlight {
+				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
+			}
 
 		} else {
 			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), e.cfg.Colors.Selection)
@@ -1782,7 +1783,7 @@ var SearchTextBufferKeymap = Keymap{
 		return nil
 	}),
 	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
+		editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
 		editor.IncrementalSearch.IsSearching = false
 		editor.IncrementalSearch.LastSearchString = ""
 		editor.IncrementalSearch.SearchString = nil
