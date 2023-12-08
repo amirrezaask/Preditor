@@ -110,11 +110,6 @@ func makeKeymap[T any]() Keymap {
 		Key{K: "c", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.Copy()
 		}),
-		Key{K: "s", Control: true}: MakeCommand(func(a *InteractiveFilterBuffer[T]) error {
-			a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
-			return nil
-		}),
-
 		Key{K: "a", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.BeginningOfTheLine()
 		}),
