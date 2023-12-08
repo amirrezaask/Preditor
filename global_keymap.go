@@ -52,7 +52,16 @@ var GlobalKeymap = Keymap{
 		return nil
 
 	},
+	Key{K: "=", Control: true}: func(e *Context) error {
+		e.IncreaseFontSize(2)
 
+		return nil
+	},
+	Key{K: "-", Control: true}: func(e *Context) error {
+		e.DecreaseFontSize(2)
+
+		return nil
+	},
 	Key{K: "w", Alt: true}: func(c *Context) error {
 		c.OtherWindow()
 

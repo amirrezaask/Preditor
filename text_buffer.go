@@ -1465,11 +1465,6 @@ func (e *TextBuffer) Paste() error {
 }
 
 var EditorKeymap = Keymap{
-	Key{K: "=", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.parent.IncreaseFontSize(10)
-
-		return nil
-	}),
 
 	Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.AnotherSelectionOnMatch()
@@ -1537,11 +1532,6 @@ var EditorKeymap = Keymap{
 
 	Key{K: "<down>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherCursorNextLine(e)
-	}),
-	Key{K: "-", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.parent.DecreaseFontSize(10)
-
-		return nil
 	}),
 	Key{K: "r", Alt: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.readFileFromDisk()
