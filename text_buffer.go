@@ -1671,7 +1671,9 @@ var EditorKeymap = Keymap{
 	}),
 
 	//insertion
-	Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '\n') }),
+	Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
+		return insertChar(e, '\n')
+	}),
 	Key{K: "<space>"}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
 	Key{K: "<backspace>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.DeleteWordBackward()
