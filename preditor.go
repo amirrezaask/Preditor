@@ -782,7 +782,7 @@ func (c *Context) openFileBuffer() {
 }
 
 func (c *Context) openFuzzyFilePicker() {
-	ofb := NewFuzzyFileBuffer(c, c.Cfg)
+	ofb := NewFuzzyFileBuffer(c, c.Cfg, c.getCWD())
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 
@@ -794,7 +794,8 @@ func (c *Context) openBufferSwitcher() {
 }
 
 func (c *Context) openGrepBuffer() {
-	ofb := NewGrepBuffer(c, c.Cfg)
+
+	ofb := NewGrepBuffer(c, c.Cfg, c.getCWD())
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 }
@@ -843,6 +844,9 @@ func removeSliceIndex[T any](s []T, i int) []T {
 }
 
 func (c *Context) CloseWindow(id int) {
+	if c.windowCount() < 2 {
+		return
+	}
 	for i := 0; i < len(c.Windows); i++ {
 		checkCol := -1
 		for j := 0; j < len(c.Windows[i]); j++ {

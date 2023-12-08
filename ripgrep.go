@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func RipgrepAsync(pattern string) chan [][]byte {
+func RipgrepAsync(pattern string, dir string) chan [][]byte {
 	output := make(chan [][]byte)
 	go func() {
 		cmd := exec.Command("rg", "--vimgrep", pattern)
@@ -16,6 +16,7 @@ func RipgrepAsync(pattern string) chan [][]byte {
 
 		cmd.Stderr = stdError
 		cmd.Stdout = stdOut
+		cmd.Dir = dir
 		if err := cmd.Run(); err != nil {
 			fmt.Println("ERROR running rg:", err.Error())
 			return
@@ -27,13 +28,14 @@ func RipgrepAsync(pattern string) chan [][]byte {
 	return output
 }
 
-func RipgrepFiles() []string {
+func RipgrepFiles(cwd string) []string {
 	cmd := exec.Command("rg", "--files")
 	stdError := &bytes.Buffer{}
 	stdOut := &bytes.Buffer{}
 
 	cmd.Stderr = stdError
 	cmd.Stdout = stdOut
+	cmd.Dir = cwd
 	if err := cmd.Run(); err != nil {
 		fmt.Println("ERROR running rg files:", err.Error())
 		return nil
