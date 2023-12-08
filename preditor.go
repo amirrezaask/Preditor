@@ -802,10 +802,6 @@ func removeSliceIndex[T any](s []T, i int) []T {
 }
 
 func (c *Context) CloseWindow(id int) {
-	c.Windows[id] = nil
-	if c.ActiveWindowIndex == id {
-		c.ActiveWindowIndex = 0
-	}
 	for i := 0; i < len(c.Windows); i++ {
 		checkCol := -1
 		for j := 0; j < len(c.Windows[i]); j++ {
@@ -820,6 +816,13 @@ func (c *Context) CloseWindow(id int) {
 			c.Windows = removeSliceIndex(c.Windows, checkCol)
 		}
 
+	}
+
+	for _, col := range c.Windows {
+		for _, win := range col {
+			c.ActiveWindowIndex = win.ID
+			break
+		}
 	}
 }
 
