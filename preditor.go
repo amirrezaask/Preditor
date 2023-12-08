@@ -314,14 +314,7 @@ func (c *Context) Render() {
 			winZeroY := float64(j) * winHeight
 			zeroLocation := rl.Vector2{X: float32(columnZeroX), Y: float32(winZeroY)}
 			win.Render(c, zeroLocation, winHeight, columnWidth)
-			if win.ID == c.ActiveWindowIndex && len(c.Windows) > 1 {
-				rl.DrawRectangleLinesEx(rl.Rectangle{
-					X:      float32(columnZeroX),
-					Y:      float32(winZeroY),
-					Width:  float32(columnWidth),
-					Height: float32(winHeight),
-				}, 1, c.Cfg.Colors.ActiveWindowBorder)
-			}
+			rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
 		}
 
 	}
