@@ -146,7 +146,8 @@ func (c *Context) AddWindowInANewColumn(w *Window) {
 	w.ID = c.windowCount()
 }
 
-func (c *Context) AddWindowInCurrentColum(w *Window) {
+func (c *Context) AddWindowInCurrentColumn(w *Window) {
+	return //TODO: fix this
 	currentColIndex := -1
 HERE:
 	for i, col := range c.Windows {
@@ -160,6 +161,7 @@ HERE:
 
 	if currentColIndex != -1 {
 		c.Windows[currentColIndex] = append(c.Windows[currentColIndex], w)
+		w.ID = c.windowCount()
 	}
 }
 
@@ -807,7 +809,7 @@ func (c *Context) VSplit() {
 
 func (c *Context) HSplit() {
 	win := &Window{}
-	c.AddWindowInCurrentColum(win)
+	c.AddWindowInCurrentColumn(win)
 }
 
 func (c *Context) OtherWindow() {
