@@ -356,15 +356,15 @@ func (e *TextBuffer) calculateHighlights(bs []byte, offset int) []highlight {
 			Color: e.SyntaxHighlights.Comments.Color,
 		})
 	}
-	//stringss := e.SyntaxHighlights.Strings.Regex.FindAllStringIndex(string(bs), -1) //TODO: fix fillInTheBlanks function to make this work, problem is with the last condition to fill in the remaining space at end of the line
-	//for _, index := range stringss {
-	//
-	//	highlights = append(highlights, highlight{
-	//		start: index[0] + offset,
-	//		end:   index[1] + offset - 1,
-	//		Color: e.SyntaxHighlights.Strings.Color,
-	//	})
-	//}
+	stringss := e.SyntaxHighlights.Strings.Regex.FindAllStringIndex(string(bs), -1)
+	for _, index := range stringss {
+
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: e.SyntaxHighlights.Strings.Color,
+		})
+	}
 
 	return highlights
 }
@@ -373,56 +373,6 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 	sort.Slice(slice, func(i, j int) bool {
 		return pred(slice[i], slice[j])
 	})
-}
-
-func (e *TextBuffer) fillInTheBlanks(hs []highlight, start, end int) []highlight {
-	var missing []highlight
-	sortme[highlight](hs, func(t1, t2 highlight) bool {
-		return t1.start < t2.start
-	})
-	if start == end {
-		return hs
-	}
-	if len(hs) == 0 {
-		missing = append(missing, highlight{
-			start: start,
-			end:   end - 1,
-			Color: e.cfg.Colors.Foreground,
-		})
-	} else {
-		for i, h := range hs {
-			if i == 0 {
-				if h.start != start {
-					missing = append(missing, highlight{
-						start: start,
-						end:   h.start - 1,
-						Color: e.cfg.Colors.Foreground,
-					})
-				}
-			}
-			if i == len(hs)-1 && h.end != end {
-				missing = append(missing, highlight{
-					start: h.end + 1,
-					end:   end - 1,
-					Color: e.cfg.Colors.Foreground,
-				})
-			}
-			if i+1 < len(hs) && hs[i+1].start-h.end != 1 {
-				missing = append(missing, highlight{
-					start: h.end + 1,
-					end:   hs[i+1].start - 1,
-					Color: e.cfg.Colors.Foreground,
-				})
-			}
-		}
-	}
-
-	hs = append(hs, missing...)
-	sortme[highlight](hs, func(t1, t2 highlight) bool {
-		return t1.start < t2.start
-	})
-
-	return hs
 }
 
 func (e *TextBuffer) calculateVisualLines() {
@@ -648,9 +598,15 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 					e.cfg.Colors.LineNumbersForeground)
 
 			}
+			rl.DrawTextEx(e.parent.Font,
+				string(e.Content[line.startIndex:line.endIndex]),
+				rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
+				float32(e.parent.FontSize),
+				0,
+				e.cfg.Colors.Foreground)
 
 			if e.cfg.EnableSyntaxHighlighting && e.HasSyntaxHighlights {
-				highlights := e.fillInTheBlanks(e.calculateHighlights(e.Content[line.startIndex:line.endIndex], line.startIndex), line.startIndex, line.endIndex)
+				highlights := e.calculateHighlights(e.Content[line.startIndex:line.endIndex], line.startIndex)
 				for _, h := range highlights {
 					rl.DrawTextEx(e.parent.Font,
 						string(e.Content[h.start:h.end+1]),
@@ -660,14 +616,6 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 						h.Color)
 
 				}
-			} else {
-
-				rl.DrawTextEx(e.parent.Font,
-					string(e.Content[line.startIndex:line.endIndex]),
-					rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
-					float32(e.parent.FontSize),
-					0,
-					e.cfg.Colors.Foreground)
 			}
 		}
 	}
