@@ -11,20 +11,10 @@ import (
 type FileType struct {
 	TabSize          int
 	BeforeSave       func(*TextBuffer) error
-	SyntaxHighlights *SyntaxHighlights
+	SyntaxHighlights SyntaxHighlights
 }
 
-type SyntaxHighlights struct {
-	Keywords SyntaxHighlight
-	Types    SyntaxHighlight
-	Comments SyntaxHighlight
-	Strings  SyntaxHighlight
-}
-
-type SyntaxHighlight struct {
-	Regex *regexp.Regexp
-	Color color.RGBA
-}
+type SyntaxHighlights map[*regexp.Regexp]color.RGBA
 
 func keywordPat(word string) string {
 	return fmt.Sprintf("\\b%s\\b", word)
@@ -52,28 +42,17 @@ func initFileTypes(cfg Colors) {
 				return nil
 			},
 
-			SyntaxHighlights: &SyntaxHighlights{
-				Keywords: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("break", "case", "const",
-						"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
-						"import", "interface", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "iota", "append", "cap", "clear", "close", "complex",
-						"Copy", "delete", "imag", "len", "make",
-						"max", "min", "new", "panic", "print",
-						"println", "real", "recover")),
-					Color: cfg.SyntaxKeywords,
-				},
-				Types: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "true", "false", "chan", "byte", "map")),
-					Color: cfg.SyntaxTypes,
-				},
-				Comments: SyntaxHighlight{
-					Regex: regexp.MustCompile(`//.*`),
-					Color: cfg.SyntaxComments,
-				},
-				Strings: SyntaxHighlight{
-					Regex: regexp.MustCompile("([`\"]).*([`\"])"),
-					Color: cfg.SyntaxStrings,
-				},
+			SyntaxHighlights: SyntaxHighlights{
+				//regexp.MustCompile(keywordsPat("break", "case", "const",
+				//	"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
+				//	"import", "interface", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "iota", "append", "cap", "clear", "close", "complex",
+				//	"Copy", "delete", "imag", "len", "make",
+				//	"max", "min", "new", "panic", "print",
+				//	"println", "real", "recover")): cfg.SyntaxKeywords,
+				//regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "true", "false", "chan", "byte", "map")): cfg.SyntaxTypes,
+				//regexp.MustCompile("//.*"):   cfg.SyntaxComments,
+				//regexp.MustCompile("`.*`"):   cfg.SyntaxStrings,
+				//regexp.MustCompile("\".*\""): cfg.SyntaxStrings,
 			},
 		},
 	}
