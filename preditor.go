@@ -23,6 +23,7 @@ type Colors struct {
 	Background            color.RGBA
 	Foreground            color.RGBA
 	Selection             color.RGBA
+	Prompts               color.RGBA
 	StatusBarBackground   color.RGBA
 	StatusBarForeground   color.RGBA
 	LineNumbersForeground color.RGBA
@@ -31,6 +32,7 @@ type Colors struct {
 	CursorLineBackground  color.RGBA
 	SyntaxKeywords        color.RGBA
 	SyntaxTypes           color.RGBA
+	SyntaxComments        color.RGBA
 }
 
 type Buffer interface {
