@@ -356,6 +356,16 @@ func (e *TextBuffer) calculateHighlights(bs []byte, offset int) []highlight {
 			Color: e.SyntaxHighlights.Comments.Color,
 		})
 	}
+	stringss := e.SyntaxHighlights.Strings.Regex.FindAllStringIndex(string(bs), -1) //TODO: fix fillInTheBlanks function to make this work, problem is with the last condition to fill in the remaining space at end of the line
+	for _, index := range stringss {
+
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: e.SyntaxHighlights.Strings.Color,
+		})
+	}
+
 	return highlights
 }
 
