@@ -77,6 +77,8 @@ func addToConfig(cfg *Config, key string, value string) error {
 		cfg.CursorBlinking = value == "true"
 	case "font":
 		cfg.FontName = value
+	case "cursor_line_highlight":
+		cfg.CursorLineHighlight = value == "true"
 	case "font_size":
 		var err error
 		cfg.FontSize, err = strconv.Atoi(value)
