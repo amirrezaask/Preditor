@@ -88,7 +88,8 @@ type Gotoline struct {
 }
 
 type Compilation struct {
-	IsCompiling bool
+	IsCompiling       bool
+	CompilationOutput []byte
 }
 
 type TextBuffer struct {
@@ -124,6 +125,8 @@ type TextBuffer struct {
 	GotoLine Gotoline
 
 	LastCursorBlink time.Time
+
+	Compilation Compilation
 }
 
 const (
@@ -932,6 +935,22 @@ func (e *TextBuffer) ScrollUp(n int) error {
 
 }
 
+func (e *TextBuffer) ScrollToTop() error {
+	e.View.StartLine = 0
+	e.View.EndLine = e.maxLine
+	e.Cursors[0].SetBoth(0)
+
+	return nil
+}
+
+func (e *TextBuffer) ScrollToBottom() error {
+	e.View.StartLine = int32(len(e.View.Lines) - 1 - int(e.maxLine))
+	e.View.EndLine = int32(len(e.View.Lines) - 1)
+	e.Cursors[0].SetBoth(e.View.Lines[len(e.View.Lines)-1].startIndex)
+
+	return nil
+}
+
 func (e *TextBuffer) ScrollDown(n int) error {
 	if int(e.View.EndLine) >= len(e.View.Lines) {
 		return nil
@@ -1507,6 +1526,16 @@ var EditorKeymap = Keymap{
 
 	Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.AnotherSelectionOnMatch()
+	}),
+	Key{K: ",", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		e.ScrollToTop()
+
+		return nil
+	}),
+	Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		e.ScrollToBottom()
+
+		return nil
 	}),
 	Key{K: "<right>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
 		SelectionsToRight(e, 1)
