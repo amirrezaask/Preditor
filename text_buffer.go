@@ -80,7 +80,7 @@ type View struct {
 type ISearch struct {
 	IsSearching               bool
 	LastSearchString          string
-	SearchString              *string
+	SearchString              string
 	SearchMatches             [][]int
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
@@ -628,7 +628,7 @@ func (e *TextBuffer) findMatches(pattern string) error {
 }
 
 func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2) error {
-	if pattern != e.ISearch.LastSearchString {
+	if pattern != e.ISearch.LastSearchString && pattern != "" {
 		if err := e.findMatches(pattern); err != nil {
 			return err
 		}
@@ -660,10 +660,10 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vec
 	return nil
 }
 func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if e.ISearch.SearchString == nil || len(*e.ISearch.SearchString) < 1 {
+	if !e.ISearch.IsSearching {
 		return
 	}
-	e.findMatchesAndHighlight(*e.ISearch.SearchString, zeroLocation)
+	e.findMatchesAndHighlight(e.ISearch.SearchString, zeroLocation)
 	if len(e.ISearch.SearchMatches) > 0 {
 		e.Cursors = e.Cursors[:1]
 		e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
@@ -671,7 +671,7 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", *e.ISearch.SearchString), rl.Vector2{
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
 	}, float32(e.parent.FontSize), 0, rl.White)
@@ -1664,12 +1664,9 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
+		a.ISearch.IsSearching = true
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
-			if a.ISearch.SearchString == nil {
-				a.ISearch.SearchString = new(string)
-			}
-
-			*a.ISearch.SearchString += string(b)
+			a.ISearch.SearchString += string(b)
 
 			return nil
 		}))
@@ -1806,16 +1803,16 @@ func (e *TextBuffer) readFileFromDisk() error {
 }
 
 func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
-	if e.ISearch.SearchString == nil {
+	if e.ISearch.SearchString == "" {
 		return nil
 	}
-	s := []byte(*e.ISearch.SearchString)
+	s := []byte(e.ISearch.SearchString)
 	if len(s) < 1 {
 		return nil
 	}
 	s = s[:len(s)-1]
 
-	e.ISearch.SearchString = &[]string{string(s)}[0]
+	e.ISearch.SearchString = string(s)
 
 	return nil
 }
@@ -1856,8 +1853,6 @@ var SearchTextBufferKeymap = Keymap{
 	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
 		editor.ISearch.IsSearching = false
-		editor.ISearch.LastSearchString = ""
-		editor.ISearch.SearchString = nil
 		editor.ISearch.SearchMatches = nil
 		editor.ISearch.CurrentMatch = 0
 		editor.ISearch.MovedAwayFromCurrentMatch = false
