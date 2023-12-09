@@ -1245,9 +1245,8 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.View.StartLine)
+	line := int(apprLine) + int(e.View.StartLine) - 1
 	col := int(apprColumn)
-
 	if line >= len(e.View.Lines) {
 		line = len(e.View.Lines) - 1
 	}
@@ -1710,16 +1709,6 @@ func getClipboardContent() []byte {
 
 func writeToClipboard(bs []byte) {
 	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
-}
-
-func insertCharAtSearchString(editor *TextBuffer, char byte) error {
-	if editor.ISearch.SearchString == nil {
-		editor.ISearch.SearchString = new(string)
-	}
-
-	*editor.ISearch.SearchString += string(char)
-
-	return nil
 }
 
 func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
