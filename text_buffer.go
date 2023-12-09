@@ -36,10 +36,12 @@ func (r *Cursor) SetBoth(n int) {
 	r.Point = n
 	r.Mark = n
 }
+
 func (r *Cursor) AddToBoth(n int) {
 	r.Point += n
 	r.Mark += n
 }
+
 func (r *Cursor) AddToStart(n int) {
 	if r.Point > r.Mark {
 		r.Mark += n
@@ -675,7 +677,7 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
-func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+func (e *TextBuffer) renderGotoPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if !e.GotoLine.IsGotoLine {
 		return
 	}
@@ -687,7 +689,7 @@ func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW floa
 	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
-func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+func (e *TextBuffer) renderCompilationPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if !e.Compilation.IsActive {
 		return
 	}
@@ -707,8 +709,8 @@ func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
-	e.renderGoto(zeroLocation, maxH, maxW)
-	e.renderCompilation(zeroLocation, maxH, maxW)
+	e.renderGotoPrompt(zeroLocation, maxH, maxW)
+	e.renderCompilationPrompt(zeroLocation, maxH, maxW)
 	e.renderCursors(zeroLocation, maxH, maxW)
 }
 
