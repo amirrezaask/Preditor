@@ -55,8 +55,12 @@ func (b *BaseBuffer) SetID(i int) {
 }
 
 type Window struct {
-	ID       int
-	BufferID int
+	ID            int
+	BufferID      int
+	ZeroLocationX float64
+	ZeroLocationY float64
+	Width         float64
+	Height        float64
 }
 
 func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
@@ -314,6 +318,10 @@ func (c *Context) Render() {
 			winZeroY := float64(j) * winHeight
 			zeroLocation := rl.Vector2{X: float32(columnZeroX), Y: float32(winZeroY)}
 			win.Render(c, zeroLocation, winHeight, columnWidth)
+			win.Width = columnWidth
+			win.Height = winHeight
+			win.ZeroLocationX = float64(zeroLocation.X)
+			win.ZeroLocationY = float64(zeroLocation.Y)
 			rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
 		}
 
@@ -328,8 +336,29 @@ func (c *Context) HandleWindowResize() {
 
 func (c *Context) HandleMouseEvents() {
 	defer handlePanicAndWriteMessage(c)
+
 	key := getMouseKey()
 	if !key.IsEmpty() {
+		//first check if mouse position is in the window context otherwise switch
+		pos := rl.GetMousePosition()
+		win := c.GetWindow(c.ActiveWindowIndex)
+		if float64(pos.X) < win.ZeroLocationX ||
+			float64(pos.Y) < win.ZeroLocationY ||
+			float64(pos.X) > win.ZeroLocationX+win.Width ||
+			float64(pos.Y) > win.ZeroLocationY+win.Height {
+			for _, col := range c.Windows {
+				for _, win := range col {
+					if float64(pos.X) >= win.ZeroLocationX &&
+						float64(pos.Y) >= win.ZeroLocationY &&
+						float64(pos.X) <= win.ZeroLocationX+win.Width &&
+						float64(pos.Y) <= win.ZeroLocationY+win.Height {
+						c.ActiveWindowIndex = win.ID
+						break
+					}
+				}
+			}
+		}
+
 		keymaps := []Keymap{c.GlobalKeymap}
 		if c.ActiveBuffer() != nil {
 			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
