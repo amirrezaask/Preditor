@@ -88,7 +88,8 @@ type Gotoline struct {
 }
 
 type Compilation struct {
-	CompilationCommand        string
+	IsActive                  bool
+	CompilationCommand        []byte
 	CompilationOutputBufferID int
 }
 
@@ -123,6 +124,9 @@ type TextBuffer struct {
 
 	//Gotoline
 	GotoLine Gotoline
+
+	//Compilation
+	Compilation Compilation
 
 	LastCursorBlink time.Time
 }
@@ -450,7 +454,7 @@ func (e *TextBuffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW f
 
 }
 
-func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+func (e *TextBuffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 
 	var sections []string
@@ -471,10 +475,22 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 
 	var state string
 	if e.State == State_Dirty {
-		state = "**"
+		state = "U"
 	} else {
 		state = ""
 	}
+
+	var isActiveWindow string
+	for _, col := range e.parent.Windows {
+		for _, win := range col {
+			if win.ID == e.parent.ActiveWindowIndex {
+				if win.BufferID == e.ID {
+					isActiveWindow = "@"
+				}
+			}
+		}
+	}
+
 	//render status bar
 	rl.DrawRectangle(
 		int32(zeroLocation.X),
@@ -484,6 +500,7 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 		e.cfg.Colors.StatusBarBackground,
 	)
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
+	sections = append(sections, isActiveWindow)
 	rl.DrawTextEx(e.parent.Font,
 		strings.Join(sections, " "),
 		rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
@@ -662,14 +679,27 @@ func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW floa
 	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
+func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	if !e.Compilation.IsActive {
+		return
+	}
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Compile: %s", string(e.Compilation.CompilationCommand)), rl.Vector2{
+		X: zeroLocation.X,
+		Y: zeroLocation.Y,
+	}, float32(e.parent.FontSize), 0, rl.White)
+}
+
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
 
-	e.renderStatusBar(zeroLocation, maxH, maxW)
+	e.renderStatusbar(zeroLocation, maxH, maxW)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
 	e.renderGoto(zeroLocation, maxH, maxW)
+	e.renderCompilation(zeroLocation, maxH, maxW)
 	e.renderCursors(zeroLocation, maxH, maxW)
 }
 
@@ -1552,6 +1582,17 @@ var EditorKeymap = Keymap{
 	Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Copy()
 	}),
+
+	Key{K: "c", Alt: true}: MakeCommand(func(a *TextBuffer) error {
+		a.Compilation.IsActive = true
+		a.keymaps = append(a.keymaps, CompilationKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+			a.Compilation.CompilationCommand = append(a.Compilation.CompilationCommand, b)
+
+			return nil
+		}))
+		return nil
+	}),
+
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
 			if a.ISearch.SearchString == nil {
@@ -1642,7 +1683,6 @@ var EditorKeymap = Keymap{
 	Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
 		return insertChar(e, '\n')
 	}),
-	Key{K: "<space>"}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
 	Key{K: "<backspace>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.DeleteWordBackward()
 		return nil
@@ -1725,7 +1765,6 @@ func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
 }
 
 var SearchTextBufferKeymap = Keymap{
-	Key{K: "<space>"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ' ') }),
 	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
@@ -1850,4 +1889,27 @@ var GotoLineKeymap = Keymap{
 	Key{K: "7"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '7') }),
 	Key{K: "8"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
 	Key{K: "9"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
+}
+
+var CompilationKeymap Keymap
+
+func init() {
+	CompilationKeymap = Keymap{
+		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
+			e.Compilation.IsActive = false
+			e.parent.openCompilationBuffer(string(e.Compilation.CompilationCommand))
+			return nil
+		}),
+
+		Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
+			e.Compilation.CompilationCommand = e.Compilation.CompilationCommand[:len(e.Compilation.CompilationCommand)-1]
+
+			return nil
+		}),
+		Key{K: "<esc>"}: MakeCommand(func(e *TextBuffer) error {
+			e.Compilation.IsActive = false
+			return nil
+		}),
+	}
+
 }
