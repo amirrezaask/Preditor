@@ -72,6 +72,14 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: "<left>", Alt: true}: func(c *Context) error {
+		//c.SwitchPrevBuffer()
+		return nil
+	},
+	Key{K: "<right>", Alt: true}: func(c *Context) error {
+		//c.SwitchNextBuffer()
+		return nil
+	},
 }
 
 func MakeInsertionKeys[T Buffer](insertor func(b byte) error) Keymap {

@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"image/color"
 	"os"
-	"os/exec"
 	"path"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -801,37 +799,12 @@ func (c *Context) openGrepBuffer() {
 }
 
 func (c *Context) openCompilationBuffer(command string) error {
-	tb, err := NewTextBuffer(c, c.Cfg, "*Compilation*")
+	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
 	}
-	tb.Readonly = true
-	c.AddBuffer(tb)
-
-	cwd := c.getCWD()
-	tb.Content = append(tb.Content, []byte(fmt.Sprintf("Command: %s\n", command))...)
-	tb.Content = append(tb.Content, []byte(fmt.Sprintf("Dir: %s\n", cwd))...)
-	go func() {
-		segs := strings.Split(command, " ")
-		var args []string
-		bin := segs[0]
-		if len(segs) > 1 {
-			args = segs[1:]
-		}
-		cmd := exec.Command(bin, args...)
-		cmd.Dir = cwd
-		fmt.Printf("running %s @ %s\n", command, cwd)
-		since := time.Now()
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			tb.Content = []byte(err.Error())
-			tb.Content = append(tb.Content, '\n')
-		}
-		tb.Content = append(tb.Content, output...)
-		tb.Content = append(tb.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
-
-	}()
-	c.MarkBufferAsActive(tb.ID)
+	c.AddBuffer(cb)
+	c.MarkBufferAsActive(cb.ID)
 
 	return nil
 }
