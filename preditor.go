@@ -69,6 +69,14 @@ func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, 
 	}
 }
 
+type Prompt struct {
+	IsActive   bool
+	Text       string
+	UserInput  string
+	ChangeHook func(userInput string, c *Context) error
+	DoneHook   func(userInput string, c *Context) error
+}
+
 type Context struct {
 	CWD               string
 	Cfg               *Config
@@ -84,6 +92,7 @@ type Context struct {
 	OSWindowHeight    float64
 	OSWindowWidth     float64
 	Windows           [][]*Window
+	Prompt            Prompt
 	ActiveWindowIndex int
 }
 
