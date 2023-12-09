@@ -1961,7 +1961,7 @@ func init() {
 	CompilationKeymap = Keymap{
 		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
 			e.Compilation.IsActive = false
-			e.parent.openCompilationBuffer(string(e.Compilation.CompilationCommand))
+			e.parent.openCompilationBufferInAVSplit(string(e.Compilation.CompilationCommand))
 			e.keymaps = e.keymaps[:len(e.keymaps)-2]
 			return nil
 		}),
