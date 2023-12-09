@@ -151,6 +151,11 @@ func (c *Context) windowCount() int {
 func (c *Context) AddWindowInANewColumn(w *Window) {
 	c.Windows = append(c.Windows, []*Window{w})
 	w.ID = c.windowCount()
+}
+
+func (c *Context) AddWindowInANewColumnAndSwitchToIt(w *Window) {
+	c.Windows = append(c.Windows, []*Window{w})
+	w.ID = c.windowCount()
 	c.ActiveWindowIndex = w.ID
 }
 
