@@ -302,7 +302,7 @@ func (c *Context) GetWindow(id int) *Window {
 
 func (c *Context) Render() {
 	rl.BeginDrawing()
-	rl.ClearBackground(c.Cfg.Colors.Background)
+	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background)
 	for i, column := range c.Windows {
 		columnWidth := c.OSWindowWidth / float64(len(c.Windows))
 		columnZeroX := float64(i) * float64(columnWidth)
@@ -660,7 +660,7 @@ func New() (*Context, error) {
 
 	// create editor
 	setupRaylib(cfg)
-	initFileTypes(cfg.Colors)
+	initFileTypes(*cfg.CurrentThemeColors())
 
 	if err := clipboard.Init(); err != nil {
 		panic(err)
@@ -787,6 +787,12 @@ func (c *Context) openFuzzyFilePicker() {
 }
 func (c *Context) openBufferSwitcher() {
 	ofb := NewBufferSwitcher(c, c.Cfg)
+	c.AddBuffer(ofb)
+	c.MarkBufferAsActive(ofb.ID)
+}
+
+func (c *Context) openThemeSwitcher() {
+	ofb := NewThemeSwitcher(c, c.Cfg)
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 }
