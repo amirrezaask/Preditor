@@ -337,6 +337,22 @@ func (c *Context) HandleKeyEvents() {
 	defer handlePanicAndWriteMessage(c)
 	key := getKey()
 	if !key.IsEmpty() {
+		if c.BottomOverlay.Active {
+			keymaps := []Keymap{c.GlobalKeymap}
+			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
+				keymaps = append(keymaps, buf.Keymaps()...)
+				for i := len(keymaps) - 1; i >= 0; i-- {
+					cmd := keymaps[i][key]
+					if cmd != nil {
+						if err := cmd(c); err != nil {
+							c.WriteMessage(err.Error())
+						}
+						break
+					}
+				}
+			}
+			return
+		}
 		keymaps := []Keymap{c.GlobalKeymap}
 		if c.ActiveBuffer() != nil {
 			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
@@ -422,6 +438,23 @@ func (c *Context) HandleMouseEvents() {
 
 	key := getMouseKey()
 	if !key.IsEmpty() {
+		if c.BottomOverlay.Active {
+			keymaps := []Keymap{c.GlobalKeymap}
+			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
+				keymaps = append(keymaps, buf.Keymaps()...)
+				for i := len(keymaps) - 1; i >= 0; i-- {
+					cmd := keymaps[i][key]
+					if cmd != nil {
+						if err := cmd(c); err != nil {
+							c.WriteMessage(err.Error())
+						}
+						break
+					}
+				}
+			}
+			return
+		}
+
 		//first check if mouse position is in the window context otherwise switch
 		pos := rl.GetMousePosition()
 		win := c.GetWindow(c.ActiveWindowIndex)
@@ -882,8 +915,15 @@ func (c *Context) StartMainLoop() {
 
 func MakeCommand[T Buffer](f func(t T) error) Command {
 	return func(c *Context) error {
+		if c.BottomOverlay.Active {
+			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
+				return f(buf.(T))
+			}
+		}
 		return f(c.ActiveBuffer().(T))
+
 	}
+
 }
 
 func (c *Context) MaxHeightToMaxLine(maxH int32) int32 {
