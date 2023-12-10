@@ -2,6 +2,8 @@ package preditor
 
 import (
 	"errors"
+	"fmt"
+	"reflect"
 
 	"image/color"
 	"os"
@@ -9,9 +11,41 @@ import (
 	"strings"
 )
 
+type CursorShape int
+
+const (
+	CURSOR_SHAPE_BLOCK   CursorShape = 1
+	CURSOR_SHAPE_OUTLINE CursorShape = 2
+	CURSOR_SHAPE_LINE    CursorShape = 3
+)
+
+func (c CursorShape) String() string {
+	switch c {
+	case CURSOR_SHAPE_BLOCK:
+		return "block"
+	case CURSOR_SHAPE_OUTLINE:
+		return "outline"
+	case CURSOR_SHAPE_LINE:
+		return "bar"
+	default:
+		return ""
+	}
+}
+
 type Theme struct {
 	Name   string
 	Colors Colors
+}
+
+func (t Theme) String() string {
+	var colors []string
+	v := reflect.ValueOf(t.Colors)
+	typ := reflect.TypeOf(t.Colors)
+	for i := 0; i < v.NumField(); i++ {
+		colors = append(colors, typ.Field(i).Name, v.Field(i).String())
+	}
+	//return fmt.Sprintf("Theme: %s\n%s", t.Name, strings.Join(colors, "\n"))
+	return t.Name
 }
 
 type Config struct {
@@ -21,18 +55,38 @@ type Config struct {
 	LineNumbers              bool
 	FontName                 string
 	FontSize                 int
-	CursorShape              int
+	CursorShape              CursorShape
 	CursorBlinking           bool
 	EnableSyntaxHighlighting bool
 	CursorLineHighlight      bool
 }
 
-func mustParseHexColor(hex string) color.RGBA {
+func (c *Config) String() string {
+	var output []string
+	v := reflect.ValueOf(c).Elem()
+	t := reflect.TypeOf(c).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		typ := t.Field(i)
+		if typ.Type.String() == "color.RGBA" {
+			rgbaColor := v.Interface().(color.RGBA)
+			colorAsHex := fmt.Sprintf("#%02x%02x%02x%02x", rgbaColor.R, rgbaColor.G, rgbaColor.B, rgbaColor.A)
+			output = append(output, fmt.Sprintf("%s = %s", typ.Name, colorAsHex))
+
+		} else {
+			output = append(output, fmt.Sprintf("%s = %v", typ.Name, field.Interface()))
+		}
+	}
+
+	return strings.Join(output, "\n")
+}
+
+func mustParseHexColor(hex string) RGBA {
 	c, err := parseHexColor(hex)
 	if err != nil {
 		panic(err)
 	}
-	return c
+	return RGBA(c)
 }
 
 var defaultConfig = Config{

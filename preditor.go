@@ -19,21 +19,32 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+type RGBA color.RGBA
+
+func (r RGBA) String() string {
+	colorAsHex := fmt.Sprintf("#%02x%02x%02x%02x", r.R, r.G, r.B, r.A)
+	return colorAsHex
+}
+
+func (r RGBA) ToColorRGBA() color.RGBA {
+	return color.RGBA(r)
+}
+
 type Colors struct {
-	Background            color.RGBA
-	Foreground            color.RGBA
-	Selection             color.RGBA
-	Prompts               color.RGBA
-	StatusBarBackground   color.RGBA
-	StatusBarForeground   color.RGBA
-	LineNumbersForeground color.RGBA
-	ActiveWindowBorder    color.RGBA
-	Cursor                color.RGBA
-	CursorLineBackground  color.RGBA
-	SyntaxKeywords        color.RGBA
-	SyntaxTypes           color.RGBA
-	SyntaxComments        color.RGBA
-	SyntaxStrings         color.RGBA
+	Background            RGBA
+	Foreground            RGBA
+	Selection             RGBA
+	Prompts               RGBA
+	StatusBarBackground   RGBA
+	StatusBarForeground   RGBA
+	LineNumbersForeground RGBA
+	ActiveWindowBorder    RGBA
+	Cursor                RGBA
+	CursorLineBackground  RGBA
+	SyntaxKeywords        RGBA
+	SyntaxTypes           RGBA
+	SyntaxComments        RGBA
+	SyntaxStrings         RGBA
 }
 
 type Buffer interface {
@@ -348,7 +359,7 @@ func (c *Context) GetWindow(id int) *Window {
 
 func (c *Context) Render() {
 	rl.BeginDrawing()
-	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background)
+	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
 	height := c.OSWindowHeight
 	if c.Prompt.IsActive {
 		charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
@@ -375,7 +386,7 @@ func (c *Context) Render() {
 	}
 	if c.Prompt.IsActive {
 		charSize := measureTextSize(c.Font, ' ', c.FontSize, 0)
-		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charSize.Y), c.Cfg.CurrentThemeColors().Prompts)
+		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charSize.Y), c.Cfg.CurrentThemeColors().Prompts.ToColorRGBA())
 		rl.DrawTextEx(c.Font, fmt.Sprintf("%s: %s", c.Prompt.Text, c.Prompt.UserInput), rl.Vector2{
 			X: 0,
 			Y: float32(height),
@@ -771,6 +782,8 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	message.Content = append(message.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
 
 	p.AddBuffer(scratch)
 	p.AddBuffer(message)

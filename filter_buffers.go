@@ -74,10 +74,10 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 	charSize := measureTextSize(i.parent.Font, ' ', i.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y)*2, i.cfg.CurrentThemeColors().StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y)*2, i.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA())
 	rl.DrawTextEx(i.parent.Font, string(i.UserInputComponent.UserInput), rl.Vector2{
 		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
-	}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground)
+	}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 
 	switch i.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
@@ -95,10 +95,10 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 	for idx, item := range i.List.VisibleView(maxLine) {
 		rl.DrawTextEx(i.parent.Font, i.ItemRepr(item), rl.Vector2{
 			X: zeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
-		}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground)
+		}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 	}
 	if len(i.List.Items) > 0 {
-		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.CurrentThemeColors().Selection, 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.CurrentThemeColors().Selection.ToColorRGBA(), 0.2))
 	}
 }
 
