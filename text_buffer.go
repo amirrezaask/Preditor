@@ -1735,7 +1735,7 @@ func init() {
 
 				return nil
 			}
-			e.parent.SetPrompt("Goto", nil, doneHook)
+			e.parent.SetPrompt("Goto", nil, doneHook, nil)
 
 			return nil
 		}),
@@ -1747,7 +1747,7 @@ func init() {
 			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
 				a.parent.openCompilationBuffer(userInput)
 				return nil
-			})
+			}, nil)
 
 			return nil
 		}),
