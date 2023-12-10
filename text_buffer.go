@@ -96,6 +96,7 @@ type TextBuffer struct {
 	Readonly       bool
 	maxLine        int32
 	maxColumn      int32
+	NoStatusbar    bool
 
 	keymaps []Keymap
 
@@ -434,6 +435,9 @@ func (e *TextBuffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW f
 }
 
 func (e *TextBuffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	if e.NoStatusbar {
+		return
+	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 
 	var sections []string
@@ -1739,7 +1743,7 @@ func init() {
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *TextBuffer) error {
 			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
-				a.parent.openCompilationBuffer(userInput)
+				a.parent.openCompilationBufferInCompilationPanel(userInput)
 				return nil
 			}, nil)
 

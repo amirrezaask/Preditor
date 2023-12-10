@@ -74,6 +74,11 @@ type Window struct {
 	Height        float64
 }
 
+type Overlay struct {
+	Active   bool
+	BufferID int
+}
+
 func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
 	if buf := c.Buffers[w.BufferID]; buf != nil {
 		buf.Render(zeroLocation, maxHeight, maxWidth)
@@ -90,23 +95,27 @@ type Prompt struct {
 }
 
 type Context struct {
-	CWD                 string
-	Cfg                 *Config
-	ScratchBufferID     int
-	MessageBufferID     int
-	Buffers             map[int]Buffer
-	GlobalKeymap        Keymap
-	GlobalVariables     Variables
-	Commands            Commands
-	FontPath            string
-	Font                rl.Font
-	FontSize            int32
-	OSWindowHeight      float64
-	OSWindowWidth       float64
-	Windows             [][]*Window
-	Prompt              Prompt
-	CompileOutputWindow *Window
-	ActiveWindowIndex   int
+	CWD               string
+	Cfg               *Config
+	ScratchBufferID   int
+	MessageBufferID   int
+	Buffers           map[int]Buffer
+	GlobalKeymap      Keymap
+	GlobalVariables   Variables
+	Commands          Commands
+	FontPath          string
+	Font              rl.Font
+	FontSize          int32
+	OSWindowHeight    float64
+	OSWindowWidth     float64
+	Windows           [][]*Window
+	Prompt            Prompt
+	BottomOverlay     Overlay
+	ActiveWindowIndex int
+}
+
+func (c *Context) CloseCompilePanel() {
+	c.BottomOverlay.Active = false
 }
 
 func (c *Context) SetPrompt(text string,
@@ -362,8 +371,8 @@ func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
 	height := c.OSWindowHeight
+	charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
 	if c.Prompt.IsActive {
-		charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
 		height -= float64(charsize.Y)
 	}
 	for i, column := range c.Windows {
@@ -385,14 +394,19 @@ func (c *Context) Render() {
 		}
 
 	}
+	if c.BottomOverlay.Active {
+		bottomOverlayZerolocationY := c.OSWindowHeight - (c.OSWindowHeight * c.Cfg.BottomOverlayHeight)
+		rl.DrawRectangle(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
+		rl.DrawRectangleLines(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), rl.Red)
+		c.GetBuffer(c.BottomOverlay.BufferID).Render(rl.Vector2{X: 0, Y: float32(bottomOverlayZerolocationY)}, c.OSWindowHeight, c.OSWindowWidth)
+	}
+
 	if c.Prompt.IsActive {
-		charSize := measureTextSize(c.Font, ' ', c.FontSize, 0)
-		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charSize.Y), c.Cfg.CurrentThemeColors().Prompts.ToColorRGBA())
+		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charsize.Y), c.Cfg.CurrentThemeColors().Prompts.ToColorRGBA())
 		rl.DrawTextEx(c.Font, fmt.Sprintf("%s: %s", c.Prompt.Text, c.Prompt.UserInput), rl.Vector2{
 			X: 0,
 			Y: float32(height),
 		}, float32(c.FontSize), 0, rl.White)
-
 	}
 
 	rl.EndDrawing()
@@ -928,7 +942,22 @@ func (c *Context) openCompilationBufferInAVSplit(command string) error {
 		return err
 	}
 	c.AddBuffer(cb)
-	c.MarkBufferAsActive(cb.ID)
+
+	return nil
+}
+
+func (c *Context) openCompilationBufferInCompilationPanel(command string) error {
+	cb, err := NewCompilationBuffer(c, c.Cfg, command)
+	if err != nil {
+		return err
+	}
+	cb.keymaps[0].SetKeyCommand(Key{K: "<esc>"}, func(context *Context) error {
+		context.CloseCompilePanel()
+		return nil
+	})
+	c.AddBuffer(cb)
+	c.BottomOverlay.BufferID = cb.ID
+	c.BottomOverlay.Active = true
 
 	return nil
 }
