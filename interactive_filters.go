@@ -17,8 +17,8 @@ type ScoredItem[T any] struct {
 	Score int
 }
 
-type InteractiveFilterBuffer[T any] struct {
-	BaseBuffer
+type InteractiveFilter[T any] struct {
+	BaseDrawable
 	cfg                     *Config
 	parent                  *Context
 	keymaps                 []Keymap
@@ -30,23 +30,23 @@ type InteractiveFilterBuffer[T any] struct {
 	ItemRepr                func(item T) string
 }
 
-func (i InteractiveFilterBuffer[T]) Keymaps() []Keymap {
+func (i InteractiveFilter[T]) Keymaps() []Keymap {
 	return i.keymaps
 }
 
-func (i InteractiveFilterBuffer[T]) String() string {
-	return fmt.Sprintf("InteractiveFilterBuffer: %T", *new(T))
+func (i InteractiveFilter[T]) String() string {
+	return fmt.Sprintf("InteractiveFilter: %T", *new(T))
 }
 
-func NewInteractiveFilterBuffer[T any](
+func NewInteractiveFilter[T any](
 	parent *Context,
 	cfg *Config,
 	updateList func(list *components.ListComponent[T], input string),
 	openSelection func(preditor *Context, t T) error,
 	repr func(t T) string,
 	initialList func() []T,
-) *InteractiveFilterBuffer[T] {
-	ifb := &InteractiveFilterBuffer[T]{
+) *InteractiveFilter[T] {
+	ifb := &InteractiveFilter[T]{
 		cfg:                cfg,
 		parent:             parent,
 		keymaps:            []Keymap{makeKeymap[T]()},
@@ -66,7 +66,7 @@ func NewInteractiveFilterBuffer[T any](
 	return ifb
 }
 
-func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+func (i *InteractiveFilter[T]) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if i.LastInputWeRanUpdateFor != string(i.UserInputComponent.UserInput) {
 		i.LastInputWeRanUpdateFor = string(i.UserInputComponent.UserInput)
 		i.UpdateList(&i.List, string(i.UserInputComponent.UserInput))
@@ -105,103 +105,103 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 func makeKeymap[T any]() Keymap {
 	return Keymap{
 
-		Key{K: "f", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "f", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.CursorRight(1)
 		}),
-		Key{K: "v", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "v", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.Paste()
 		}),
-		Key{K: "c", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "c", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.Copy()
 		}),
-		Key{K: "a", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "a", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.BeginningOfTheLine()
 		}),
-		Key{K: "e", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "e", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.EndOfTheLine()
 		}),
 
-		Key{K: "<right>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<right>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.CursorRight(1)
 		}),
-		Key{K: "<right>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<right>", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.NextWordStart()
 		}),
-		Key{K: "<left>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<left>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.CursorLeft(1)
 		}),
-		Key{K: "<left>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<left>", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.PreviousWord()
 		}),
 
-		Key{K: "p", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "p", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			e.List.PrevItem()
 			return nil
 		}),
-		Key{K: "n", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "n", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			e.List.NextItem()
 			return nil
 		}),
-		Key{K: "<up>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<up>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			e.List.PrevItem()
 
 			return nil
 		}),
-		Key{K: "<down>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<down>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			e.List.NextItem()
 			return nil
 		}),
-		Key{K: "b", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "b", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.CursorLeft(1)
 		}),
-		Key{K: "<home>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<home>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.BeginningOfTheLine()
 		}),
 
-		Key{K: "<enter>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<enter>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			if len(e.List.Items) > 0 && len(e.List.Items) > e.List.Selection {
 				return e.OpenSelection(e.parent, e.List.Items[e.List.Selection])
 			}
 
 			return nil
 		}),
-		Key{K: "<backspace>"}:                MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharBackward() }),
-		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordBackward() }),
-		Key{K: "d", Control: true}:           MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
-		Key{K: "d", Alt: true}:               MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordForward() }),
-		Key{K: "<delete>"}:                   MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
+		Key{K: "<backspace>"}:                MakeCommand(func(e *InteractiveFilter[T]) error { return e.UserInputComponent.DeleteCharBackward() }),
+		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error { return e.UserInputComponent.DeleteWordBackward() }),
+		Key{K: "d", Control: true}:           MakeCommand(func(e *InteractiveFilter[T]) error { return e.UserInputComponent.DeleteCharForward() }),
+		Key{K: "d", Alt: true}:               MakeCommand(func(e *InteractiveFilter[T]) error { return e.UserInputComponent.DeleteWordForward() }),
+		Key{K: "<delete>"}:                   MakeCommand(func(e *InteractiveFilter[T]) error { return e.UserInputComponent.DeleteCharForward() }),
 	}
 }
 
-func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[Buffer]] {
-	updateList := func(l *components.ListComponent[ScoredItem[Buffer]], input string) {
+func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredItem[Drawable]] {
+	updateList := func(l *components.ListComponent[ScoredItem[Drawable]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, fmt.Sprint(item.Item))
 		}
 
-		sortme(l.Items, func(t1 ScoredItem[Buffer], t2 ScoredItem[Buffer]) bool {
+		sortme(l.Items, func(t1 ScoredItem[Drawable], t2 ScoredItem[Drawable]) bool {
 			return t1.Score > t2.Score
 		})
 
 	}
-	openSelection := func(parent *Context, item ScoredItem[Buffer]) error {
+	openSelection := func(parent *Context, item ScoredItem[Drawable]) error {
 		parent.KillBuffer(parent.ActiveBuffer().GetID())
 		parent.MarkBufferAsActive(item.Item.GetID())
 
 		return nil
 	}
-	initialList := func() []ScoredItem[Buffer] {
-		var buffers []ScoredItem[Buffer]
+	initialList := func() []ScoredItem[Drawable] {
+		var buffers []ScoredItem[Drawable]
 		for _, v := range parent.Buffers {
-			buffers = append(buffers, ScoredItem[Buffer]{Item: v})
+			buffers = append(buffers, ScoredItem[Drawable]{Item: v})
 		}
 
 		return buffers
 	}
-	repr := func(s ScoredItem[Buffer]) string {
+	repr := func(s ScoredItem[Drawable]) string {
 		return s.Item.String()
 	}
-	return NewInteractiveFilterBuffer[ScoredItem[Buffer]](
+	return NewInteractiveFilter[ScoredItem[Drawable]](
 		parent,
 		cfg,
 		updateList,
@@ -212,7 +212,7 @@ func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[Sc
 
 }
 
-func NewThemeSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[string]] {
+func NewThemeSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredItem[string]] {
 	updateList := func(l *components.ListComponent[ScoredItem[string]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, fmt.Sprint(item.Item))
@@ -239,7 +239,7 @@ func NewThemeSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[Sco
 	repr := func(s ScoredItem[string]) string {
 		return s.Item
 	}
-	return NewInteractiveFilterBuffer[ScoredItem[string]](
+	return NewInteractiveFilter[ScoredItem[string]](
 		parent,
 		cfg,
 		updateList,
@@ -257,12 +257,12 @@ type GrepLocationItem struct {
 	Col      int
 }
 
-func NewGrepBuffer(
+func NewInteractiveGrep(
 	parent *Context,
 	cfg *Config,
 	cwd string,
 
-) *InteractiveFilterBuffer[GrepLocationItem] {
+) *InteractiveFilter[GrepLocationItem] {
 	updateList := func(l *components.ListComponent[GrepLocationItem], input string) {
 		if len(input) < 3 {
 			return
@@ -305,7 +305,7 @@ func NewGrepBuffer(
 		return fmt.Sprintf("%s:%d: %s", g.Filename, g.Line, g.Text)
 	}
 
-	gb := NewInteractiveFilterBuffer[GrepLocationItem](
+	gb := NewInteractiveFilter[GrepLocationItem](
 		parent,
 		cfg,
 		updateList,
@@ -314,12 +314,6 @@ func NewGrepBuffer(
 		nil,
 	)
 
-	//gb.keymaps[0].SetKey(Key{K: "x", Control: true}, func(c *Context) error {
-	//TODO(amirreza): export results into a text buffer
-
-	//return nil
-	// })
-
 	return gb
 }
 
@@ -327,7 +321,7 @@ type LocationItem struct {
 	Filename string
 }
 
-func NewFuzzyFileBuffer(parent *Context, cfg *Config, cwd string) *InteractiveFilterBuffer[ScoredItem[LocationItem]] {
+func NewInteractiveFuzzyFile(parent *Context, cfg *Config, cwd string) *InteractiveFilter[ScoredItem[LocationItem]] {
 	updateList := func(l *components.ListComponent[ScoredItem[LocationItem]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, item.Item.Filename)
@@ -361,7 +355,7 @@ func NewFuzzyFileBuffer(parent *Context, cfg *Config, cwd string) *InteractiveFi
 
 	}
 
-	return NewInteractiveFilterBuffer[ScoredItem[LocationItem]](
+	return NewInteractiveFilter[ScoredItem[LocationItem]](
 		parent,
 		cfg,
 		updateList,
@@ -371,7 +365,7 @@ func NewFuzzyFileBuffer(parent *Context, cfg *Config, cwd string) *InteractiveFi
 	)
 }
 
-func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *InteractiveFilterBuffer[LocationItem] {
+func NewInteractiveFilePicker(parent *Context, cfg *Config, initialInput string) *InteractiveFilter[LocationItem] {
 	updateList := func(l *components.ListComponent[LocationItem], input string) {
 		matches, err := filepath.Glob(string(input) + "*")
 		if err != nil {
@@ -422,7 +416,7 @@ func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *Int
 		return fmt.Sprintf("%s", g.Filename)
 	}
 
-	tryComplete := func(f *InteractiveFilterBuffer[LocationItem]) error {
+	tryComplete := func(f *InteractiveFilter[LocationItem]) error {
 		input := f.UserInputComponent.UserInput
 
 		matches, err := filepath.Glob(string(input) + "*")
@@ -443,7 +437,7 @@ func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *Int
 		return nil
 	}
 
-	ifb := NewInteractiveFilterBuffer[LocationItem](
+	ifb := NewInteractiveFilter[LocationItem](
 		parent,
 		cfg,
 		updateList,
@@ -453,7 +447,7 @@ func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *Int
 	)
 
 	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Context) error {
-		input := preditor.ActiveBuffer().(*InteractiveFilterBuffer[LocationItem]).UserInputComponent.UserInput
+		input := preditor.ActiveBuffer().(*InteractiveFilter[LocationItem]).UserInputComponent.UserInput
 		openUserInput(preditor, string(input))
 		return nil
 	}

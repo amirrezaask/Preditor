@@ -47,21 +47,21 @@ type Colors struct {
 	SyntaxStrings         RGBA
 }
 
-type Buffer interface {
+type Drawable interface {
 	GetID() int
 	SetID(int)
 	Render(zeroLocation rl.Vector2, maxHeight float64, maxWidth float64)
 	Keymaps() []Keymap
 	fmt.Stringer
 }
-type BaseBuffer struct {
+type BaseDrawable struct {
 	ID int
 }
 
-func (b BaseBuffer) GetID() int {
+func (b BaseDrawable) GetID() int {
 	return b.ID
 }
-func (b *BaseBuffer) SetID(i int) {
+func (b *BaseDrawable) SetID(i int) {
 	b.ID = i
 }
 
@@ -99,7 +99,7 @@ type Context struct {
 	Cfg               *Config
 	ScratchBufferID   int
 	MessageBufferID   int
-	Buffers           map[int]Buffer
+	Buffers           map[int]Drawable
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -139,7 +139,7 @@ func (c *Context) ActiveWindow() *Window {
 	return w
 }
 
-func (c *Context) ActiveBuffer() Buffer {
+func (c *Context) ActiveBuffer() Drawable {
 	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
 		bufferid := win.BufferID
 		return c.Buffers[bufferid]
@@ -168,17 +168,17 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 }
 
 func (c *Context) WriteMessage(msg string) {
-	c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content = append(c.GetBuffer(c.MessageBufferID).(*TextBuffer).Content, []byte(fmt.Sprintln(msg))...)
+	c.GetBuffer(c.MessageBufferID).(*Buffer).Content = append(c.GetBuffer(c.MessageBufferID).(*Buffer).Content, []byte(fmt.Sprintln(msg))...)
 }
 
 func (c *Context) getCWD() string {
-	if tb, isTextBuffer := c.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
+	if tb, isTextBuffer := c.ActiveBuffer().(*Buffer); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.File)
 	} else {
 		return c.CWD
 	}
 }
-func (c *Context) AddBuffer(b Buffer) {
+func (c *Context) AddBuffer(b Drawable) {
 	id := len(c.Buffers) + 1
 	c.Buffers[id] = b
 	b.SetID(id)
@@ -233,7 +233,7 @@ func (c *Context) MarkBufferAsActive(id int) {
 	c.ActiveWindow().BufferID = id
 }
 
-func (c *Context) GetBuffer(id int) Buffer {
+func (c *Context) GetBuffer(id int) Drawable {
 	return c.Buffers[id]
 }
 
@@ -408,7 +408,7 @@ func (c *Context) Render() {
 			win.Height = winHeight
 			win.ZeroLocationX = float64(zeroLocation.X)
 			win.ZeroLocationY = float64(zeroLocation.Y)
-			rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
+			//rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
 		}
 
 	}
@@ -426,7 +426,10 @@ func (c *Context) Render() {
 			Y: float32(height),
 		}, float32(c.FontSize), 0, rl.White)
 	}
-
+	rl.DrawTextEx(c.Font, fmt.Sprint(rl.GetFPS()), rl.Vector2{
+		X: float32(c.OSWindowWidth - float64(charsize.X*3)),
+		Y: float32(c.OSWindowHeight - float64(charsize.Y)),
+	}, float32(c.FontSize), 0, rl.Red)
 	rl.EndDrawing()
 }
 
@@ -789,7 +792,7 @@ func setupRaylib(cfg *Config) {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized | rl.FlagVsyncHint)
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
-	rl.SetTargetFPS(120)
+	rl.SetTargetFPS(60)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
@@ -820,7 +823,7 @@ func New() (*Context, error) {
 	p := &Context{
 		Cfg:            cfg,
 		CWD:            wd,
-		Buffers:        map[int]Buffer{},
+		Buffers:        map[int]Drawable{},
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        [][]*Window{},
@@ -830,11 +833,11 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	scratch, err := NewTextBuffer(p, p.Cfg, "*Scratch*")
+	scratch, err := NewBuffer(p, p.Cfg, "*Scratch*")
 	if err != nil {
 		return nil, err
 	}
-	message, err := NewTextBuffer(p, p.Cfg, "*Messages*")
+	message, err := NewBuffer(p, p.Cfg, "*Messages*")
 	if err != nil {
 		return nil, err
 	}
@@ -862,7 +865,7 @@ func New() (*Context, error) {
 		filename = flag.Args()[0]
 		if filename == "-" {
 			//stdin
-			tb, err := NewTextBuffer(p, cfg, "stdin")
+			tb, err := NewBuffer(p, cfg, "stdin")
 			if err != nil {
 				panic(err)
 			}
@@ -915,7 +918,7 @@ func (c *Context) StartMainLoop() {
 	}
 }
 
-func MakeCommand[T Buffer](f func(t T) error) Command {
+func MakeCommand[T Drawable](f func(t T) error) Command {
 	return func(c *Context) error {
 		if c.BottomOverlay.Active {
 			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
@@ -936,13 +939,13 @@ func (c *Context) MaxWidthToMaxColumn(maxW int32) int32 {
 }
 
 func (c *Context) openFileBuffer() {
-	ofb := NewFilePickerBuffer(c, c.Cfg, c.getCWD())
+	ofb := NewInteractiveFilePicker(c, c.Cfg, c.getCWD())
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 }
 
 func (c *Context) openFuzzyFilePicker() {
-	ofb := NewFuzzyFileBuffer(c, c.Cfg, c.getCWD())
+	ofb := NewInteractiveFuzzyFile(c, c.Cfg, c.getCWD())
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 
@@ -961,7 +964,7 @@ func (c *Context) openThemeSwitcher() {
 
 func (c *Context) openGrepBuffer() {
 
-	ofb := NewGrepBuffer(c, c.Cfg, c.getCWD())
+	ofb := NewInteractiveGrep(c, c.Cfg, c.getCWD())
 	c.AddBuffer(ofb)
 	c.MarkBufferAsActive(ofb.ID)
 }
