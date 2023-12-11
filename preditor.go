@@ -428,7 +428,10 @@ func (c *Context) Render() {
 			win.ZeroLocationX = float64(zeroLocation.X)
 			win.ZeroLocationY = float64(zeroLocation.Y)
 			win.Render(c, zeroLocation, winHeight, columnWidth)
-			rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
+			if c.ActiveWindowIndex == win.ID {
+				rl.DrawRectangleLines(int32(columnZeroX), int32(winZeroY), int32(columnWidth), int32(winHeight), c.Cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+			}
+
 		}
 
 	}

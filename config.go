@@ -164,16 +164,16 @@ var defaultConfig = Config{
 				Foreground:            mustParseHexColor("#b99468"),
 				Selection:             mustParseHexColor("#FF44DD"),
 				Prompts:               mustParseHexColor("#333333"),
-				StatusBarBackground:   mustParseHexColor("#696969"),
-				StatusBarForeground:   mustParseHexColor("#000000"),
+				StatusBarBackground:   mustParseHexColor("#000000"),
+				StatusBarForeground:   mustParseHexColor("#ffa900"),
 				LineNumbersForeground: mustParseHexColor("#010101"),
 				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
 				Cursor:                mustParseHexColor("#00ff00"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
-				SyntaxKeywords:        mustParseHexColor("#d4d4d4"),
-				SyntaxTypes:           mustParseHexColor("#8cde94"),
-				SyntaxComments:        mustParseHexColor("#118a1a"),
-				SyntaxStrings:         mustParseHexColor("#2ec09c"),
+				SyntaxKeywords:        mustParseHexColor("#f0c674"),
+				SyntaxTypes:           mustParseHexColor("#f0c674"),
+				SyntaxComments:        mustParseHexColor("#666666"),
+				SyntaxStrings:         mustParseHexColor("#ffa900"),
 			},
 		},
 	},
@@ -194,14 +194,15 @@ func (c *Config) CurrentThemeColors() *Colors {
 			return &theme.Colors
 		}
 	}
-
-	return nil
+	return &c.Themes[0].Colors
 }
 
 func addToConfig(cfg *Config, key string, value string) error {
 	switch key {
 	case "syntax":
 		cfg.EnableSyntaxHighlighting = value == "true"
+	case "theme":
+		cfg.CurrentTheme = value
 	case "cursor_shape":
 		switch value {
 		case "block":
