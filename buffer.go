@@ -1112,25 +1112,26 @@ func (e *Buffer) AnotherSelectionOnMatch() error {
 
 	return nil
 }
-func SelectionPreviousWord(e *Buffer) error {
+
+func SelectionToPreviousToken(e *Buffer) error {
 	for i := range e.Cursors {
-		previousWord := byteutils.SeekPreviousNonLetter(e.Content, e.Cursors[i].Mark)
-		if previousWord < 0 {
-			continue
+		cur := &e.Cursors[i]
+		tokenPos := e.findIndexPositionInTokens(cur.Mark)
+		if tokenPos != -1 && tokenPos-1 >= 0 {
+			e.Cursors[i].Mark = e.Tokens[tokenPos-1].Start
 		}
-		e.Cursors[i].Mark = previousWord
 		e.ScrollIfNeeded()
 	}
 
 	return nil
 }
-func SelectionNextWord(e *Buffer) error {
+func SelectionToNextToken(e *Buffer) error {
 	for i := range e.Cursors {
-		nextWord := byteutils.SeekNextNonLetter(e.Content, e.Cursors[i].Mark)
-		if nextWord > len(e.Content) {
-			continue
+		cur := &e.Cursors[i]
+		tokenPos := e.findIndexPositionInTokens(cur.Mark)
+		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
+			e.Cursors[i].Mark = e.Tokens[tokenPos+1].Start
 		}
-		e.Cursors[i].Mark = nextWord
 		e.ScrollIfNeeded()
 
 	}
@@ -1213,9 +1214,9 @@ func (e *Buffer) indexOfFirstNonLetter(bs []byte) int {
 	return -1
 }
 
-func (e *Buffer) findCursorPositionInTokens(cur Cursor) int {
+func (e *Buffer) findIndexPositionInTokens(idx int) int {
 	for i, t := range e.Tokens {
-		if t.Start <= cur.Point && cur.Point < t.End {
+		if t.Start <= idx && idx < t.End {
 			return i
 		}
 	}
@@ -1227,7 +1228,7 @@ func (e *Buffer) MoveForwardByToken(n int) error {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
-		tokenPos := e.findCursorPositionInTokens(*cur)
+		tokenPos := e.findIndexPositionInTokens(cur.Mark)
 		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
 			cur.SetBoth(e.Tokens[tokenPos+1].Start)
 		}
@@ -1240,7 +1241,7 @@ func (e *Buffer) MoveBackwardByToken(n int) error {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
-		tokenPos := e.findCursorPositionInTokens(*cur)
+		tokenPos := e.findIndexPositionInTokens(cur.Point)
 		if tokenPos != -1 && tokenPos != 0 {
 			cur.SetBoth(e.Tokens[tokenPos-1].Start)
 		}
@@ -1397,7 +1398,7 @@ func (e *Buffer) DeleteTokenBackward() {
 
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
-		tokenPos := e.findCursorPositionInTokens(*cur)
+		tokenPos := e.findIndexPositionInTokens(cur.Point)
 		if tokenPos == -1 {
 			continue
 		}
@@ -1649,12 +1650,12 @@ func init() {
 			return nil
 		}),
 		Key{K: "<right>", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionNextWord(e)
+			SelectionToNextToken(e)
 
 			return nil
 		}),
 		Key{K: "<left>", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionPreviousWord(e)
+			SelectionToPreviousToken(e)
 
 			return nil
 		}),
