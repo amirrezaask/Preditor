@@ -14,5 +14,5 @@ type Token struct {
 // same price but we get a language aware
 // tokens instead of visual lines and we can operate on tokens.
 type Lexer interface {
-	Next() Token
+	Tokens() []Token
 }

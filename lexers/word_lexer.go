@@ -1,13 +1,14 @@
 package lexers
 
 const (
-	WORD_LEXER_TOKEN_TYPE_WORD     = 1
-	WORD_LEXER_TOKEN_TYPE_NON_WORD = 2
-	WORD_LEXER_TOKEN_TYPE_EOF      = 3
+	WORD_LEXER_TOKEN_TYPE_WORD       = 1
+	WORD_LEXER_TOKEN_TYPE_SYMBOL     = 2
+	WORD_LEXER_TOKEN_TYPE_WHITESPACE = 3
 )
 
 const (
-	wordLexerState_InsideWord = 1
+	wordLexer_insideWord        = 1
+	wordLexer_insideWhitespaces = 2
 )
 
 type WordLexer struct {
@@ -32,51 +33,88 @@ func isLetterOrDigit(b byte) bool {
 	return isLetter(b) || isDigit(b)
 }
 
-func (w *WordLexer) Next() Token {
-	if w.point == len(w.data)-1 {
-		return Token{Type: 3}
-	}
-	for i := w.point; i < len(w.data); i++ {
+func isSymbol(c byte) bool {
+	return (c >= 33 && c <= 47) || (c >= 58 && c <= 64) || (c >= 91 && c <= 96) || (c >= 123 && c <= 126)
+}
+
+func (w *WordLexer) Tokens() []Token {
+	var tokens []Token
+	for i := 0; i < len(w.data); i++ {
+		c := w.data[i]
 		switch {
-		case w.state == wordLexerState_InsideWord && isLetterOrDigit(w.data[i]):
-			continue
-		case w.state == 0 && isLetterOrDigit(w.data[i]):
-			w.state = wordLexerState_InsideWord
-			continue
-		case w.state == wordLexerState_InsideWord && !isLetterOrDigit(w.data[i]):
-			w.state = 0
-			token := Token{
-				Start: w.point,
-				End:   i,
-				Type:  1,
+		case isLetterOrDigit(c):
+			switch w.state {
+			case wordLexer_insideWord, 0:
+				w.state = wordLexer_insideWord
+				continue
+			case wordLexer_insideWhitespaces:
+				tokens = append(tokens, Token{
+					Start: w.point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
+				})
+				w.state = wordLexer_insideWord
+				w.point = i
+
+			}
+		case isWhitespace(c):
+			switch w.state {
+			case wordLexer_insideWhitespaces, 0:
+				continue
+			case wordLexer_insideWord:
+				tokens = append(tokens, Token{
+					Start: w.point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
+				})
+				w.state = wordLexer_insideWhitespaces
+				w.point = i
+			}
+		default:
+			switch w.state {
+			case wordLexer_insideWord:
+				tokens = append(tokens, Token{
+					Start: w.point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
+				})
+				w.point = i
+				w.state = 0
+
+			case wordLexer_insideWhitespaces:
+				tokens = append(tokens, Token{
+					Start: w.point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
+				})
+				w.point = i
+				w.state = 0
 			}
 
+			tokens = append(tokens, Token{
+				Start: w.point,
+				End:   i + 1,
+				Type:  WORD_LEXER_TOKEN_TYPE_SYMBOL,
+			})
 			w.point = i + 1
-			if w.point >= len(w.data) {
-				w.point = len(w.data) - 1
-			}
-			return token
-		case w.state == 0 && !isLetterOrDigit(w.data[i]):
-			if w.point+1 < len(w.data) {
-				w.point++
-			}
-			continue
 		}
 	}
 	var typ int
-	if isLetterOrDigit(w.data[w.point]) {
+	if w.state == wordLexer_insideWord {
 		typ = WORD_LEXER_TOKEN_TYPE_WORD
+	} else if w.state == wordLexer_insideWhitespaces {
+		typ = WORD_LEXER_TOKEN_TYPE_WHITESPACE
+	} else {
+		typ = WORD_LEXER_TOKEN_TYPE_SYMBOL
 	}
-	token := Token{
+
+	tokens = append(tokens, Token{
 		Start: w.point,
 		End:   len(w.data) - 1,
 		Type:  typ,
-	}
+	})
 
-	w.point = len(w.data) - 1
-
-	return token
-
+	return tokens
 }
 
 func NewWordLexer(data []byte) Lexer {
