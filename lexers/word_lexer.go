@@ -60,6 +60,7 @@ func (w *WordLexer) Tokens() []Token {
 		case isWhitespace(c):
 			switch w.state {
 			case wordLexer_insideWhitespaces, 0:
+				w.state = wordLexer_insideWhitespaces
 				continue
 			case wordLexer_insideWord:
 				tokens = append(tokens, Token{

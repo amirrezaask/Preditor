@@ -6,7 +6,7 @@ import (
 )
 
 func TestWordLexer(t *testing.T) {
-	data := "hello world0.3abc"
+	data := "\n\nhello world0.3abc"
 	lexer := NewWordLexer([]byte(data))
 	tokens := lexer.Tokens()
 	for _, token := range tokens {
