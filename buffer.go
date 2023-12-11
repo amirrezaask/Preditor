@@ -1230,6 +1230,8 @@ func (e *Buffer) MoveForwardByToken(n int) error {
 		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
 			cur.SetBoth(e.Tokens[tokenPos+1].Start)
 		}
+		e.ScrollIfNeeded()
+
 	}
 
 	return nil
@@ -1243,6 +1245,8 @@ func (e *Buffer) MoveBackwardByToken(n int) error {
 		if tokenPos != -1 && tokenPos != 0 {
 			cur.SetBoth(e.Tokens[tokenPos-1].Start)
 		}
+		e.ScrollIfNeeded()
+
 	}
 
 	return nil
