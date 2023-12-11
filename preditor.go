@@ -356,14 +356,14 @@ func (c *Context) HandleKeyEvents() {
 			keymaps := []Keymap{c.GlobalKeymap}
 			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
 				keymaps = append(keymaps, buf.Keymaps()...)
-				for i := len(keymaps) - 1; i >= 0; i-- {
-					cmd := keymaps[i][key]
-					if cmd != nil {
-						if err := cmd(c); err != nil {
-							c.WriteMessage(err.Error())
-						}
-						break
+			}
+			for i := len(keymaps) - 1; i >= 0; i-- {
+				cmd := keymaps[i][key]
+				if cmd != nil {
+					if err := cmd(c); err != nil {
+						c.WriteMessage(err.Error())
 					}
+					break
 				}
 			}
 			return
@@ -439,7 +439,9 @@ func (c *Context) Render() {
 		bottomOverlayZerolocationY := c.OSWindowHeight - (c.OSWindowHeight * c.Cfg.BottomOverlayHeight)
 		rl.DrawRectangle(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
 		rl.DrawRectangleLines(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), rl.Red)
-		c.GetBuffer(c.BottomOverlay.BufferID).Render(rl.Vector2{X: 0, Y: float32(bottomOverlayZerolocationY)}, c.OSWindowHeight, c.OSWindowWidth)
+		if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
+			buf.Render(rl.Vector2{X: 0, Y: float32(bottomOverlayZerolocationY)}, c.OSWindowHeight, c.OSWindowWidth)
+		}
 	}
 
 	if c.Prompt.IsActive {
