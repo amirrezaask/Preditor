@@ -10,6 +10,7 @@ import (
 	"path"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -103,7 +104,7 @@ type Context struct {
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
 	Commands          Commands
-	FontPath          string
+	FontData          []byte
 	Font              rl.Font
 	FontSize          int32
 	OSWindowHeight    float64
@@ -245,26 +246,39 @@ func (c *Context) KillBuffer(id int) {
 }
 
 func (c *Context) LoadFont(name string, size int32) error {
-	var err error
-	c.FontPath, err = findfont.Find(name + ".ttf")
-	if err != nil {
-		return err
+	switch strings.ToLower(name) {
+	case "liberationmono-regular":
+		c.FontSize = size
+		c.FontData = liberationMonoRegularTTF
+	case "jetbrainsmono":
+		c.FontSize = size
+		c.FontData = jetbrainsMonoTTF
+	default:
+		var err error
+		path, err := findfont.Find(name + ".ttf")
+		if err != nil {
+			return err
+		}
+		c.FontData, err = os.ReadFile(path)
+		if err != nil {
+			return err
+		}
 	}
 
 	c.FontSize = size
-	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
+	c.Font = rl.LoadFontFromMemory(".ttf", c.FontData, int32(len(c.FontData)), c.FontSize, nil, 0)
 	return nil
 }
 
 func (c *Context) IncreaseFontSize(n int) {
 	c.FontSize += int32(n)
-	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
+	c.Font = rl.LoadFontFromMemory(".ttf", c.FontData, int32(len(c.FontData)), c.FontSize, nil, 0)
 	charSizeCache = map[byte]rl.Vector2{}
 }
 
 func (c *Context) DecreaseFontSize(n int) {
 	c.FontSize -= int32(n)
-	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
+	c.Font = rl.LoadFontFromMemory(".ttf", c.FontData, int32(len(c.FontData)), c.FontSize, nil, 0)
 	charSizeCache = map[byte]rl.Vector2{}
 
 }
