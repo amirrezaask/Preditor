@@ -115,11 +115,20 @@ type Context struct {
 	ActiveWindowIndex int
 }
 
-func (c *Context) CloseBottomOverlay() {
-	c.BottomOverlay.Active = false
-}
-func (c *Context) OpenBottomOverlay() {
-	c.BottomOverlay.Active = true
+func (c *Context) ToggleBottomOverlay() {
+	if !c.BottomOverlay.Active || c.ActiveWindowIndex != -10 {
+		c.BottomOverlay.Active = true
+		c.ActiveWindowIndex = -10
+	} else {
+		c.BottomOverlay.Active = false
+		for _, col := range c.Windows {
+			for _, win := range col {
+				c.ActiveWindowIndex = win.ID
+				break
+			}
+		}
+	}
+
 }
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context) error,
@@ -352,7 +361,7 @@ func (c *Context) HandleKeyEvents() {
 	defer handlePanicAndWriteMessage(c)
 	key := getKey()
 	if !key.IsEmpty() {
-		if c.BottomOverlay.Active {
+		if c.BottomOverlay.Active && c.ActiveWindowIndex == -10 {
 			keymaps := []Keymap{c.GlobalKeymap}
 			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
 				keymaps = append(keymaps, buf.Keymaps()...)
@@ -1023,10 +1032,7 @@ func (c *Context) openCompilationBufferInCompilationPanel(command string) error 
 	if err != nil {
 		return err
 	}
-	cb.keymaps[0].SetKeyCommand(Key{K: "<esc>"}, func(context *Context) error {
-		context.CloseBottomOverlay()
-		return nil
-	})
+
 	c.AddBuffer(cb)
 	c.BottomOverlay.BufferID = cb.ID
 	c.BottomOverlay.Active = true
