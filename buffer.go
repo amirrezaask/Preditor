@@ -480,18 +480,6 @@ func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW flo
 	} else {
 		state = ""
 	}
-
-	var isActiveWindow string
-	for _, col := range e.parent.Windows {
-		for _, win := range col {
-			if win.ID == e.parent.ActiveWindowIndex {
-				if win.BufferID == e.ID {
-					isActiveWindow = "@"
-				}
-			}
-		}
-	}
-
 	//render status bar
 	rl.DrawRectangle(
 		int32(zeroLocation.X),
@@ -506,7 +494,6 @@ func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW flo
 		int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
-	sections = append(sections, isActiveWindow)
 	rl.DrawTextEx(e.parent.Font,
 		strings.Join(sections, " "),
 		rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
