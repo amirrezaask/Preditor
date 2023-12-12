@@ -1767,7 +1767,7 @@ func init() {
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
 			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
-				if err := a.parent.openCompilationBufferInAHSplit(userInput); err != nil {
+				if err := a.parent.OpenCompilationBufferInSensibleSplit(userInput); err != nil {
 					return err
 				}
 

@@ -232,9 +232,15 @@ func (c *Context) GetBuffer(id int) Drawable {
 
 func (c *Context) KillBuffer(id int) {
 	delete(c.Buffers, id)
-	for _, buf := range c.Buffers {
-		bufid := buf.GetID()
-		c.ActiveWindow().BufferID = bufid
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if win.BufferID == id {
+				for _, buf := range c.Buffers {
+					win.BufferID = buf.GetID()
+					break
+				}
+			}
+		}
 	}
 }
 
@@ -978,6 +984,32 @@ func (c *Context) openCompilationBufferInAHSplit(command string) error {
 	}
 	c.AddBuffer(cb)
 	win.BufferID = cb.ID
+	return nil
+}
+
+func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
+	var window *Window
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if buf := c.GetBuffer(win.BufferID); buf != nil {
+				if b, is := buf.(*Buffer); is {
+					if b.File == "*Compilation*" {
+						window = win
+					}
+				}
+			}
+		}
+	}
+
+	if window == nil {
+		window = c.HSplit()
+	}
+	cb, err := NewCompilationBuffer(c, c.Cfg, command)
+	if err != nil {
+		return err
+	}
+	c.Buffers[window.BufferID] = cb
+
 	return nil
 }
 
