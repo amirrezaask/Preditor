@@ -16,8 +16,8 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
-	Key{K: "p", Alt: true}: func(preditor *Context) error {
-		preditor.ToggleBottomOverlay()
+	Key{K: "q", Alt: true, Shift: true}: func(preditor *Context) error {
+		preditor.Exit()
 		return nil
 	},
 	Key{K: "0", Alt: true}: func(preditor *Context) error {

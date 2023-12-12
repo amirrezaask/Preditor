@@ -1780,7 +1780,10 @@ func init() {
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
 			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
-				a.parent.openCompilationBufferInCompilationPanel(userInput)
+				if err := a.parent.openCompilationBufferInAHSplit(userInput); err != nil {
+					return err
+				}
+
 				return nil
 			}, nil)
 
