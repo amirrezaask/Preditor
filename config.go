@@ -122,7 +122,7 @@ var defaultConfig = Config{
 		{
 			Name: "Light",
 			Colors: Colors{
-				Background:            mustParseHexColor("#a9a9a9"),
+				Background:            mustParseHexColor("#969696"),
 				Foreground:            mustParseHexColor("#000000"),
 				Selection:             mustParseHexColor("#0000cd"),
 				Prompts:               mustParseHexColor("#333333"),
@@ -130,7 +130,7 @@ var defaultConfig = Config{
 				StatusBarForeground:   mustParseHexColor("#000000"),
 				LineNumbersForeground: mustParseHexColor("#010101"),
 				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
-				Cursor:                mustParseHexColor("#00ff00"),
+				Cursor:                mustParseHexColor("#171717"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
 				SyntaxKeywords:        mustParseHexColor("#cd950c"),
 				SyntaxTypes:           mustParseHexColor("#8cde94"),
