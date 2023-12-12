@@ -116,6 +116,8 @@ type Buffer struct {
 	// Searching
 	ISearch ISearch
 
+	LastCompileCommand string
+
 	UndoStack Stack[EditorAction]
 }
 
@@ -1757,7 +1759,7 @@ func init() {
 
 				return nil
 			}
-			e.parent.SetPrompt("Goto", nil, doneHook, nil)
+			e.parent.SetPrompt("Goto", nil, doneHook, nil, "")
 
 			return nil
 		}),
@@ -1767,12 +1769,14 @@ func init() {
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
 			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+				a.LastCompileCommand = userInput
 				if err := a.parent.OpenCompilationBufferInSensibleSplit(userInput); err != nil {
+
 					return err
 				}
 
 				return nil
-			}, nil)
+			}, nil, a.LastCompileCommand)
 
 			return nil
 		}),
