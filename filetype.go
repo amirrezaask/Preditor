@@ -12,6 +12,7 @@ type FileType struct {
 	TabSize                  int
 	BeforeSave               func(*Buffer) error
 	AfterSave                func(*Buffer) error
+	DefaultCompileCommand    string
 	CommentLineBeginingChars []byte
 	SyntaxHighlights         SyntaxHighlights
 }
@@ -46,6 +47,7 @@ func initFileTypes(cfg Colors) {
 			AfterSave: func(buffer *Buffer) error {
 				return buffer.CompileNoAsk()
 			},
+			DefaultCompileCommand: "go build -v ./...",
 			SyntaxHighlights: SyntaxHighlights{
 				regexp.MustCompile(keywordsPat("break", "case", "const",
 					"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
