@@ -1,0 +1,63 @@
+v0.4
+=====================
+- BuildWindow: Special window rendered at bottom of screen for showing compile results.
+- Lexer infrastructure for rich features based on syntax.
+- Compilation: Compilation prompt && Compilation buffer.
+- CompileAsk and CompileNoAsk methods for Buffers.
+- Fix Horizontal Splits.
+- Improve font loading code, now we have default fonts embedded in executable.
+- Refactor Syntax Highlighting
+- Move statusbar to the top
+- Refactor Isearch
+- Improve DeleteWordBackward
+- Mouse Click now switches to correct window
+- Theme System
+- Decrease CPU consumption
+- C-l centralizes the view
+- 4coder_fleury theme.
+- Naysayer theme based on Jonathan Blow Emacs theme
+
+
+v0.3
+======================
+Multiple Cursors (WIP):
+	Another selection on match
+	Another selection next line
+	Moving all selections in a direction: up/down/left/right
+Multiple Windows (WIP):
+	spliting vertically
+	spliting horizontaly (WIP)
+	Closing window
+
+
+v0.2
+======================
+- Fuzzy File finder
+- Handling resizing events correctly in text buffer
+- zoom in/out
+- crashlogs
+- undo
+- grep buffer
+- revert from disk
+- scroll if needed
+
+
+v0.1
+======================
+- Basic syntax highlighting
+- Cut/Copy/Paste
+- Selecting text
+- config file
+- mouse/keyboard cursor movement
+- handle tabs correctly
+- buffers, keymaps and commands ( infrastructure )
+
+
+
+
+
+
+
+
+
+
