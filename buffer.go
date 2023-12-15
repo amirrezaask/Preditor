@@ -1,6 +1,5 @@
 package preditor
 
-// this is a comment
 import (
 	"bytes"
 	"errors"
@@ -87,28 +86,26 @@ type ISearch struct {
 
 type Buffer struct {
 	BaseDrawable
-	cfg            *Config
-	parent         *Context
-	File           string
-	Content        []byte
-	State          int
-	BeforeSaveHook []func(*Buffer) error
-	AfterSaveHook  []func(*Buffer) error
-	Readonly       bool
-	maxLine        int32
-	maxColumn      int32
-	NoStatusbar    bool
-	zeroLocation   rl.Vector2
+	cfg          *Config
+	parent       *Context
+	File         string
+	Content      []byte
+	State        int
+	Readonly     bool
+	maxLine      int32
+	maxColumn    int32
+	NoStatusbar  bool
+	zeroLocation rl.Vector2
 
 	lexerConstructor func(d []byte) lexers.Lexer
 	Tokens           []lexers.Token
 
-	oldTSTree *sitter.Tree
-	fileType  FileType
+	oldTSTree   *sitter.Tree
+	highlights  []highlight
+	needParsing bool
+	fileType    FileType
 
 	keymaps []Keymap
-
-	TabSize int
 
 	View View
 
@@ -172,15 +169,17 @@ func (e *Buffer) PopAndReverseLastAction() {
 
 func (e *Buffer) SetStateDirty() {
 	e.State = State_Dirty
+	e.needParsing = true
 	e.calculateVisualLines()
 }
 
 func (e *Buffer) SetStateClean() {
 	e.State = State_Clean
+	e.needParsing = true
 }
 
 func (e *Buffer) replaceTabsWithSpaces() {
-	e.Content = bytes.Replace(e.Content, []byte("\t"), []byte(strings.Repeat(" ", e.TabSize)), -1)
+	e.Content = bytes.Replace(e.Content, []byte("\t"), []byte(strings.Repeat(" ", e.fileType.TabSize)), -1)
 }
 
 func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
@@ -238,7 +237,6 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 		return t.InsertCharAtCursor(b)
 	}))
 	t.UndoStack = NewStack[EditorAction](1000)
-	t.TabSize = t.cfg.TabSize
 	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
 	var err error
 	if t.File != "" {
@@ -252,6 +250,8 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 		fileType, exists := FileTypes[path.Ext(t.File)]
 		if exists {
 			t.fileType = fileType
+			t.LastCompileCommand = fileType.DefaultCompileCommand
+			t.needParsing = true
 		}
 	}
 	t.lexerConstructor = func(d []byte) lexers.Lexer {
@@ -313,17 +313,6 @@ type visualLine struct {
 	endIndex   int
 	ActualLine int
 	Length     int
-}
-
-func (e *Buffer) calculateHighlights() []highlight {
-	highlights, tree, err := TSHighlights(e.cfg, e.fileType.TSHighlightQuery, e.oldTSTree, e.Content)
-	if err != nil {
-		panic(err)
-	}
-
-	e.oldTSTree = tree
-
-	return highlights
 }
 
 func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
@@ -554,8 +543,14 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	highlights := e.calculateHighlights()
-
+	if e.needParsing {
+		var err error
+		e.highlights, e.oldTSTree, err = TSHighlights(e.cfg, e.fileType.TSHighlightQuery, nil, e.Content) //TODO: see how we can use old tree
+		if err != nil {
+			panic(err)
+		}
+		e.needParsing = false
+	}
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
 			var lineNumberWidth int
@@ -577,7 +572,7 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 
 			if e.cfg.EnableSyntaxHighlighting {
-				for _, h := range highlights {
+				for _, h := range e.highlights {
 					if h.start >= line.startIndex && h.end <= line.endIndex {
 						rl.DrawTextEx(e.parent.Font,
 							string(e.Content[h.start:h.end]),
@@ -1322,15 +1317,11 @@ func (e *Buffer) Write() error {
 		return nil
 	}
 
-	if e.TabSize != 0 {
-		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.TabSize)), []byte("\t"), -1)
+	if e.fileType.TabSize != 0 {
+		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize)), []byte("\t"), -1)
 	}
 
-	for _, hook := range e.BeforeSaveHook {
-		if err := hook(e); err != nil {
-			continue
-		}
-	}
+	_ = e.fileType.BeforeSave(e)
 
 	if err := os.WriteFile(e.File, e.Content, 0644); err != nil {
 		return err
@@ -1338,11 +1329,8 @@ func (e *Buffer) Write() error {
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
 	e.calculateVisualLines()
-	for _, hook := range e.AfterSaveHook {
-		if err := hook(e); err != nil {
-			continue
-		}
-	}
+	_ = e.fileType.AfterSave(e)
+
 	return nil
 }
 
@@ -1350,23 +1338,23 @@ func (e *Buffer) Indent() error {
 	e.removeDuplicateSelectionsAndSort()
 
 	for i := range e.Cursors {
-		e.MoveRight(&e.Cursors[i], i*e.TabSize)
+		e.MoveRight(&e.Cursors[i], i*e.fileType.TabSize)
 		if e.Cursors[i].Start() >= len(e.Content) { // end of file, appending
 			e.AddUndoAction(EditorAction{
 				Type: EditorActionType_Insert,
 				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.TabSize)),
+				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
 			})
-			e.Content = append(e.Content, []byte(strings.Repeat(" ", e.TabSize))...)
+			e.Content = append(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize))...)
 		} else {
 			e.AddUndoAction(EditorAction{
 				Type: EditorActionType_Insert,
 				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.TabSize)),
+				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
 			})
-			e.Content = append(e.Content[:e.Cursors[i].Start()], append([]byte(strings.Repeat(" ", e.TabSize)), e.Content[e.Cursors[i].Start():]...)...)
+			e.Content = append(e.Content[:e.Cursors[i].Start()], append([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Content[e.Cursors[i].Start():]...)...)
 		}
-		e.MoveRight(&e.Cursors[i], e.TabSize)
+		e.MoveRight(&e.Cursors[i], e.fileType.TabSize)
 
 	}
 	e.SetStateDirty()

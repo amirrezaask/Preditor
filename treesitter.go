@@ -31,6 +31,7 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 		for _, capture := range qm.Captures {
 			captureName := query.CaptureNameForId(capture.Index)
 			var c color.RGBA
+
 			if captureName == "comment" {
 				c = cfg.CurrentThemeColors().SyntaxComments.ToColorRGBA()
 			} else if captureName == "string" {
