@@ -26,7 +26,7 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Multi-Cursors (WIP)
 - Support BeforeSaveHook to use formatting tools like Go fmt
 - Auto format go code using pkg/format
-- Basic Regex syntax highlighting for keywords and types.
+- Treesitter syntax highlighting
 - Undo
 - Open file with glob completion
 - switch between open files

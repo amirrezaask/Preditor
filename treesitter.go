@@ -47,7 +47,6 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 				end:   int(capture.Node.EndByte()),
 				Color: c,
 			})
-			//fmt.Println(capture.Node.Type())
 		}
 	}
 
