@@ -193,6 +193,7 @@ func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	diff := e.maxLine - oldMaxLine
 	e.View.EndLine += diff
 }
+
 func (e *Buffer) Type() string {
 	return "text_editor_buffer"
 }
@@ -1583,36 +1584,57 @@ func (e *Buffer) DeleteCharBackwardFromActiveSearch() error {
 	return nil
 }
 
+func (editor *Buffer) ExitISearch() error {
+	editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
+	editor.ISearch.IsSearching = false
+	editor.ISearch.SearchMatches = nil
+	editor.ISearch.CurrentMatch = 0
+	editor.ISearch.MovedAwayFromCurrentMatch = false
+	return nil
+}
+
+func (editor *Buffer) NextISearchMatch() error {
+	editor.ISearch.CurrentMatch++
+	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+		editor.ISearch.CurrentMatch = 0
+	}
+	editor.ISearch.MovedAwayFromCurrentMatch = false
+	return nil
+}
+
+func (editor *Buffer) PrevISearchMatch() error {
+	editor.ISearch.CurrentMatch--
+	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+		editor.ISearch.CurrentMatch = 0
+	}
+	if editor.ISearch.CurrentMatch < 0 {
+		editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
+	}
+	editor.ISearch.MovedAwayFromCurrentMatch = false
+	return nil
+
+}
+
 var SearchTextBufferKeymap = Keymap{
 	Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
 	Key{K: "<enter>"}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch++
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
+		return editor.NextISearchMatch()
+	}),
+	Key{K: "s", Control: true}: MakeCommand(func(editor *Buffer) error {
+		return editor.NextISearchMatch()
+	}),
+	Key{K: "r", Control: true}: MakeCommand(func(editor *Buffer) error {
+		return editor.PrevISearchMatch()
 	}),
 
 	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch--
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		if editor.ISearch.CurrentMatch < 0 {
-			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
+		return editor.PrevISearchMatch()
 	}),
 	Key{K: "<esc>"}: MakeCommand(func(editor *Buffer) error {
-		editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
-		editor.ISearch.IsSearching = false
-		editor.ISearch.SearchMatches = nil
-		editor.ISearch.CurrentMatch = 0
-		editor.ISearch.MovedAwayFromCurrentMatch = false
+		editor.ExitISearch()
+
 		return nil
 	}),
 	Key{K: "<lmouse>-click"}: MakeCommand(func(e *Buffer) error {
@@ -1805,6 +1827,7 @@ func init() {
 		}),
 		Key{K: "s", Control: true}: MakeCommand(func(a *Buffer) error {
 			a.ISearch.IsSearching = true
+			a.ISearch.SearchString = ""
 			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 				a.ISearch.SearchString += string(b)
 				return nil
