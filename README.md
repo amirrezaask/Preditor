@@ -15,24 +15,6 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 ![Main](assets/build-window-max.png)
 
 ## Features
-- reading/writing files
-- simple keybindings (no key chords yet)
-- Scrolling with both mouse and keyboard
-- Line numbers
-- Statusbar
-- Selecting text
-- Cut/Copy/Paste
-- Incremental Search
-- Multi-Cursors (WIP)
-- Support BeforeSaveHook to use formatting tools like Go fmt
-- Auto format go code using pkg/format
 - Treesitter syntax highlighting
-- Undo
-- Open file with glob completion
-- switch between open files
-- Grep Buffers using Ripgrep ( more backends are possible )
-- Fuzzy file finder
-- Zoom in/out (increase/decrease) font size
-- Multi Window ( Splits )
-- Compile commands
-
+- Multi-Cursors (WIP)
+- Splits
