@@ -97,8 +97,10 @@ type Prompt struct {
 }
 
 const (
-	BuildWindowState_Normal    = 0
-	BuildWindowState_Maximized = 1
+	BuildWindowState_Hide = iota
+	BuildWindowState_Normal
+	BuildWindowState_Maximized
+	BuildWindowStateStateCount
 )
 
 type BuildWindow struct {
@@ -133,12 +135,13 @@ func (c *Context) BuildWindowMaximized() {
 func (c *Context) BuildWindowNormal() {
 	c.BuildWindow.State = BuildWindowState_Normal
 }
-
+func (c *Context) BuildWindowHide() {
+	c.BuildWindow.State = BuildWindowState_Hide
+}
 func (c *Context) BuildWindowToggleState() {
-	if c.BuildWindow.State == BuildWindowState_Normal {
-		c.BuildWindow.State = BuildWindowState_Maximized
-	} else {
-		c.BuildWindow.State = BuildWindowState_Normal
+	c.BuildWindow.State++
+	if c.BuildWindow.State >= BuildWindowStateStateCount {
+		c.BuildWindow.State = 0
 	}
 }
 
@@ -430,6 +433,8 @@ func (c *Context) Render() {
 		buildWindowHeightRatio = c.Cfg.BuildWindowNormalHeight
 	} else if c.BuildWindow.State == BuildWindowState_Maximized {
 		buildWindowHeightRatio = c.Cfg.BuildWindowMaximizedHeight
+	} else if c.BuildWindow.State == BuildWindowState_Hide {
+		buildWindowHeightRatio = 0
 	}
 	charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
 	if c.Prompt.IsActive {
