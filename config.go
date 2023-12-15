@@ -118,6 +118,7 @@ var defaultConfig = Config{
 				SyntaxTypes:           mustParseHexColor("#8cde94"),
 				SyntaxComments:        mustParseHexColor("#118a1a"),
 				SyntaxStrings:         mustParseHexColor("#118a1a"),
+				SyntaxIdentifiers:     mustParseHexColor("#eedd82"),
 			},
 		},
 		{

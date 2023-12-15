@@ -1,9 +1,11 @@
 package preditor
 
+// this is a comment
 import (
 	"bytes"
 	"errors"
 	"fmt"
+	sitter "github.com/smacker/go-tree-sitter"
 	"image/color"
 	"math"
 	"os"
@@ -101,10 +103,10 @@ type Buffer struct {
 	lexerConstructor func(d []byte) lexers.Lexer
 	Tokens           []lexers.Token
 
-	keymaps []Keymap
+	oldTSTree *sitter.Tree
+	fileType  FileType
 
-	HasSyntaxHighlights bool
-	SyntaxHighlights    SyntaxHighlights
+	keymaps []Keymap
 
 	TabSize int
 
@@ -247,14 +249,9 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 			}
 		}
 
-		fileType, exists := fileTypeMappings[path.Ext(t.File)]
+		fileType, exists := FileTypes[path.Ext(t.File)]
 		if exists {
-			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
-			t.AfterSaveHook = append(t.AfterSaveHook, fileType.AfterSave)
-			t.LastCompileCommand = fileType.DefaultCompileCommand
-			t.SyntaxHighlights = fileType.SyntaxHighlights
-			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
-			t.TabSize = fileType.TabSize
+			t.fileType = fileType
 		}
 	}
 	t.lexerConstructor = func(d []byte) lexers.Lexer {
@@ -318,22 +315,14 @@ type visualLine struct {
 	Length     int
 }
 
-func (e *Buffer) calculateHighlights(bs []byte, offset int) []highlight {
-	if !e.HasSyntaxHighlights {
-		return nil
+func (e *Buffer) calculateHighlights() []highlight {
+	highlights, tree, err := TSHighlights(e.cfg, e.fileType.TSHighlightQuery, e.oldTSTree, e.Content)
+	if err != nil {
+		panic(err)
 	}
-	var highlights []highlight
-	for rx, color := range e.SyntaxHighlights {
-		indexes := rx.FindAllStringIndex(string(bs), -1)
-		for _, index := range indexes {
-			highlights = append(highlights, highlight{
-				start: index[0] + offset,
-				end:   index[1] + offset - 1,
-				Color: color,
-			})
-		}
 
-	}
+	e.oldTSTree = tree
+
 	return highlights
 }
 
@@ -565,6 +554,8 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	highlights := e.calculateHighlights()
+
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
 			var lineNumberWidth int
@@ -585,16 +576,17 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				0,
 				e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 
-			if e.cfg.EnableSyntaxHighlighting && e.HasSyntaxHighlights {
-				highlights := e.calculateHighlights(e.Content[line.startIndex:line.endIndex], line.startIndex)
+			if e.cfg.EnableSyntaxHighlighting {
 				for _, h := range highlights {
-					rl.DrawTextEx(e.parent.Font,
-						string(e.Content[h.start:h.end+1]),
-						rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
-						float32(e.parent.FontSize),
-						0,
-						h.Color)
+					if h.start >= line.startIndex && h.end <= line.endIndex {
+						rl.DrawTextEx(e.parent.Font,
+							string(e.Content[h.start:h.end]),
+							rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
+							float32(e.parent.FontSize),
+							0,
+							h.Color)
 
+					}
 				}
 			}
 		}
