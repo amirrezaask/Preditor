@@ -8,8 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 )
 
 type ScoredItem[T any] struct {
@@ -255,66 +253,6 @@ type GrepLocationItem struct {
 	Text     string
 	Line     int
 	Col      int
-}
-
-func NewInteractiveGrep(
-	parent *Context,
-	cfg *Config,
-	cwd string,
-
-) *InteractiveFilter[GrepLocationItem] {
-	updateList := func(l *components.ListComponent[GrepLocationItem], input string) {
-		if len(input) < 3 {
-			return
-		}
-		c := RipgrepAsync(string(input), cwd)
-		go func() {
-			lines := <-c
-			l.Items = nil
-
-			for _, line := range lines {
-				lineS := string(line)
-				segs := strings.SplitN(lineS, ":", 4)
-				if len(segs) < 4 {
-					continue
-				}
-
-				line, err := strconv.Atoi(segs[1])
-				if err != nil {
-					continue
-				}
-				col, err := strconv.Atoi(segs[2])
-				if err != nil {
-					continue
-				}
-				l.Items = append(l.Items, GrepLocationItem{
-					Filename: segs[0],
-					Line:     line,
-					Col:      col,
-					Text:     segs[3],
-				})
-			}
-		}()
-
-	}
-	openSelection := func(parent *Context, item GrepLocationItem) error {
-		return SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, path.Join(cwd, item.Filename), &Position{Line: item.Line, Column: item.Col})
-	}
-
-	repr := func(g GrepLocationItem) string {
-		return fmt.Sprintf("%s:%d: %s", g.Filename, g.Line, g.Text)
-	}
-
-	gb := NewInteractiveFilter[GrepLocationItem](
-		parent,
-		cfg,
-		updateList,
-		openSelection,
-		repr,
-		nil,
-	)
-
-	return gb
 }
 
 type LocationItem struct {

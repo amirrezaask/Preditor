@@ -1004,13 +1004,6 @@ func (c *Context) openThemeSwitcher() {
 	c.MarkBufferAsActive(ofb.ID)
 }
 
-func (c *Context) openGrepBuffer() {
-
-	ofb := NewInteractiveGrep(c, c.Cfg, c.getCWD())
-	c.AddBuffer(ofb)
-	c.MarkBufferAsActive(ofb.ID)
-}
-
 func (c *Context) openCompilationBuffer(command string) error {
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
