@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*Buffer, error) {
-	tb, err := NewBuffer(parent, cfg, "*Compilation*")
+func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string, command string) (*Buffer, error) {
+	tb, err := NewBuffer(parent, cfg, bufferName)
 	if err != nil {
 		return nil, err
 	}
@@ -48,4 +48,13 @@ func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*Buffer
 
 	runCompileCommand()
 	return tb, nil
+}
+
+func NewGrepBuffer(parent *Context, cfg *Config, command string) (*Buffer, error) {
+	return RunCommandWithOutputBuffer(parent, cfg, "*Grep", command)
+}
+
+func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*Buffer, error) {
+	return RunCommandWithOutputBuffer(parent, cfg, "*Compilation*", command)
+
 }

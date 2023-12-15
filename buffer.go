@@ -401,7 +401,6 @@ func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float
 					posX += int32((len(fmt.Sprint(e.View.Lines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
 				} else {
 					posX += int32(charSize.X)
-
 				}
 			}
 			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
@@ -1515,7 +1514,6 @@ func (a *Buffer) CompileAskForCommand() error {
 	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
 		a.LastCompileCommand = userInput
 		if err := a.parent.OpenCompilationBufferInBuildWindow(userInput); err != nil {
-
 			return err
 		}
 
@@ -1533,6 +1531,18 @@ func (a *Buffer) CompileNoAsk() error {
 	if err := a.parent.OpenCompilationBufferInBuildWindow(a.LastCompileCommand); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (a *Buffer) GrepAsk() error {
+	a.parent.SetPrompt("Grep", nil, func(userInput string, c *Context) error {
+		if err := a.parent.OpenGrepBufferInSensibleSplit(fmt.Sprintf("rg --vimgrep %s", userInput)); err != nil {
+			return err
+		}
+
+		return nil
+	}, nil, "")
 
 	return nil
 }
@@ -1680,6 +1690,9 @@ func init() {
 			e.CenteralizeCursor()
 
 			return nil
+		}),
+		Key{K: "g", Alt: true}: MakeCommand(func(t *Buffer) error {
+			return t.GrepAsk()
 		}),
 		Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
 			e.ScrollToBottom()
