@@ -425,7 +425,7 @@ func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float
 			}
 
 		} else {
-			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().Selection.ToColorRGBA())
+			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
 
 	}
@@ -540,7 +540,7 @@ func (e *Buffer) renderTextSliceWithColor(zeroLocation rl.Vector2, idx1 int, idx
 	}
 }
 
-func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
+func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, bg color.RGBA, fg color.RGBA) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	var start Position
 	var end Position
@@ -569,6 +569,14 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 		} else {
 			thisLineEnd = end.Column
 		}
+		posX := int32(thisLineStart)*int32(charSize.X) + int32(zeroLocation.X)
+		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
+		if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
+			continue
+		}
+		rl.DrawTextEx(e.parent.Font, string(e.Content[thisLineStart+line.startIndex:thisLineEnd+line.startIndex]),
+			rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, fg)
+
 		for j := thisLineStart; j <= thisLineEnd; j++ {
 			posX := int32(j)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
@@ -583,7 +591,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 				continue
 			}
-			rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
+			rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(bg, 0.5))
 		}
 	}
 
@@ -662,10 +670,7 @@ func (e *Buffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2
 		}
 	}
 	for idx, match := range e.ISearch.SearchMatches {
-		c := e.cfg.CurrentThemeColors().Selection
-		_ = c
 		if idx == e.ISearch.CurrentMatch {
-			c = RGBA(rl.Fade(rl.Red, 0.5))
 			matchStartLine := e.getIndexPosition(match[0])
 			matchEndLine := e.getIndexPosition(match[0])
 			if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
@@ -681,7 +686,7 @@ func (e *Buffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2
 				e.View.EndLine += diff
 			}
 		}
-		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, c.ToColorRGBA())
+		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 	}
 	e.ISearch.LastSearchString = pattern
 

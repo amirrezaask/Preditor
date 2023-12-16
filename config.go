@@ -106,7 +106,8 @@ var defaultConfig = Config{
 			Colors: Colors{
 				Background:            mustParseHexColor("#062329"),
 				Foreground:            mustParseHexColor("#d3b58d"),
-				Selection:             mustParseHexColor("#0000cd"),
+				SelectionBackground:   mustParseHexColor("#0000cd"),
+				SelectionForeground:   mustParseHexColor("#ffffff"),
 				Prompts:               mustParseHexColor("#333333"),
 				StatusBarBackground:   mustParseHexColor("#696969"),
 				StatusBarForeground:   mustParseHexColor("#000000"),
@@ -131,7 +132,7 @@ var defaultConfig = Config{
 	CursorShape:                CURSOR_SHAPE_BLOCK,
 	CursorBlinking:             false,
 	FontName:                   "LiberationMono-Regular",
-	FontSize:                   30,
+	FontSize:                   17,
 	BuildWindowNormalHeight:    0.2,
 	BuildWindowMaximizedHeight: 0.5,
 }

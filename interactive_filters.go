@@ -96,7 +96,7 @@ func (i *InteractiveFilter[T]) Render(zeroLocation rl.Vector2, maxH float64, max
 		}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 	}
 	if len(i.List.Items) > 0 {
-		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.CurrentThemeColors().Selection.ToColorRGBA(), 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), 0.2))
 	}
 }
 
