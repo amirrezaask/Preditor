@@ -499,7 +499,7 @@ func Write(e *Buffer) error {
 	}
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
-	e.calculateVisualLines()
+	e.generateBufferLines()
 	if e.fileType.AfterSave != nil {
 		_ = e.fileType.AfterSave(e)
 
