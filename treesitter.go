@@ -4,7 +4,6 @@ import (
 	"context"
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/golang"
-	"image/color"
 )
 
 func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
@@ -30,24 +29,13 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 		}
 		for _, capture := range qm.Captures {
 			captureName := query.CaptureNameForId(capture.Index)
-			var c color.RGBA
-
-			if captureName == "comment" {
-				c = cfg.CurrentThemeColors().SyntaxComments.ToColorRGBA()
-			} else if captureName == "string" {
-				c = cfg.CurrentThemeColors().SyntaxStrings.ToColorRGBA()
-			} else if captureName == "keyword" {
-				c = cfg.CurrentThemeColors().SyntaxKeywords.ToColorRGBA()
-			} else if captureName == "ident" {
-				c = cfg.CurrentThemeColors().SyntaxIdentifiers.ToColorRGBA()
-			} else if captureName == "type" {
-				c = cfg.CurrentThemeColors().SyntaxTypes.ToColorRGBA()
+			if c, exists := cfg.CurrentThemeColors().SyntaxColors[captureName]; exists {
+				highlights = append(highlights, highlight{
+					start: int(capture.Node.StartByte()),
+					end:   int(capture.Node.EndByte()),
+					Color: c.ToColorRGBA(),
+				})
 			}
-			highlights = append(highlights, highlight{
-				start: int(capture.Node.StartByte()),
-				end:   int(capture.Node.EndByte()),
-				Color: c,
-			})
 		}
 	}
 

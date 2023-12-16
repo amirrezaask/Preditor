@@ -118,6 +118,10 @@ func makeKeymap[T any]() Keymap {
 		Key{K: "e", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.EndOfTheLine()
 		}),
+		Key{K: "g", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
+			e.parent.KillBuffer(e.ID)
+			return nil
+		}),
 
 		Key{K: "<right>"}: MakeCommand(func(e *InteractiveFilter[T]) error {
 			return e.UserInputComponent.CursorRight(1)

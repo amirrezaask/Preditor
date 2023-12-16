@@ -31,6 +31,8 @@ func (r RGBA) ToColorRGBA() color.RGBA {
 	return color.RGBA(r)
 }
 
+type SyntaxColors map[string]RGBA
+
 type Colors struct {
 	Background            RGBA
 	Foreground            RGBA
@@ -42,11 +44,7 @@ type Colors struct {
 	ActiveWindowBorder    RGBA
 	Cursor                RGBA
 	CursorLineBackground  RGBA
-	SyntaxKeywords        RGBA
-	SyntaxTypes           RGBA
-	SyntaxComments        RGBA
-	SyntaxStrings         RGBA
-	SyntaxIdentifiers     RGBA
+	SyntaxColors          SyntaxColors
 }
 
 type Drawable interface {
