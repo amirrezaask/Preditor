@@ -5,8 +5,7 @@ v0.5
 - Fix line numbers bug where Goto line jumped to wrong line
 - Fix line numbers bug where line in statusbar was wrong
 - Build window has 3 states now
-- Improve Line numbers rendering, now line numbers are rendered in a fixed sized space and lines
-don't move when line number width increases
+- Improve Line numbers rendering, now line numbers are rendered in a fixed sized space and lines don't move when line number width increases
 - Remove Lexers to decrease complexity, since for syntax highlighting we now have treesitter
 
 
