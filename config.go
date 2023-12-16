@@ -99,54 +99,10 @@ func mustParseHexColor(hex string) RGBA {
 }
 
 var defaultConfig = Config{
-	CurrentTheme: "Dark",
+	CurrentTheme: "Default",
 	Themes: []Theme{
 		{
-			Name: "Dark",
-			Colors: Colors{
-				Background:            mustParseHexColor("#000000"),
-				Foreground:            mustParseHexColor("#a9a9a9"),
-				Selection:             mustParseHexColor("#0000cd"),
-				Prompts:               mustParseHexColor("#333333"),
-				StatusBarBackground:   mustParseHexColor("#696969"),
-				StatusBarForeground:   mustParseHexColor("#000000"),
-				LineNumbersForeground: mustParseHexColor("#F2F2F2"),
-				ActiveWindowBorder:    mustParseHexColor("#292929"),
-				Cursor:                mustParseHexColor("#00ff00"),
-				CursorLineBackground:  mustParseHexColor("#52534E"),
-				SyntaxColors: SyntaxColors{
-					"ident":   mustParseHexColor("#eedd82"),
-					"type":    mustParseHexColor("#8cde94"),
-					"keyword": mustParseHexColor("#cd950c"),
-					"string":  mustParseHexColor("#118a1a"),
-					"comment": mustParseHexColor("#118a1a"),
-				},
-			},
-		},
-		{
-			Name: "Light",
-			Colors: Colors{
-				Background:            mustParseHexColor("#ffffff"),
-				Foreground:            mustParseHexColor("#000000"),
-				Selection:             mustParseHexColor("#0000cd"),
-				Prompts:               mustParseHexColor("#333333"),
-				StatusBarBackground:   mustParseHexColor("#696969"),
-				StatusBarForeground:   mustParseHexColor("#000000"),
-				LineNumbersForeground: mustParseHexColor("#010101"),
-				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
-				Cursor:                mustParseHexColor("#171717"),
-				CursorLineBackground:  mustParseHexColor("#52534E"),
-				SyntaxColors: SyntaxColors{
-					"ident":    mustParseHexColor("#eedd82"),
-					"type":     mustParseHexColor("#8cde94"),
-					"keywords": mustParseHexColor("#cd950c"),
-					"string":   mustParseHexColor("#118a1a"),
-					"comment":  mustParseHexColor("#118a1a"),
-				},
-			},
-		},
-		{
-			Name: "Naysayer",
+			Name: "Default",
 			Colors: Colors{
 				Background:            mustParseHexColor("#062329"),
 				Foreground:            mustParseHexColor("#d3b58d"),
@@ -159,33 +115,11 @@ var defaultConfig = Config{
 				Cursor:                mustParseHexColor("#00ff00"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
 				SyntaxColors: SyntaxColors{
-					"ident":    mustParseHexColor("#eedd82"),
+					"ident":    mustParseHexColor("#ffffff"),
 					"type":     mustParseHexColor("#8cde94"),
 					"keywords": mustParseHexColor("#cd950c"),
 					"string":   mustParseHexColor("#118a1a"),
 					"comment":  mustParseHexColor("#118a1a"),
-				},
-			},
-		},
-		{
-			Name: "4coder_fleury",
-			Colors: Colors{
-				Background:            mustParseHexColor("#020202"),
-				Foreground:            mustParseHexColor("#b99468"),
-				Selection:             mustParseHexColor("#FF44DD"),
-				Prompts:               mustParseHexColor("#333333"),
-				StatusBarBackground:   mustParseHexColor("#000000"),
-				StatusBarForeground:   mustParseHexColor("#ffa900"),
-				LineNumbersForeground: mustParseHexColor("#010101"),
-				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
-				Cursor:                mustParseHexColor("#e0741b"),
-				CursorLineBackground:  mustParseHexColor("#52534E"),
-				SyntaxColors: SyntaxColors{
-					"ident":    mustParseHexColor("#eedd82"),
-					"type":     mustParseHexColor("#8cde94"),
-					"keywords": mustParseHexColor("#f0c674"),
-					"string":   mustParseHexColor("#ffa900"),
-					"comment":  mustParseHexColor("#666666"),
 				},
 			},
 		},
