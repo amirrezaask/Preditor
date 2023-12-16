@@ -359,16 +359,7 @@ func (e *Buffer) generateWordTokens() []WordToken {
 }
 
 func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
-	oldMaxLine := e.maxLine
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	e.maxColumn = int32(maxW / float64(charSize.X))
-	e.maxLine = int32(maxH / float64(charSize.Y))
 
-	// reserve one line forr status bar
-	e.maxLine--
-
-	diff := e.maxLine - oldMaxLine
-	e.View.EndLine += diff
 }
 
 func (e *Buffer) getBufferLineForIndex(i int) BufferLine {
@@ -529,107 +520,6 @@ func (e *Buffer) generateBufferLines() {
 		}
 	}
 }
-
-func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	for _, sel := range e.Cursors {
-		if sel.Start() == sel.End() {
-			cursor := e.getIndexPosition(sel.Start())
-			cursorView := Position{
-				Line:   cursor.Line - int(e.View.StartLine),
-				Column: cursor.Column,
-			}
-			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
-			if e.cfg.LineNumbers {
-				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
-			}
-			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
-
-			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
-				continue
-			}
-			switch e.cfg.CursorShape {
-			case CURSOR_SHAPE_OUTLINE:
-				rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-			case CURSOR_SHAPE_BLOCK:
-				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-				if len(e.Content)-1 >= sel.Point {
-					rl.DrawTextEx(e.parent.Font, string(e.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
-				}
-
-			case CURSOR_SHAPE_LINE:
-				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-			}
-			if e.cfg.CursorLineHighlight {
-				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
-			}
-
-		} else {
-			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
-		}
-
-	}
-
-}
-
-func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if e.NoStatusbar {
-		return
-	}
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-
-	var sections []string
-	if len(e.Cursors) > 1 {
-		sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
-	} else {
-		if e.Cursors[0].Start() == e.Cursors[0].End() {
-			selStart := e.getIndexPosition(e.Cursors[0].Start())
-			if len(e.View.Lines) > selStart.Line {
-				selLine := e.View.Lines[selStart.Line]
-				sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selLine.ActualLine, selStart.Column))
-			} else {
-				sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selStart.Line, selStart.Column))
-			}
-
-		} else {
-			selEnd := e.getIndexPosition(e.Cursors[0].End())
-			sections = append(sections, fmt.Sprintf("Line#%d Col#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
-		}
-
-	}
-
-	file := e.File
-
-	var state string
-	if e.State == State_Dirty {
-		state = "U"
-	} else {
-		state = ""
-	}
-	//render status bar
-	rl.DrawRectangle(
-		int32(zeroLocation.X),
-		int32(zeroLocation.Y),
-		int32(maxW),
-		int32(charSize.Y),
-		e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA(),
-	)
-	rl.DrawRectangleLines(int32(zeroLocation.X),
-		int32(zeroLocation.Y),
-		int32(maxW),
-		int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
-
-	sections = append(sections, fmt.Sprintf("%s %s", state, file))
-	rl.DrawTextEx(e.parent.Font,
-		strings.Join(sections, " "),
-		rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
-		float32(e.parent.FontSize),
-		0,
-		e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA())
-
-}
-
 func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	var start Position
@@ -776,6 +666,94 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 }
 
 func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+
+}
+func (e *Buffer) convertBufferIndexToLineAndColumn(idx int) *Position {
+	for lineIndex, line := range e.View.Lines {
+		if line.startIndex <= idx && line.endIndex >= idx {
+			return &Position{
+				Line:   lineIndex,
+				Column: idx - line.startIndex,
+			}
+		}
+	}
+
+	return nil
+}
+func (e *Buffer) findMatches(pattern string) {
+	e.ISearch.SearchMatches = [][]int{}
+	matchPatternAsync(&e.ISearch.SearchMatches, e.Content, []byte(pattern))
+}
+
+func (e *Buffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2, maxH float64, maxW float64) error {
+
+	return nil
+}
+
+func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	e.zeroLocation = zeroLocation
+	oldMaxLine := e.maxLine
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	e.maxColumn = int32(maxW / float64(charSize.X))
+	e.maxLine = int32(maxH / float64(charSize.Y))
+	e.maxLine-- //reserve one line of screen for statusbar
+	diff := e.maxLine - oldMaxLine
+	e.View.EndLine += diff
+	e.generateBufferLines()
+
+	if !e.NoStatusbar {
+		var sections []string
+		if len(e.Cursors) > 1 {
+			sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
+		} else {
+			if e.Cursors[0].Start() == e.Cursors[0].End() {
+				selStart := e.getIndexPosition(e.Cursors[0].Start())
+				if len(e.View.Lines) > selStart.Line {
+					selLine := e.View.Lines[selStart.Line]
+					sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selLine.ActualLine, selStart.Column))
+				} else {
+					sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selStart.Line, selStart.Column))
+				}
+
+			} else {
+				selEnd := e.getIndexPosition(e.Cursors[0].End())
+				sections = append(sections, fmt.Sprintf("Line#%d Col#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
+			}
+
+		}
+
+		file := e.File
+
+		var state string
+		if e.State == State_Dirty {
+			state = "U"
+		} else {
+			state = ""
+		}
+		//render status bar
+		rl.DrawRectangle(
+			int32(zeroLocation.X),
+			int32(zeroLocation.Y),
+			int32(maxW),
+			int32(charSize.Y),
+			e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA(),
+		)
+		rl.DrawRectangleLines(int32(zeroLocation.X),
+			int32(zeroLocation.Y),
+			int32(maxW),
+			int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+
+		sections = append(sections, fmt.Sprintf("%s %s", state, file))
+		rl.DrawTextEx(e.parent.Font,
+			strings.Join(sections, " "),
+			rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
+			float32(e.parent.FontSize),
+			0,
+			e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA())
+		zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
+
+	}
+
 	var visibleLines []BufferLine
 	if e.View.EndLine < 0 {
 		return
@@ -785,7 +763,6 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	} else {
 		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
 	}
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	if e.needParsing {
 		var err error
 		e.highlights, e.oldTSTree, err = TSHighlights(e.cfg, e.fileType.TSHighlightQuery, nil, e.Content) //TODO: see how we can use old tree
@@ -794,6 +771,7 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		}
 		e.needParsing = false
 	}
+
 	for idx, line := range visibleLines {
 		if e.shouldBufferLineBeRendered(line) {
 			if e.cfg.LineNumbers {
@@ -813,81 +791,79 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
 		}
 	}
-}
-func (e *Buffer) convertBufferIndexToLineAndColumn(idx int) *Position {
-	for lineIndex, line := range e.View.Lines {
-		if line.startIndex <= idx && line.endIndex >= idx {
-			return &Position{
-				Line:   lineIndex,
-				Column: idx - line.startIndex,
+
+	if e.ISearch.IsSearching {
+		if e.ISearch.SearchString != e.ISearch.LastSearchString && e.ISearch.SearchString != "" {
+			e.findMatches(e.ISearch.SearchString)
+			for idx, match := range e.ISearch.SearchMatches {
+				if idx == e.ISearch.CurrentMatch {
+					matchStartLine := e.getIndexPosition(match[0])
+					matchEndLine := e.getIndexPosition(match[0])
+					if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+						// current match is not in view
+						// move the view
+						oldStart := e.View.StartLine
+						e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
+						if e.View.StartLine < 0 {
+							e.View.StartLine = int32(matchStartLine.Line)
+						}
+
+						diff := e.View.StartLine - oldStart
+						e.View.EndLine += diff
+					}
+				}
+				e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 			}
+			e.ISearch.LastSearchString = e.ISearch.SearchString
+			if len(e.ISearch.SearchMatches) > 0 {
+				e.Cursors = e.Cursors[:1]
+				e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+				e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+			}
+			rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
+			rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
+				X: zeroLocation.X,
+				Y: zeroLocation.Y,
+			}, float32(e.parent.FontSize), 0, rl.White)
 		}
 	}
 
-	return nil
-}
-func (e *Buffer) findMatches(pattern string) error {
-	e.ISearch.SearchMatches = [][]int{}
-	matchPatternAsync(&e.ISearch.SearchMatches, e.Content, []byte(pattern))
-	return nil
-}
+	for _, sel := range e.Cursors {
+		if sel.Start() == sel.End() {
+			cursor := e.getIndexPosition(sel.Start())
+			cursorView := Position{
+				Line:   cursor.Line - int(e.View.StartLine),
+				Column: cursor.Column,
+			}
+			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
+			if e.cfg.LineNumbers {
+				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+			}
+			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
 
-func (e *Buffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2, maxH float64, maxW float64) error {
-	if pattern != e.ISearch.LastSearchString && pattern != "" {
-		if err := e.findMatches(pattern); err != nil {
-			return err
-		}
-	}
-	for idx, match := range e.ISearch.SearchMatches {
-		if idx == e.ISearch.CurrentMatch {
-			matchStartLine := e.getIndexPosition(match[0])
-			matchEndLine := e.getIndexPosition(match[0])
-			if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
-				// current match is not in view
-				// move the view
-				oldStart := e.View.StartLine
-				e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
-				if e.View.StartLine < 0 {
-					e.View.StartLine = int32(matchStartLine.Line)
+			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
+				continue
+			}
+			switch e.cfg.CursorShape {
+			case CURSOR_SHAPE_OUTLINE:
+				rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+			case CURSOR_SHAPE_BLOCK:
+				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				if len(e.Content)-1 >= sel.Point {
+					rl.DrawTextEx(e.parent.Font, string(e.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
 				}
 
-				diff := e.View.StartLine - oldStart
-				e.View.EndLine += diff
+			case CURSOR_SHAPE_LINE:
+				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			}
+			if e.cfg.CursorLineHighlight {
+				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
+			}
+
+		} else {
+			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
-		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 	}
-	e.ISearch.LastSearchString = pattern
-
-	return nil
-}
-func (e *Buffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if !e.ISearch.IsSearching {
-		return
-	}
-	e.findMatchesAndHighlight(e.ISearch.SearchString, zeroLocation, maxH, maxW)
-	if len(e.ISearch.SearchMatches) > 0 {
-		e.Cursors = e.Cursors[:1]
-		e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
-		e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
-	}
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
-		X: zeroLocation.X,
-		Y: zeroLocation.Y,
-	}, float32(e.parent.FontSize), 0, rl.White)
-}
-
-func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	e.zeroLocation = zeroLocation
-	e.updateMaxLineAndColumn(maxH, maxW)
-	e.generateBufferLines()
-	e.renderStatusbar(zeroLocation, maxH, maxW)
-	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
-	e.renderText(zeroLocation, maxH, maxW)
-	e.renderSearch(zeroLocation, maxH, maxW)
-	e.renderCursors(zeroLocation, maxH, maxW)
 }
 
 func (e *Buffer) shouldBufferLineBeRendered(line BufferLine) bool {
@@ -1609,7 +1585,11 @@ func Copy(e *Buffer) error {
 	cur := e.Cursors[0]
 	if cur.Start() != cur.End() {
 		// Copy selection
-		WriteToClipboard(e.Content[cur.Start():cur.End()])
+		end := cur.End() + 1
+		if end >= len(e.Content) {
+			end = len(e.Content) - 1
+		}
+		WriteToClipboard(e.Content[cur.Start():end])
 	} else {
 		line := e.getBufferLineForIndex(cur.Start())
 		WriteToClipboard(e.Content[line.startIndex : line.endIndex+1])
