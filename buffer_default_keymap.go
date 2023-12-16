@@ -29,13 +29,13 @@ var SearchTextBufferKeymap = Keymap{
 	}),
 	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *Buffer) error {
 		e.ISearch.MovedAwayFromCurrentMatch = true
-		return ScrollUp(e, 20)
+		return ScrollUp(e, 30)
 
 	}),
 	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *Buffer) error {
 		e.ISearch.MovedAwayFromCurrentMatch = true
 
-		return ScrollDown(e, 20)
+		return ScrollDown(e, 30)
 	}),
 
 	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *Buffer) error {
