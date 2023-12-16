@@ -15,8 +15,6 @@ import (
 
 	sitter "github.com/smacker/go-tree-sitter"
 
-	"github.com/amirrezaask/preditor/lexers"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
 )
@@ -98,8 +96,7 @@ type Buffer struct {
 	NoStatusbar  bool
 	zeroLocation rl.Vector2
 
-	lexerConstructor func(d []byte) lexers.Lexer
-	Tokens           []lexers.Token
+	Tokens []WordToken
 
 	oldTSTree   *sitter.Tree
 	highlights  []highlight
@@ -183,6 +180,127 @@ func (e *Buffer) replaceTabsWithSpaces() {
 	e.Content = bytes.Replace(e.Content, []byte("\t"), []byte(strings.Repeat(" ", e.fileType.TabSize)), -1)
 }
 
+func isLetter(b byte) bool {
+	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
+}
+
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
+}
+
+func isWhitespace(b byte) bool {
+	return b == '\n' || b == '\r' || b == ' '
+}
+
+func isLetterOrDigit(b byte) bool {
+	return isLetter(b) || isDigit(b)
+}
+
+func isSymbol(c byte) bool {
+	return (c >= 33 && c <= 47) || (c >= 58 && c <= 64) || (c >= 91 && c <= 96) || (c >= 123 && c <= 126)
+}
+
+type WordToken struct {
+	Start int
+	End   int
+	Type  int
+}
+
+func (e *Buffer) generateWordTokens() []WordToken {
+	const (
+		WORD_LEXER_TOKEN_TYPE_WORD       = 1
+		WORD_LEXER_TOKEN_TYPE_SYMBOL     = 2
+		WORD_LEXER_TOKEN_TYPE_WHITESPACE = 3
+	)
+
+	const (
+		wordLexer_insideWord        = 1
+		wordLexer_insideWhitespaces = 2
+	)
+
+	state := 0
+	point := 0
+
+	var tokens []WordToken
+	for i := 0; i < len(e.Content); i++ {
+		c := e.Content[i]
+		switch {
+		case isLetterOrDigit(c):
+			switch state {
+			case wordLexer_insideWord, 0:
+				state = wordLexer_insideWord
+				continue
+			case wordLexer_insideWhitespaces:
+				tokens = append(tokens, WordToken{
+					Start: point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
+				})
+				state = wordLexer_insideWord
+				point = i
+
+			}
+		case isWhitespace(c):
+			switch state {
+			case wordLexer_insideWhitespaces, 0:
+				state = wordLexer_insideWhitespaces
+				continue
+			case wordLexer_insideWord:
+				tokens = append(tokens, WordToken{
+					Start: point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
+				})
+				state = wordLexer_insideWhitespaces
+				point = i
+			}
+		default:
+			switch state {
+			case wordLexer_insideWord:
+				tokens = append(tokens, WordToken{
+					Start: point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
+				})
+				point = i
+				state = 0
+
+			case wordLexer_insideWhitespaces:
+				tokens = append(tokens, WordToken{
+					Start: point,
+					End:   i,
+					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
+				})
+				point = i
+				state = 0
+			}
+
+			tokens = append(tokens, WordToken{
+				Start: point,
+				End:   i + 1,
+				Type:  WORD_LEXER_TOKEN_TYPE_SYMBOL,
+			})
+			point = i + 1
+		}
+	}
+	var typ int
+	if state == wordLexer_insideWord {
+		typ = WORD_LEXER_TOKEN_TYPE_WORD
+	} else if state == wordLexer_insideWhitespaces {
+		typ = WORD_LEXER_TOKEN_TYPE_WHITESPACE
+	} else {
+		typ = WORD_LEXER_TOKEN_TYPE_SYMBOL
+	}
+
+	tokens = append(tokens, WordToken{
+		Start: point,
+		End:   len(e.Content) - 1,
+		Type:  typ,
+	})
+
+	return tokens
+}
+
 func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	oldMaxLine := e.maxLine
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
@@ -255,9 +373,6 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 			t.needParsing = true
 		}
 	}
-	t.lexerConstructor = func(d []byte) lexers.Lexer {
-		return lexers.NewWordLexer(d)
-	}
 	t.replaceTabsWithSpaces()
 	return &t, nil
 
@@ -323,8 +438,7 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 }
 
 func (e *Buffer) calculateVisualLines() {
-	lexer := e.lexerConstructor(e.Content)
-	e.Tokens = lexer.Tokens()
+	e.Tokens = e.generateWordTokens()
 	e.View.Lines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -574,7 +688,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 		if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 			continue
 		}
-		rl.DrawTextEx(e.parent.Font, string(e.Content[thisLineStart+line.startIndex:thisLineEnd+line.startIndex]),
+		rl.DrawTextEx(e.parent.Font, string(e.Content[thisLineStart+line.startIndex:thisLineEnd+line.startIndex+1]),
 			rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, fg)
 
 		for j := thisLineStart; j <= thisLineEnd; j++ {
