@@ -485,8 +485,7 @@ func (e *Buffer) generateBufferLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-		}
-		if idx == len(e.Content)-1 {
+		} else if idx == len(e.Content)-1 {
 			// last index
 			line := BufferLine{
 				Index:      totalVisualLines,
@@ -500,10 +499,7 @@ func (e *Buffer) generateBufferLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-			continue
-		}
-
-		if int32(lineCharCounter) > e.maxColumn-int32(len(fmt.Sprint(totalVisualLines)))-1 {
+		} else if int32(lineCharCounter) > e.maxColumn-5 {
 			line := BufferLine{
 				Index:      totalVisualLines,
 				startIndex: start,
@@ -511,12 +507,10 @@ func (e *Buffer) generateBufferLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-
 			e.View.Lines = append(e.View.Lines, line)
 			totalVisualLines++
 			lineCharCounter = 0
 			start = idx + 1
-			continue
 		}
 	}
 }
