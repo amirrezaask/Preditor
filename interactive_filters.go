@@ -195,7 +195,9 @@ func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredIt
 	initialList := func() []ScoredItem[Drawable] {
 		var buffers []ScoredItem[Drawable]
 		for _, v := range parent.Drawables {
-			buffers = append(buffers, ScoredItem[Drawable]{Item: v})
+			if v != nil {
+				buffers = append(buffers, ScoredItem[Drawable]{Item: v})
+			}
 		}
 
 		return buffers
@@ -366,14 +368,14 @@ func NewInteractiveFilePicker(parent *Context, cfg *Config, initialInput string)
 			return nil
 		}
 
-		if len(matches) == 1 {
-			stat, err := os.Stat(matches[0])
+		if f.List.Selection < len(f.List.Items) {
+			stat, err := os.Stat(matches[f.List.Selection])
 			if err == nil {
 				if stat.IsDir() {
-					matches[0] += "/"
+					matches[f.List.Selection] += "/"
 				}
 			}
-			f.UserInputComponent.UserInput = []byte(matches[0])
+			f.UserInputComponent.UserInput = []byte(matches[f.List.Selection])
 			f.UserInputComponent.CursorRight(len(f.UserInputComponent.UserInput) - len(input))
 		}
 		return nil

@@ -1104,6 +1104,8 @@ func (e *Buffer) readFileFromDisk() error {
 	return nil
 }
 
+// Things that change buffer content
+
 func InsertChar(e *Buffer, char byte) error {
 	if e.Readonly {
 		return nil

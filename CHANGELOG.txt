@@ -9,7 +9,6 @@ v0.5
 - Remove Lexers to decrease complexity, since for syntax highlighting we now have treesitter
 
 
-
 v0.4
 =====================
 - BuildWindow: Special window rendered at bottom of screen for showing compile results.
