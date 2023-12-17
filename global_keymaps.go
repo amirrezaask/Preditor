@@ -11,6 +11,10 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: ";", Control: true}: func(context *Context) error {
+		Compile(context)
+		return nil
+	},
 	Key{K: "q", Alt: true}: func(preditor *Context) error {
 		preditor.CloseWindow(preditor.ActiveWindowIndex)
 
