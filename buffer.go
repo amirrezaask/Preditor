@@ -659,9 +659,6 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 
 }
 
-func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-
-}
 func (e *Buffer) convertBufferIndexToLineAndColumn(idx int) *Position {
 	for lineIndex, line := range e.View.Lines {
 		if line.startIndex <= idx && line.endIndex >= idx {
@@ -773,6 +770,9 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 		e.needParsing = false
 	}
 
+	//TODO: instead of pre calculating buffer lines we shall do it right here and store
+	// we loop on characters when we reached a visual line that is in our view range
+	// we render. we basically do the same thing with the generate buffer lines but we are doing it here.
 	for idx, line := range visibleLines {
 		if e.shouldBufferLineBeRendered(line) {
 			if e.cfg.LineNumbers {
