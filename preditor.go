@@ -968,7 +968,7 @@ func (c *Context) StartMainLoop() {
 			fmt.Printf("%v\n%s\n", r, string(debug.Stack()))
 		}
 	}()
-
+	//TODO: Check for drag and dropped files rl.IsFileDropped()
 	for !rl.WindowShouldClose() {
 		c.HandleWindowResize()
 		c.HandleMouseEvents()
