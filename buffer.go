@@ -65,6 +65,12 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			//replace CRLF with LF
+			if bytes.Index(t.Content, []byte("\r\n")) != -1 {
+				t.Content = bytes.Replace(t.Content, []byte("\r"), []byte(""), -1)
+				t.CRLF = true
+			}
 		}
 
 		fileType, exists := FileTypes[path.Ext(t.File)]
@@ -149,6 +155,7 @@ type Buffer struct {
 	parent       *Context
 	File         string
 	Content      []byte
+	CRLF         bool
 	State        int
 	Readonly     bool
 	maxLine      int32
@@ -1600,11 +1607,18 @@ func Write(e *Buffer) error {
 		_ = e.fileType.BeforeSave(e)
 	}
 
+	if e.CRLF {
+		e.Content = bytes.Replace(e.Content, []byte("\n"), []byte("\r\n"), -1)
+	}
+
 	if err := os.WriteFile(e.File, e.Content, 0644); err != nil {
 		return err
 	}
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
+	if e.CRLF {
+		e.Content = bytes.Replace(e.Content, []byte("\r\n"), []byte("\n"), -1)
+	}
 	e.generateBufferLines()
 	if e.fileType.AfterSave != nil {
 		_ = e.fileType.AfterSave(e)
