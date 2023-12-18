@@ -1,11 +1,66 @@
 package preditor
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
+
+func OpenLocationInCurrentLine(c *Context) error {
+	b, ok := c.ActiveBuffer().(*Buffer)
+	if !ok {
+		return nil
+	}
+
+	line := BufferGetCurrentLine(b)
+	if line == nil || len(line) < 1 {
+		return nil
+	}
+
+	segs := bytes.SplitN(line, []byte(":"), 4)
+	if len(segs) < 2 {
+		return nil
+
+	}
+
+	var targetWindow *Window
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if c.ActiveWindowIndex != win.ID {
+				targetWindow = win
+				break
+			}
+		}
+	}
+
+	filename := segs[0]
+	var lineNum int
+	var col int
+	var err error
+	switch len(segs) {
+	case 3:
+		//filename:line: text
+		lineNum, err = strconv.Atoi(string(segs[1]))
+		if err != nil {
+		}
+	case 4:
+		//filename:line:col: text
+		lineNum, err = strconv.Atoi(string(segs[1]))
+		if err != nil {
+		}
+		col, err = strconv.Atoi(string(segs[2]))
+		if err != nil {
+		}
+
+	}
+	_ = SwitchOrOpenFileInWindow(c, c.Cfg, string(filename), &Position{Line: lineNum, Column: col}, targetWindow)
+
+	c.ActiveWindowIndex = targetWindow.ID
+	return nil
+}
 
 func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string, command string) (*Buffer, error) {
 	tb, err := NewBuffer(parent, cfg, bufferName)
@@ -40,11 +95,13 @@ func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string,
 		}()
 
 	}
+
 	tb.keymaps[1].SetKeyCommand(Key{K: "g"}, MakeCommand(func(b *Buffer) error {
 		runCompileCommand()
 
 		return nil
 	}))
+	tb.keymaps[1].SetKeyCommand(Key{K: "<enter>"}, OpenLocationInCurrentLine)
 
 	runCompileCommand()
 	return tb, nil
