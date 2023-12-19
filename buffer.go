@@ -20,10 +20,6 @@ import (
 )
 
 // this a nother test
-func SwitchOrOpenFileInCurrentWindow(parent *Context, cfg *Config, filename string, startingPos *Position) error {
-	return SwitchOrOpenFileInWindow(parent, cfg, filename, startingPos, parent.ActiveWindow())
-}
-
 var EditorKeymap Keymap
 var SearchTextBufferKeymap Keymap
 
