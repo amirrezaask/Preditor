@@ -35,6 +35,7 @@ func NewBufferView(parent *Context, cfg *Config, buffer *Buffer) *BufferView {
 	t := BufferView{cfg: cfg}
 	t.parent = parent
 	t.Buffer = buffer
+	t.LastCompileCommand = buffer.fileType.DefaultCompileCommand
 	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 		return BufferInsertChar(&t, b)
 	}))
@@ -728,6 +729,14 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.VisibleEnd = int32(e.MoveToPositionInNextRender.Line) + e.maxLine/2
 		e.MoveToPositionInNextRender = nil
 	}
+	if e.Buffer.needParsing {
+		var err error
+		e.Buffer.highlights, e.Buffer.oldTSTree, err = TSHighlights(e.cfg, e.Buffer.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
+		if err != nil {
+			panic(err)
+		}
+		e.Buffer.needParsing = false
+	}
 
 	var visibleLines []BufferLine
 	if e.VisibleStart < 0 {
@@ -742,27 +751,17 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	} else {
 		visibleLines = e.bufferLines[e.VisibleStart:e.VisibleEnd]
 	}
-	if e.Buffer.needParsing {
-		var err error
-		e.Buffer.highlights, e.Buffer.oldTSTree, err = TSHighlights(e.cfg, e.Buffer.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
-		if err != nil {
-			panic(err)
-		}
-		e.Buffer.needParsing = false
-	}
 
 	for idx, line := range visibleLines {
-		if e.VisibleStart <= int32(line.Index) && line.Index <= int(e.VisibleEnd) {
-			if e.cfg.LineNumbers {
-				rl.DrawTextEx(e.parent.Font,
-					fmt.Sprintf("%d", line.ActualLine),
-					rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
-					float32(e.parent.FontSize),
-					0,
-					e.cfg.CurrentThemeColors().LineNumbersForeground.ToColorRGBA())
-			}
-			e.renderTextRange(zeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+		if e.cfg.LineNumbers {
+			rl.DrawTextEx(e.parent.Font,
+				fmt.Sprintf("%d", line.ActualLine),
+				rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
+				float32(e.parent.FontSize),
+				0,
+				e.cfg.CurrentThemeColors().LineNumbersForeground.ToColorRGBA())
 		}
+		e.renderTextRange(zeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 	}
 
 	if e.cfg.EnableSyntaxHighlighting {

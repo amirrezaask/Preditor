@@ -138,8 +138,8 @@ func (c *Context) OpenFileAsBuffer(filename string) *Buffer {
 	}
 
 	buf := Buffer{
-		File:    filename,
-		State:   State_Clean,
+		File:  filename,
+		State: State_Clean,
 	}
 
 	//replace CRLF with LF
@@ -873,7 +873,7 @@ func setupRaylib(cfg *Config) {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized | rl.FlagVsyncHint)
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(90)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
@@ -1042,7 +1042,6 @@ func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, sta
 	if buffer == nil {
 		buffer = parent.OpenFileAsBuffer(filename)
 	}
-
 
 	bufferView := NewBufferView(parent, cfg, buffer)
 	parent.AddDrawable(bufferView)
