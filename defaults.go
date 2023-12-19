@@ -1,81 +1,9 @@
 package preditor
 
-import (
-	rl "github.com/gen2brain/raylib-go/raylib"
-)
+import rl "github.com/gen2brain/raylib-go/raylib"
 
-var SearchTextBufferKeymap = Keymap{
-	Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
-		return ISearchDeleteBackward(e)
-	}),
-	Key{K: "<enter>"}: MakeCommand(func(editor *Buffer) error {
-		return ISearchNextMatch(editor)
-	}),
-	Key{K: "s", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return ISearchNextMatch(editor)
-	}),
-	Key{K: "r", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return ISearchPreviousMatch(editor)
-	}),
-	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return ISearchPreviousMatch(editor)
-	}),
-	Key{K: "<esc>"}: MakeCommand(func(editor *Buffer) error {
-		ISearchExit(editor)
-		return nil
-	}),
-	Key{K: "<lmouse>-click"}: MakeCommand(func(e *Buffer) error {
-		return e.moveCursorTo(rl.GetMousePosition())
-	}),
-	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		return ScrollUp(e, 30)
-
-	}),
-	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-
-		return ScrollDown(e, 30)
-	}),
-
-	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch++
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		if editor.ISearch.CurrentMatch < 0 {
-			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
-	}),
-	Key{K: "<mmouse>-click"}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch--
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		if editor.ISearch.CurrentMatch < 0 {
-			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
-	}),
-	Key{K: "<pagedown>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		return ScrollDown(e, 1)
-	}),
-	Key{K: "<pageup>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-
-		return ScrollUp(e, 1)
-	}),
-}
-var EditorKeymap Keymap
-
-func init() {
-
+func setupDefaults() {
 	EditorKeymap = Keymap{
-
 		Key{K: ".", Control: true}: MakeCommand(func(e *Buffer) error {
 			return e.AnotherSelectionOnMatch()
 		}),
@@ -304,4 +232,60 @@ func init() {
 
 		Key{K: "<tab>"}: MakeCommand(func(e *Buffer) error { return Indent(e) }),
 	}
+
+	SearchTextBufferKeymap = Keymap{
+		Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
+			return ISearchDeleteBackward(e)
+		}),
+		Key{K: "<enter>"}: MakeCommand(func(editor *Buffer) error {
+			return ISearchNextMatch(editor)
+		}),
+		Key{K: "s", Control: true}: MakeCommand(func(editor *Buffer) error {
+			return ISearchNextMatch(editor)
+		}),
+		Key{K: "r", Control: true}: MakeCommand(func(editor *Buffer) error {
+			return ISearchPreviousMatch(editor)
+		}),
+		Key{K: "<enter>", Control: true}: MakeCommand(func(editor *Buffer) error {
+			return ISearchPreviousMatch(editor)
+		}),
+		Key{K: "<esc>"}: MakeCommand(func(editor *Buffer) error {
+			ISearchExit(editor)
+			return nil
+		}),
+		Key{K: "<lmouse>-click"}: MakeCommand(func(e *Buffer) error {
+			return e.moveCursorTo(rl.GetMousePosition())
+		}),
+		Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *Buffer) error {
+			e.ISearch.MovedAwayFromCurrentMatch = true
+			return ScrollUp(e, 30)
+
+		}),
+		Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *Buffer) error {
+			e.ISearch.MovedAwayFromCurrentMatch = true
+
+			return ScrollDown(e, 30)
+		}),
+
+		Key{K: "<rmouse>-click"}: MakeCommand(func(editor *Buffer) error {
+			ISearchNextMatch(editor)
+
+			return nil
+		}),
+		Key{K: "<mmouse>-click"}: MakeCommand(func(editor *Buffer) error {
+			ISearchPreviousMatch(editor)
+
+			return nil
+		}),
+		Key{K: "<pagedown>"}: MakeCommand(func(e *Buffer) error {
+			e.ISearch.MovedAwayFromCurrentMatch = true
+			return ScrollDown(e, 1)
+		}),
+		Key{K: "<pageup>"}: MakeCommand(func(e *Buffer) error {
+			e.ISearch.MovedAwayFromCurrentMatch = true
+
+			return ScrollUp(e, 1)
+		}),
+	}
+
 }

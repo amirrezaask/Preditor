@@ -345,7 +345,7 @@ func (k Keymap) Clone() Keymap {
 	return cloned
 }
 
-func (k Keymap) SetKeyCommand(key Key, command Command) {
+func (k Keymap) BindKey(key Key, command Command) {
 	k[key] = command
 }
 
@@ -880,6 +880,7 @@ func New() (*Context, error) {
 		Windows:        [][]*Window{},
 	}
 
+	setupDefaults()
 	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
 	if err != nil {
 		return nil, err
