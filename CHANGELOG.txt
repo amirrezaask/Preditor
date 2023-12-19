@@ -12,8 +12,8 @@ v0.5
 - Better <tab> complete for file pickers
 - Improve and fix some bugs regarding undo
 - Fix copy command not including last character
-- Changes to default theme, credits @4coder and @Alan Webster
-
+- More theme updates thanks to @JonathanBlow and @AllenWebster
+- Now buffers and their view are seperated and we can have multiple views (windows) for same buffer and editing at the same time
 
 v0.4
 =====================

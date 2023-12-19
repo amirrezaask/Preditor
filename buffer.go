@@ -137,7 +137,7 @@ type BufferView struct {
 
 	// Old Len is stored for times that buffer content is changed under our feet
 	oldLen int
-	
+
 	// Cursor
 	Cursors []Cursor
 
@@ -196,7 +196,6 @@ func (e *BufferView) RevertLastBufferAction() {
 func (e *BufferView) SetStateDirty() {
 	e.Buffer.State = State_Dirty
 	e.Buffer.needParsing = true
-	e.generateBufferLines()
 }
 
 func (e *BufferView) SetStateClean() {
@@ -864,7 +863,6 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 
 	}
 
-
 	e.zeroLocation = zeroLocation
 
 }
@@ -1215,13 +1213,15 @@ func Cut(e *BufferView) error {
 	cur := &e.Cursors[0]
 	if cur.Start() != cur.End() {
 		// Copy selection
-		WriteToClipboard(e.Buffer.Content[cur.Start():cur.End()])
-		e.RemoveRange(cur.Start(), cur.End(), true)
+		WriteToClipboard(e.Buffer.Content[cur.Start() : cur.End()+1])
+		fmt.Printf("Cutting '%s'\n", string(e.Buffer.Content[cur.Start():cur.End()+1]))
+		e.RemoveRange(cur.Start(), cur.End()+1, true)
 		cur.Mark = cur.Point
 	} else {
 		line := e.getBufferLineForIndex(cur.Start())
+		fmt.Printf("Cutting '%s'\n", string(e.Buffer.Content[line.startIndex:line.endIndex+1]))
 		WriteToClipboard(e.Buffer.Content[line.startIndex : line.endIndex+1])
-		e.RemoveRange(line.startIndex, line.endIndex, true)
+		e.RemoveRange(line.startIndex, line.endIndex+1, true)
 	}
 	e.SetStateDirty()
 
