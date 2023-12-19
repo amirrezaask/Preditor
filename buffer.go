@@ -360,7 +360,7 @@ func (e *Buffer) getBufferLineForIndex(i int) BufferLine {
 	return BufferLine{}
 }
 
-func (e *Buffer) getPositionBufferIndex(i int) Position {
+func (e *Buffer) BufferIndexToPosition(i int) Position {
 	if len(e.View.Lines) == 0 {
 		return Position{Line: 0, Column: i}
 	}
@@ -373,7 +373,7 @@ func (e *Buffer) getPositionBufferIndex(i int) Position {
 
 }
 
-func (e *Buffer) positionToBufferIndex(pos Position) int {
+func (e *Buffer) PositionToBufferIndex(pos Position) int {
 	if len(e.View.Lines) < 1 {
 		e.generateBufferLines()
 	}
@@ -441,7 +441,7 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 		col = 0
 	}
 
-	e.Cursors[0].SetBoth(e.positionToBufferIndex(Position{Line: line, Column: col}))
+	e.Cursors[0].SetBoth(e.PositionToBufferIndex(Position{Line: line, Column: col}))
 
 	return nil
 }
@@ -505,11 +505,11 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 	var start Position
 	var end Position
 	if idx1 > idx2 {
-		start = e.getPositionBufferIndex(idx2)
-		end = e.getPositionBufferIndex(idx1)
+		start = e.BufferIndexToPosition(idx2)
+		end = e.BufferIndexToPosition(idx1)
 	} else if idx2 > idx1 {
-		start = e.getPositionBufferIndex(idx1)
-		end = e.getPositionBufferIndex(idx2)
+		start = e.BufferIndexToPosition(idx1)
+		end = e.BufferIndexToPosition(idx2)
 	}
 	for i := start.Line; i <= end.Line; i++ {
 		if len(e.View.Lines) <= i {
@@ -591,7 +591,7 @@ func (e *Buffer) getLineNumbersMaxLength() int {
 
 func BufferGetCurrentLine(e *Buffer) []byte {
 	cur := e.Cursors[0]
-	pos := e.getPositionBufferIndex(cur.Point)
+	pos := e.BufferIndexToPosition(cur.Point)
 
 	if pos.Line < len(e.View.Lines) {
 		line := e.View.Lines[pos.Line]
@@ -606,11 +606,11 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 	var start Position
 	var end Position
 	if idx1 > idx2 {
-		start = e.getPositionBufferIndex(idx2)
-		end = e.getPositionBufferIndex(idx1)
+		start = e.BufferIndexToPosition(idx2)
+		end = e.BufferIndexToPosition(idx1)
 	} else if idx2 > idx1 {
-		start = e.getPositionBufferIndex(idx1)
-		end = e.getPositionBufferIndex(idx2)
+		start = e.BufferIndexToPosition(idx1)
+		end = e.BufferIndexToPosition(idx2)
 	}
 	for i := start.Line; i <= end.Line; i++ {
 		if len(e.View.Lines) <= i {
@@ -713,7 +713,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 			sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
 		} else {
 			if e.Cursors[0].Start() == e.Cursors[0].End() {
-				selStart := e.getPositionBufferIndex(e.Cursors[0].Start())
+				selStart := e.BufferIndexToPosition(e.Cursors[0].Start())
 				if len(e.View.Lines) > selStart.Line {
 					selLine := e.View.Lines[selStart.Line]
 					sections = append(sections, fmt.Sprintf("L#%d C#%d", selLine.ActualLine, selStart.Column))
@@ -722,7 +722,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 				}
 
 			} else {
-				selEnd := e.getPositionBufferIndex(e.Cursors[0].End())
+				selEnd := e.BufferIndexToPosition(e.Cursors[0].End())
 				sections = append(sections, fmt.Sprintf("L#%d C#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
 			}
 
@@ -756,7 +756,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
 	}
 	if e.MoveToPositionInNextRender != nil {
-		bufferIndex := e.positionToBufferIndex(*e.MoveToPositionInNextRender)
+		bufferIndex := e.PositionToBufferIndex(*e.MoveToPositionInNextRender)
 		e.Cursors[0].SetBoth(bufferIndex)
 		e.View.StartLine = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
 		e.View.EndLine = int32(e.MoveToPositionInNextRender.Line) + e.maxLine/2
@@ -811,8 +811,8 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 		}
 		for idx, match := range e.ISearch.SearchMatches {
 			if idx == e.ISearch.CurrentMatch {
-				matchStartLine := e.getPositionBufferIndex(match[0])
-				matchEndLine := e.getPositionBufferIndex(match[0])
+				matchStartLine := e.BufferIndexToPosition(match[0])
+				matchEndLine := e.BufferIndexToPosition(match[0])
 				if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
 					// current match is not in view
 					// move the view
@@ -844,7 +844,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
 	for _, sel := range e.Cursors {
 		if sel.Start() == sel.End() {
-			cursor := e.getPositionBufferIndex(sel.Start())
+			cursor := e.BufferIndexToPosition(sel.Start())
 			cursorView := Position{
 				Line:   cursor.Line - int(e.View.StartLine),
 				Column: cursor.Column,
@@ -1039,7 +1039,7 @@ func (e *Buffer) addAnotherCursorAt(pos rl.Vector2) error {
 	if col < 0 {
 		col = 0
 	}
-	idx := e.positionToBufferIndex(Position{Line: line, Column: col})
+	idx := e.PositionToBufferIndex(Position{Line: line, Column: col})
 	e.Cursors = append(e.Cursors, Cursor{Point: idx, Mark: idx})
 
 	e.removeDuplicateSelectionsAndSort()
@@ -1079,7 +1079,7 @@ func (e *Buffer) AnotherSelectionOnMatch() error {
 	return nil
 }
 func (e *Buffer) ScrollIfNeeded() error {
-	pos := e.getPositionBufferIndex(e.Cursors[0].End())
+	pos := e.BufferIndexToPosition(e.Cursors[0].End())
 	if int32(pos.Line) <= e.View.StartLine {
 		e.View.StartLine = int32(pos.Line) - e.maxLine/3
 		e.View.EndLine = e.View.StartLine + e.maxLine
@@ -1546,10 +1546,10 @@ func RemoveAllCursorsButOne(p *Buffer) error {
 }
 
 func AddCursorNextLine(e *Buffer) error {
-	pos := e.getPositionBufferIndex(e.Cursors[len(e.Cursors)-1].Start())
+	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
 	pos.Line++
 	if e.isValidCursorPosition(pos) {
-		newidx := e.positionToBufferIndex(pos)
+		newidx := e.PositionToBufferIndex(pos)
 		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
 	}
 	e.removeDuplicateSelectionsAndSort()
@@ -1558,10 +1558,10 @@ func AddCursorNextLine(e *Buffer) error {
 }
 
 func AddCursorPreviousLine(e *Buffer) error {
-	pos := e.getPositionBufferIndex(e.Cursors[len(e.Cursors)-1].Start())
+	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
 	pos.Line--
 	if e.isValidCursorPosition(pos) {
-		newidx := e.positionToBufferIndex(pos)
+		newidx := e.PositionToBufferIndex(pos)
 		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
 	}
 	e.removeDuplicateSelectionsAndSort()
