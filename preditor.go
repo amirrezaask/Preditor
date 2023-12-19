@@ -199,12 +199,12 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 }
 
 func (c *Context) WriteMessage(msg string) {
-	c.GetDrawable(c.MessageBufferID).(*Buffer).Content = append(c.GetDrawable(c.MessageBufferID).(*Buffer).Content, []byte(fmt.Sprintln(msg))...)
+	c.GetDrawable(c.MessageBufferID).(*BufferView).Buffer.Content = append(c.GetDrawable(c.MessageBufferID).(*BufferView).Buffer.Content, []byte(fmt.Sprintln(msg))...)
 }
 
 func (c *Context) getCWD() string {
-	if tb, isTextBuffer := c.ActiveBuffer().(*Buffer); isTextBuffer && !tb.IsSpecial() {
-		return path.Dir(tb.File)
+	if tb, isTextBuffer := c.ActiveBuffer().(*BufferView); isTextBuffer && !tb.IsSpecial() {
+		return path.Dir(tb.Buffer.File)
 	} else {
 		return c.CWD
 	}
@@ -893,8 +893,8 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	message.Readonly = true
-	message.Content = append(message.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
+	message.Buffer.Readonly = true
+	message.Buffer.Content = append(message.Buffer.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
 
 	p.AddBuffer(scratch)
 	p.AddBuffer(message)
@@ -928,7 +928,7 @@ func New() (*Context, error) {
 
 			p.AddBuffer(tb)
 			p.MarkBufferAsActive(tb.ID)
-			tb.Readonly = true
+			tb.Buffer.Readonly = true
 			go func() {
 				r := bufio.NewReader(os.Stdin)
 				for {
@@ -937,7 +937,7 @@ func New() (*Context, error) {
 						p.WriteMessage(err.Error())
 						break
 					}
-					tb.Content = append(tb.Content, b)
+					tb.Buffer.Content = append(tb.Buffer.Content, b)
 				}
 			}()
 		} else {
@@ -1020,8 +1020,8 @@ func (c *Context) openThemeSwitcher() {
 func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, startingPos *Position, window *Window) error {
 	for _, buf := range parent.Drawables {
 		switch t := buf.(type) {
-		case *Buffer:
-			if t.File == filename {
+		case *BufferView:
+			if t.Buffer.File == filename {
 				window.DrawableID = t.ID
 				t.MoveToPositionInNextRender = startingPos
 				return nil
@@ -1078,8 +1078,8 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	for _, col := range c.Windows {
 		for _, win := range col {
 			if buf := c.GetDrawable(win.DrawableID); buf != nil {
-				if b, is := buf.(*Buffer); is {
-					if b.File == "*Compilation*" {
+				if b, is := buf.(*BufferView); is {
+					if b.Buffer.File == "*Compilation*" {
 						window = win
 					}
 				}
@@ -1116,8 +1116,8 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	for _, col := range c.Windows {
 		for _, win := range col {
 			if buf := c.GetDrawable(win.DrawableID); buf != nil {
-				if b, is := buf.(*Buffer); is {
-					if b.File == "*Grep*" {
+				if b, is := buf.(*BufferView); is {
+					if b.Buffer.File == "*Grep*" {
 						window = win
 					}
 				}

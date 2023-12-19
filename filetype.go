@@ -6,8 +6,8 @@ import (
 
 type FileType struct {
 	TabSize                  int
-	BeforeSave               func(*Buffer) error
-	AfterSave                func(*Buffer) error
+	BeforeSave               func(*BufferView) error
+	AfterSave                func(*BufferView) error
 	DefaultCompileCommand    string
 	CommentLineBeginingChars []byte
 	FindRootOfProject        func(currentFilePath string) (string, error)
@@ -20,13 +20,13 @@ func init() {
 	FileTypes = map[string]FileType{
 		".go": {
 			TabSize: 4,
-			BeforeSave: func(e *Buffer) error {
-				newBytes, err := format.Source(e.Content)
+			BeforeSave: func(e *BufferView) error {
+				newBytes, err := format.Source(e.Buffer.Content)
 				if err != nil {
 					return err
 				}
 
-				e.Content = newBytes
+				e.Buffer.Content = newBytes
 				return nil
 			},
 			TSHighlightQuery: []byte(`
