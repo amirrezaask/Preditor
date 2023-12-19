@@ -210,7 +210,7 @@ func setupDefaults() {
 
 		//insertion
 		Key{K: "<enter>"}: MakeCommand(func(e *BufferView) error {
-			return InsertChar(e, '\n')
+			return BufferInsertChar(e, '\n')
 		}),
 		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *BufferView) error {
 			DeleteWordBackward(e)

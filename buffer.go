@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"math"
 	"os"
-	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,42 +29,23 @@ var SearchTextBufferKeymap Keymap
 func NewBuffer(parent *Context, cfg *Config, filename string) (*BufferView, error) {
 	t := BufferView{cfg: cfg}
 	t.parent = parent
-	t.Buffer.File = filename
+	t.Buffer = parent.GetBufferByFilename(filename)
+	if t.Buffer == nil {
+		t.Buffer = parent.OpenFileAsBuffer(filename)
+	}
 	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
-		return InsertChar(&t, b)
+		return BufferInsertChar(&t, b)
 	}))
 	t.ActionStack = NewStack[BufferAction](1000)
 	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
-	var err error
-	if t.Buffer.File != "" {
-		if _, err = os.Stat(t.Buffer.File); err == nil {
-			t.Buffer.Content, err = os.ReadFile(t.Buffer.File)
-			if err != nil {
-				return nil, err
-			}
-
-			//replace CRLF with LF
-			if bytes.Index(t.Buffer.Content, []byte("\r\n")) != -1 {
-				t.Buffer.Content = bytes.Replace(t.Buffer.Content, []byte("\r"), []byte(""), -1)
-				t.Buffer.CRLF = true
-			}
-		}
-
-		fileType, exists := FileTypes[path.Ext(t.Buffer.File)]
-		if exists {
-			t.fileType = fileType
-			t.LastCompileCommand = fileType.DefaultCompileCommand
-			t.needParsing = true
-		}
-	}
 	t.replaceTabsWithSpaces()
 	return &t, nil
 
 }
 
 const (
-	State_Clean = 1
-	State_Dirty = 2
+	State_Clean = 0
+	State_Dirty = 1
 )
 
 type Cursor struct {
@@ -120,18 +100,24 @@ type ISearch struct {
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
 }
+
 type Buffer struct {
 	File     string
 	Content  []byte
 	CRLF     bool
 	State    int
 	Readonly bool
+
+	tokens      []WordToken
+	oldTSTree   *sitter.Tree
+	highlights  []highlight
+	needParsing bool
+	fileType    FileType
 }
+
 type BufferView struct {
 	BaseDrawable
-
-	Buffer Buffer
-
+	Buffer                     *Buffer
 	cfg                        *Config
 	parent                     *Context
 	maxLine                    int32
@@ -142,13 +128,6 @@ type BufferView struct {
 	StartLine                  int32
 	EndLine                    int32
 	MoveToPositionInNextRender *Position
-
-	Tokens []WordToken
-
-	oldTSTree   *sitter.Tree
-	highlights  []highlight
-	needParsing bool
-	fileType    FileType
 
 	keymaps []Keymap
 
@@ -209,17 +188,17 @@ func (e *BufferView) RevertLastBufferAction() {
 
 func (e *BufferView) SetStateDirty() {
 	e.Buffer.State = State_Dirty
-	e.needParsing = true
+	e.Buffer.needParsing = true
 	e.generateBufferLines()
 }
 
 func (e *BufferView) SetStateClean() {
 	e.Buffer.State = State_Clean
-	e.needParsing = true
+	e.Buffer.needParsing = true
 }
 
 func (e *BufferView) replaceTabsWithSpaces() {
-	e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\t"), []byte(strings.Repeat(" ", e.fileType.TabSize)), -1)
+	e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\t"), []byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), -1)
 }
 
 func isLetter(b byte) bool {
@@ -444,7 +423,7 @@ func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 func (e *BufferView) generateBufferLines() {
-	e.Tokens = e.generateWordTokens()
+	e.Buffer.tokens = e.generateWordTokens()
 	e.Lines = []BufferLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -469,7 +448,8 @@ func (e *BufferView) generateBufferLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-		} else if idx == len(e.Buffer.Content)-1 {
+		}
+		if idx == len(e.Buffer.Content)-1 {
 			// last index
 			line := BufferLine{
 				Index:      totalVisualLines,
@@ -483,7 +463,8 @@ func (e *BufferView) generateBufferLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-		} else if int32(lineCharCounter) > e.maxColumn-5 {
+		}
+		if int32(lineCharCounter) > e.maxColumn-5 {
 			line := BufferLine{
 				Index:      totalVisualLines,
 				startIndex: start,
@@ -772,13 +753,13 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	} else {
 		visibleLines = e.Lines[e.StartLine:e.EndLine]
 	}
-	if e.needParsing {
+	if e.Buffer.needParsing {
 		var err error
-		e.highlights, e.oldTSTree, err = TSHighlights(e.cfg, e.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
+		e.Buffer.highlights, e.Buffer.oldTSTree, err = TSHighlights(e.cfg, e.Buffer.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
 		if err != nil {
 			panic(err)
 		}
-		e.needParsing = false
+		e.Buffer.needParsing = false
 	}
 
 	for idx, line := range visibleLines {
@@ -796,7 +777,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	if e.cfg.EnableSyntaxHighlighting {
-		for _, h := range e.highlights {
+		for _, h := range e.Buffer.highlights {
 			e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
 		}
 	}
@@ -942,7 +923,7 @@ func (e *BufferView) indexOfFirstNonLetter(bs []byte) int {
 }
 
 func (e *BufferView) findIndexPositionInTokens(idx int) int {
-	for i, t := range e.Tokens {
+	for i, t := range e.Buffer.tokens {
 		if t.Start <= idx && idx < t.End {
 			return i
 		}
@@ -953,9 +934,9 @@ func (e *BufferView) findIndexPositionInTokens(idx int) int {
 
 func (e *BufferView) findClosestLeftTokenToIndex(idx int) int {
 	var closestTokenIndex int
-	for i, t := range e.Tokens {
+	for i, t := range e.Buffer.tokens {
 		if t.Start <= idx && t.End <= idx {
-			if t.Start > e.Tokens[closestTokenIndex].Start {
+			if t.Start > e.Buffer.tokens[closestTokenIndex].Start {
 				closestTokenIndex = i
 			}
 		}
@@ -1061,7 +1042,7 @@ func (e *BufferView) AnotherSelectionOnMatch() error {
 	} else {
 		tokenPos := e.findIndexPositionInTokens(lastSel.Point)
 		if tokenPos != -1 {
-			token := e.Tokens[tokenPos]
+			token := e.Buffer.tokens[tokenPos]
 			thingToSearch = e.Buffer.Content[token.Start:token.End]
 			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
 			if len(next) == 0 {
@@ -1077,7 +1058,7 @@ func (e *BufferView) AnotherSelectionOnMatch() error {
 
 	return nil
 }
-func (e *BufferView) ScrollIfNeeded() error {
+func (e *BufferView) ScrollIfNeeded() {
 	pos := e.BufferIndexToPosition(e.Cursors[0].End())
 	if int32(pos.Line) <= e.StartLine {
 		e.StartLine = int32(pos.Line) - e.maxLine/3
@@ -1102,7 +1083,7 @@ func (e *BufferView) ScrollIfNeeded() error {
 		e.EndLine = e.maxLine
 	}
 
-	return nil
+	return
 }
 
 func (e *BufferView) readFileFromDisk() error {
@@ -1119,7 +1100,7 @@ func (e *BufferView) readFileFromDisk() error {
 
 // Things that change buffer content
 
-func InsertChar(e *BufferView, char byte) error {
+func BufferInsertChar(e *BufferView, char byte) error {
 	if e.Buffer.Readonly {
 		return nil
 	}
@@ -1177,9 +1158,9 @@ func DeleteWordBackward(e *BufferView) {
 		if tokenPos == -1 {
 			continue
 		}
-		start := e.Tokens[tokenPos].Start
+		start := e.Buffer.tokens[tokenPos].Start
 		if start == cur.Point && tokenPos-1 >= 0 {
-			start = e.Tokens[tokenPos-1].Start
+			start = e.Buffer.tokens[tokenPos-1].Start
 		}
 		old := len(e.Buffer.Content)
 		e.RemoveRange(start, cur.Point, true)
@@ -1192,9 +1173,9 @@ func DeleteWordBackward(e *BufferView) {
 func Indent(e *BufferView) error {
 	e.removeDuplicateSelectionsAndSort()
 	for i := range e.Cursors {
-		e.moveRight(&e.Cursors[i], i*e.fileType.TabSize)
-		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Cursors[i].Point, true)
-		e.moveRight(&e.Cursors[i], e.fileType.TabSize)
+		e.moveRight(&e.Cursors[i], i*e.Buffer.fileType.TabSize)
+		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), e.Cursors[i].Point, true)
+		e.moveRight(&e.Cursors[i], e.Buffer.fileType.TabSize)
 	}
 	e.SetStateDirty()
 
@@ -1493,7 +1474,7 @@ func MarkPreviousWord(e *BufferView) error {
 		cur := &e.Cursors[i]
 		tokenPos := e.findIndexPositionInTokens(cur.Mark)
 		if tokenPos != -1 && tokenPos-1 >= 0 {
-			e.Cursors[i].Mark = e.Tokens[tokenPos-1].Start
+			e.Cursors[i].Mark = e.Buffer.tokens[tokenPos-1].Start
 		}
 		e.ScrollIfNeeded()
 	}
@@ -1505,8 +1486,8 @@ func MarkNextWord(e *BufferView) error {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
-			e.Cursors[i].Mark = e.Tokens[tokenPos+1].Start
+		if tokenPos != -1 && tokenPos != len(e.Buffer.tokens)-1 {
+			e.Cursors[i].Mark = e.Buffer.tokens[tokenPos+1].Start
 		}
 		e.ScrollIfNeeded()
 
@@ -1573,8 +1554,8 @@ func PointForwardWord(e *BufferView, n int) error {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
 		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
-			cur.SetBoth(e.Tokens[tokenPos+1].Start)
+		if tokenPos != -1 && tokenPos != len(e.Buffer.tokens)-1 {
+			cur.SetBoth(e.Buffer.tokens[tokenPos+1].Start)
 		}
 		e.ScrollIfNeeded()
 
@@ -1589,7 +1570,7 @@ func PointBackwardWord(e *BufferView, n int) error {
 		cur.SetBoth(cur.Point)
 		tokenPos := e.findIndexPositionInTokens(cur.Point)
 		if tokenPos != -1 && tokenPos != 0 {
-			cur.SetBoth(e.Tokens[tokenPos-1].Start)
+			cur.SetBoth(e.Buffer.tokens[tokenPos-1].Start)
 		}
 		e.ScrollIfNeeded()
 
@@ -1603,12 +1584,12 @@ func Write(e *BufferView) error {
 		return nil
 	}
 
-	if e.fileType.TabSize != 0 {
-		e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte(strings.Repeat(" ", e.fileType.TabSize)), []byte("\t"), -1)
+	if e.Buffer.fileType.TabSize != 0 {
+		e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), []byte("\t"), -1)
 	}
 
-	if e.fileType.BeforeSave != nil {
-		_ = e.fileType.BeforeSave(e)
+	if e.Buffer.fileType.BeforeSave != nil {
+		_ = e.Buffer.fileType.BeforeSave(e)
 	}
 
 	if e.Buffer.CRLF {
@@ -1624,8 +1605,8 @@ func Write(e *BufferView) error {
 		e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\r\n"), []byte("\n"), -1)
 	}
 	e.generateBufferLines()
-	if e.fileType.AfterSave != nil {
-		_ = e.fileType.AfterSave(e)
+	if e.Buffer.fileType.AfterSave != nil {
+		_ = e.Buffer.fileType.AfterSave(e)
 
 	}
 

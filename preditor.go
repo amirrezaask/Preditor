@@ -2,6 +2,7 @@ package preditor
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -114,7 +115,8 @@ type Context struct {
 	CWD               string
 	Cfg               *Config
 	ScratchBufferID   int
-	MessageBufferID   int
+	MessageDrawableID int
+	Buffers           map[string]*Buffer
 	Drawables         []Drawable
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
@@ -128,6 +130,39 @@ type Context struct {
 	BuildWindow       BuildWindow
 	Prompt            Prompt
 	ActiveWindowIndex int
+}
+
+func (c *Context) GetBufferByFilename(filename string) *Buffer {
+	return c.Buffers[filename]
+}
+
+func (c *Context) OpenFileAsBuffer(filename string) *Buffer {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Println("ERROR: cannot read file", err.Error())
+	}
+
+	buf := Buffer{
+		File:    filename,
+		Content: content,
+		State:   State_Clean,
+	}
+
+	//replace CRLF with LF
+	if bytes.Index(content, []byte("\r\n")) != -1 {
+		content = bytes.Replace(content, []byte("\r"), []byte(""), -1)
+		buf.CRLF = true
+	}
+
+	fileType, exists := FileTypes[path.Ext(buf.File)]
+	if exists {
+		buf.fileType = fileType
+		buf.needParsing = true
+	}
+
+	c.Buffers[filename] = &buf
+
+	return &buf
 }
 
 func (c *Context) BuildWindowIsVisible() bool {
@@ -171,17 +206,17 @@ func (c *Context) ActiveWindow() *Window {
 	return w
 }
 
-func (c *Context) ActiveBuffer() Drawable {
+func (c *Context) ActiveDrawable() Drawable {
 	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
 		return c.GetDrawable(win.DrawableID)
 	}
 
 	return nil
 }
-func (c *Context) ActiveBufferID() int {
+func (c *Context) ActiveDrawableID() int {
 	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
-		bufferid := win.DrawableID
-		return bufferid
+		drawableID := win.DrawableID
+		return drawableID
 	}
 
 	return -1
@@ -199,17 +234,17 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 }
 
 func (c *Context) WriteMessage(msg string) {
-	c.GetDrawable(c.MessageBufferID).(*BufferView).Buffer.Content = append(c.GetDrawable(c.MessageBufferID).(*BufferView).Buffer.Content, []byte(fmt.Sprintln(msg))...)
+	c.GetDrawable(c.MessageDrawableID).(*BufferView).Buffer.Content = append(c.GetDrawable(c.MessageDrawableID).(*BufferView).Buffer.Content, []byte(fmt.Sprintln(msg))...)
 }
 
 func (c *Context) getCWD() string {
-	if tb, isTextBuffer := c.ActiveBuffer().(*BufferView); isTextBuffer && !tb.IsSpecial() {
+	if tb, isTextBuffer := c.ActiveDrawable().(*BufferView); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.Buffer.File)
 	} else {
 		return c.CWD
 	}
 }
-func (c *Context) AddBuffer(b Drawable) {
+func (c *Context) AddDrawable(b Drawable) {
 	id := rand.Intn(10000)
 	b.SetID(id)
 	c.Drawables = append(c.Drawables, b)
@@ -259,7 +294,7 @@ func (c *Context) MarkWindowAsActive(id int) {
 	c.ActiveWindowIndex = id
 }
 
-func (c *Context) MarkBufferAsActive(id int) {
+func (c *Context) MarkDrawableAsActive(id int) {
 	c.ActiveWindow().DrawableID = id
 }
 
@@ -273,7 +308,7 @@ func (c *Context) GetDrawable(id int) Drawable {
 	return nil
 }
 
-func (c *Context) KillBuffer(id int) {
+func (c *Context) KillDrawable(id int) {
 	for i, drawable := range c.Drawables {
 		if drawable != nil && drawable.GetID() == id {
 			c.Drawables[i] = nil
@@ -391,8 +426,8 @@ func (c *Context) HandleKeyEvents() {
 	if !key.IsEmpty() {
 
 		keymaps := []Keymap{c.GlobalKeymap}
-		if c.ActiveBuffer() != nil {
-			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
+		if c.ActiveDrawable() != nil {
+			keymaps = append(keymaps, c.ActiveDrawable().Keymaps()...)
 		}
 		if c.Prompt.IsActive {
 			keymaps = append(keymaps, c.Prompt.Keymap)
@@ -531,8 +566,8 @@ func (c *Context) HandleMouseEvents() {
 		}
 
 		keymaps := []Keymap{c.GlobalKeymap}
-		if c.ActiveBuffer() != nil {
-			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
+		if c.ActiveDrawable() != nil {
+			keymaps = append(keymaps, c.ActiveDrawable().Keymaps()...)
 		}
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
@@ -878,6 +913,7 @@ func New() (*Context, error) {
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        [][]*Window{},
+		Buffers:        map[string]*Buffer{},
 	}
 
 	setupDefaults()
@@ -896,10 +932,10 @@ func New() (*Context, error) {
 	message.Buffer.Readonly = true
 	message.Buffer.Content = append(message.Buffer.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
 
-	p.AddBuffer(scratch)
-	p.AddBuffer(message)
+	p.AddDrawable(scratch)
+	p.AddDrawable(message)
 
-	p.MessageBufferID = message.ID
+	p.MessageDrawableID = message.ID
 	p.ScratchBufferID = scratch.ID
 
 	mainWindow := Window{}
@@ -907,7 +943,7 @@ func New() (*Context, error) {
 
 	p.MarkWindowAsActive(mainWindow.ID)
 
-	p.MarkBufferAsActive(scratch.ID)
+	p.MarkDrawableAsActive(scratch.ID)
 
 	p.GlobalKeymap = GlobalKeymap
 
@@ -926,8 +962,8 @@ func New() (*Context, error) {
 				panic(err)
 			}
 
-			p.AddBuffer(tb)
-			p.MarkBufferAsActive(tb.ID)
+			p.AddDrawable(tb)
+			p.MarkDrawableAsActive(tb.ID)
 			tb.Buffer.Readonly = true
 			go func() {
 				r := bufio.NewReader(os.Stdin)
@@ -980,7 +1016,7 @@ func (c *Context) StartMainLoop() {
 
 func MakeCommand[T Drawable](f func(t T) error) Command {
 	return func(c *Context) error {
-		return f(c.ActiveBuffer().(T))
+		return f(c.ActiveDrawable().(T))
 
 	}
 
@@ -995,26 +1031,26 @@ func (c *Context) MaxWidthToMaxColumn(maxW int32) int32 {
 
 func (c *Context) openFileBuffer() {
 	ofb := NewInteractiveFilePicker(c, c.Cfg, c.getCWD())
-	c.AddBuffer(ofb)
-	c.MarkBufferAsActive(ofb.ID)
+	c.AddDrawable(ofb)
+	c.MarkDrawableAsActive(ofb.ID)
 }
 
 func (c *Context) openFuzzyFilePicker() {
 	ofb := NewInteractiveFuzzyFile(c, c.Cfg, c.getCWD())
-	c.AddBuffer(ofb)
-	c.MarkBufferAsActive(ofb.ID)
+	c.AddDrawable(ofb)
+	c.MarkDrawableAsActive(ofb.ID)
 
 }
 func (c *Context) openBufferSwitcher() {
 	ofb := NewBufferSwitcher(c, c.Cfg)
-	c.AddBuffer(ofb)
-	c.MarkBufferAsActive(ofb.ID)
+	c.AddDrawable(ofb)
+	c.MarkDrawableAsActive(ofb.ID)
 }
 
 func (c *Context) openThemeSwitcher() {
 	ofb := NewThemeSwitcher(c, c.Cfg)
-	c.AddBuffer(ofb)
-	c.MarkBufferAsActive(ofb.ID)
+	c.AddDrawable(ofb)
+	c.MarkDrawableAsActive(ofb.ID)
 }
 
 func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, startingPos *Position, window *Window) error {
@@ -1034,7 +1070,7 @@ func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, sta
 		return nil
 	}
 
-	parent.AddBuffer(tb)
+	parent.AddDrawable(tb)
 	window.DrawableID = tb.ID
 	tb.MoveToPositionInNextRender = startingPos
 	return nil
@@ -1045,8 +1081,8 @@ func (c *Context) openCompilationBuffer(command string) error {
 	if err != nil {
 		return err
 	}
-	c.AddBuffer(cb)
-	c.MarkBufferAsActive(cb.ID)
+	c.AddDrawable(cb)
+	c.MarkDrawableAsActive(cb.ID)
 
 	return nil
 }
@@ -1057,7 +1093,7 @@ func (c *Context) OpenCompilationBufferInAVSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.AddBuffer(cb)
+	c.AddDrawable(cb)
 	win.DrawableID = cb.ID
 	return nil
 }
@@ -1068,7 +1104,7 @@ func (c *Context) OpenCompilationBufferInAHSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.AddBuffer(cb)
+	c.AddDrawable(cb)
 	win.DrawableID = cb.ID
 	return nil
 }
@@ -1094,7 +1130,7 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.AddBuffer(cb)
+	c.AddDrawable(cb)
 	window.DrawableID = cb.ID
 
 	return nil
@@ -1132,7 +1168,7 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.AddBuffer(cb)
+	c.AddDrawable(cb)
 	window.DrawableID = cb.ID
 
 	return nil
@@ -1144,7 +1180,7 @@ func (c *Context) OpenCompilationBufferInBuildWindow(command string) error {
 		return err
 	}
 
-	c.AddBuffer(cb)
+	c.AddDrawable(cb)
 
 	c.BuildWindow.DrawableID = cb.ID
 

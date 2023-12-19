@@ -10,7 +10,7 @@ import (
 )
 
 func OpenLocationInCurrentLine(c *Context) error {
-	b, ok := c.ActiveBuffer().(*BufferView)
+	b, ok := c.ActiveDrawable().(*BufferView)
 	if !ok {
 		return nil
 	}
