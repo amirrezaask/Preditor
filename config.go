@@ -151,7 +151,7 @@ var defaultConfig = Config{
 			},
 		},
 		{
-			Name: "4coder_fleury",
+			Name: "4Coder_Fleury",
 			Colors: Colors{
 				Background:                mustParseHexColor("#020202"),
 				Foreground:                mustParseHexColor("#b99468"),
@@ -197,6 +197,31 @@ var defaultConfig = Config{
 					"keyword": mustParseHexColor("#d4d4d4"),
 					"string":  mustParseHexColor("#0fdfaf"),
 					"comment": mustParseHexColor("#3fdf1f"),
+				},
+			},
+		},
+		{
+			Name: "Solarized_Dark",
+			Colors: Colors{
+				Background:                mustParseHexColor("#002B36"),
+				Foreground:                mustParseHexColor("#839496"),
+				SelectionBackground:       mustParseHexColor("#274642"),
+				SelectionForeground:       mustParseHexColor("#d3b58d"),
+				Prompts:                   mustParseHexColor("#333333"),
+				StatusBarBackground:       mustParseHexColor("#00212B"),
+				StatusBarForeground:       mustParseHexColor("#93A1A1"),
+				ActiveStatusBarBackground: mustParseHexColor("#00212B"),
+				ActiveStatusBarForeground: mustParseHexColor("#93A1A1"),
+				LineNumbersForeground:     mustParseHexColor("#d3b58d"),
+				ActiveWindowBorder:        mustParseHexColor("#8cde94"),
+				Cursor:                    mustParseHexColor("#D30102"),
+				CursorLineBackground:      mustParseHexColor("#52534E"),
+				SyntaxColors: SyntaxColors{
+					"ident":   mustParseHexColor("#268BD2"),
+					"type":    mustParseHexColor("#859900"),
+					"keyword": mustParseHexColor("#859900"),
+					"string":  mustParseHexColor("#2AA198"),
+					"comment": mustParseHexColor("#586E75"),
 				},
 			},
 		},
@@ -262,7 +287,7 @@ func addToConfig(cfg *Config, key string, value string) error {
 	return nil
 }
 
-func ReadConfig(cfgPath string) (*Config, error) {
+func ReadConfig(cfgPath string, startTheme string) (*Config, error) {
 	cfg := defaultConfig
 	if _, err := os.Stat(cfgPath); errors.Is(err, os.ErrNotExist) {
 		return &cfg, nil
@@ -284,6 +309,10 @@ func ReadConfig(cfgPath string) (*Config, error) {
 		key = strings.Trim(key, " \t\r")
 		value = strings.Trim(value, " \t\r")
 		addToConfig(&cfg, key, value)
+	}
+
+	if startTheme != "" {
+		cfg.CurrentTheme = startTheme
 	}
 
 	return &cfg, nil
