@@ -1018,25 +1018,25 @@ func (c *Context) MaxWidthToMaxColumn(maxW int32) int32 {
 }
 
 func (c *Context) openFileBuffer() {
-	ofb := NewInteractiveFilePicker(c, c.Cfg, c.getCWD())
+	ofb := NewFileList(c, c.Cfg, c.getCWD())
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 }
 
 func (c *Context) openFuzzyFilePicker() {
-	ofb := NewInteractiveFuzzyFile(c, c.Cfg, c.getCWD())
+	ofb := NewFuzzyFileList(c, c.Cfg, c.getCWD())
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 
 }
 func (c *Context) openBufferSwitcher() {
-	ofb := NewBufferSwitcher(c, c.Cfg)
+	ofb := NewBufferList(c, c.Cfg)
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 }
 
 func (c *Context) openThemeSwitcher() {
-	ofb := NewThemeSwitcher(c, c.Cfg)
+	ofb := NewThemeList(c, c.Cfg)
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 }
