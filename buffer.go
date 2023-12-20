@@ -848,6 +848,7 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 	if err != nil {
 		return nil, nil, err
 	}
+
 	query, err := sitter.NewQuery(queryString, golang.GetLanguage())
 	if err != nil {
 		return nil, tree, err
@@ -882,7 +883,10 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.maxLine-- //reserve one line of screen for statusbar
 
 	// generate visual lines that we are going to render
-	e.Buffer.tokens = e.generateWordTokens()
+	if e.Buffer.needParsing {
+		e.Buffer.tokens = e.generateWordTokens()
+	}
+
 	e.bufferLines = []BufferLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -996,6 +1000,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 
 	}
+
 	if e.MoveToPositionInNextRender != nil {
 		bufferIndex := e.PositionToBufferIndex(*e.MoveToPositionInNextRender)
 		e.Cursors[0].SetBoth(bufferIndex)
@@ -1033,14 +1038,20 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		}
 		e.renderTextRange(zeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 	}
-
 	if e.cfg.EnableSyntaxHighlighting {
-		for _, h := range e.Buffer.highlights {
-			e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
+		if len(e.bufferLines) > 0 {
+			visibleStartChar := e.bufferLines[e.VisibleStart].startIndex
+			visibleEndChar := e.bufferLines[e.VisibleEnd()].endIndex
+			for _, h := range e.Buffer.highlights {
+				if visibleStartChar <= h.start && visibleEndChar >= h.end {
+					e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
+				}
+			}
 		}
 	}
 
 	if e.ISearch.IsSearching {
+
 		if e.ISearch.SearchString != e.ISearch.LastSearchString && e.ISearch.SearchString != "" {
 			e.findMatches(e.ISearch.SearchString)
 		}
@@ -1072,6 +1083,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			X: zeroLocation.X,
 			Y: zeroLocation.Y,
 		}, float32(e.parent.FontSize), 0, rl.White)
+
 	}
 
 	// render cursors
@@ -1131,7 +1143,6 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 			}
 		}
-
 	}
 
 	e.zeroLocation = zeroLocation
