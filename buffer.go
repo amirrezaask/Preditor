@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"golang.design/x/clipboard"
 
+	"github.com/amirrezaask/preditor/byteutils"
 	sitter "github.com/smacker/go-tree-sitter"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -828,6 +828,21 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 					rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
 				}
 
+				// highlight matching char
+				if e.cfg.HighlightMatchingParen {
+					matchingIdx := byteutils.FindMatching(e.Buffer.Content, e.Cursors[0].Point)
+					if matchingIdx != -1 {
+						idxPosition := e.BufferIndexToPosition(matchingIdx)
+						posX := int32(idxPosition.Column)*int32(charSize.X) + int32(zeroLocation.X)
+						if e.cfg.LineNumbers {
+							posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+						}
+						posY := int32(idxPosition.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
+
+						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().Cursor.ToColorRGBA(), 0.4))
+					}
+				}
+
 			} else {
 				e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 			}
@@ -882,17 +897,6 @@ func (e *BufferView) deleteSelectionsIfAnySelection() {
 
 }
 
-func (e *BufferView) indexOfFirstNonLetter(bs []byte) int {
-
-	for idx, b := range bs {
-		if !unicode.IsLetter(rune(b)) {
-			return idx
-		}
-	}
-
-	return -1
-}
-
 func (e *BufferView) findIndexPositionInTokens(idx int) int {
 	for i, t := range e.Buffer.tokens {
 		if t.Start <= idx && idx < t.End {
@@ -920,10 +924,6 @@ func (e *BufferView) sortCursors() {
 	sortme(e.Cursors, func(t1 Cursor, t2 Cursor) bool {
 		return t1.Start() < t2.Start()
 	})
-}
-
-func (e *BufferView) getLastCursor() *Cursor {
-	return &e.Cursors[len(e.Cursors)-1]
 }
 
 func (e *BufferView) removeDuplicateSelectionsAndSort() {
@@ -1047,7 +1047,6 @@ func (e *BufferView) ScrollIfNeeded() {
 	if e.VisibleStart < 0 {
 		e.VisibleStart = 0
 	}
-	return
 }
 
 func (e *BufferView) readFileFromDisk() error {
