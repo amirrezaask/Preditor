@@ -28,7 +28,7 @@ import (
 var EditorKeymap Keymap
 var SearchTextBufferKeymap Keymap
 
-func OpenLocationInCurrentLine(c *Context) error {
+func BufferOpenLocationInCurrentLine(c *Context) error {
 	b, ok := c.ActiveDrawable().(*BufferView)
 	if !ok {
 		return nil
@@ -81,7 +81,7 @@ func OpenLocationInCurrentLine(c *Context) error {
 	return nil
 }
 
-func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
+func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
 	bufferView := NewBufferViewFromFilename(parent, cfg, bufferName)
 	cwd := parent.getCWD()
 
@@ -117,18 +117,18 @@ func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string,
 
 		return nil
 	}))
-	bufferView.keymaps[1].BindKey(Key{K: "<enter>"}, OpenLocationInCurrentLine)
+	bufferView.keymaps[1].BindKey(Key{K: "<enter>"}, BufferOpenLocationInCurrentLine)
 
 	runCompileCommand()
 	return bufferView, nil
 }
 
 func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
-	return RunCommandWithOutputBuffer(parent, cfg, "*Grep", command)
+	return RunCommandInBuffer(parent, cfg, "*Grep", command)
 }
 
 func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
-	return RunCommandWithOutputBuffer(parent, cfg, "*Compilation*", command)
+	return RunCommandInBuffer(parent, cfg, "*Compilation*", command)
 
 }
 
@@ -1640,6 +1640,19 @@ func PointToEndOfLine(e *BufferView) error {
 	return nil
 }
 
+func PointToMatchingChar(e *BufferView) error {
+	for i := range e.Cursors {
+		matching := byteutils.FindMatching(e.Buffer.Content, e.Cursors[i].Point)
+		if matching != -1 {
+			e.Cursors[i].SetBoth(matching)
+		}
+	}
+
+	e.removeDuplicateSelectionsAndSort()
+	return nil
+
+}
+
 // @Mark
 
 func MarkRight(e *BufferView, n int) error {
@@ -1749,6 +1762,18 @@ func MarkToBeginningOfLine(e *BufferView) error {
 	e.removeDuplicateSelectionsAndSort()
 
 	return nil
+}
+func MarkToMatchingChar(e *BufferView) error {
+	for i := range e.Cursors {
+		matching := byteutils.FindMatching(e.Buffer.Content, e.Cursors[i].Point)
+		if matching != -1 {
+			e.Cursors[i].Mark = matching
+		}
+	}
+
+	e.removeDuplicateSelectionsAndSort()
+	return nil
+
 }
 
 // @Cursors
