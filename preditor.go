@@ -50,6 +50,7 @@ type Colors struct {
 	ActiveWindowBorder        RGBA
 	Cursor                    RGBA
 	CursorLineBackground      RGBA
+	HighlightMatching         RGBA
 	SyntaxColors              SyntaxColors
 }
 
@@ -874,7 +875,7 @@ func setupRaylib(cfg *Config) {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized | rl.FlagVsyncHint)
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
-	rl.SetTargetFPS(90)
+	rl.SetTargetFPS(60)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
