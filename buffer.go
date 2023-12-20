@@ -155,7 +155,7 @@ type BufferAction struct {
 }
 
 func (e *BufferView) String() string {
-	return fmt.Sprintf("%s", e.Buffer)
+	return e.Buffer.File
 }
 
 func (e *BufferView) Keymaps() []Keymap {
