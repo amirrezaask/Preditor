@@ -170,7 +170,7 @@ func FindMatchingOpenBackward(data []byte, idx int) int {
 }
 
 func FindMatching(data []byte, idx int) int {
-	if len(data) == 0 {
+	if len(data) == 0 || len(data) <= idx {
 		return -1
 	}
 	switch data[idx] {
