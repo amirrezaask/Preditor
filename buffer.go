@@ -965,6 +965,9 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			}
 
 		}
+		if e.ISearch.IsSearching {
+			sections = append(sections, fmt.Sprintf("ISearch: Match#%d Of %d", e.ISearch.CurrentMatch+1, len(e.ISearch.SearchMatches)+1))
+		}
 
 		bg := e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA()
 		fg := e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA()
