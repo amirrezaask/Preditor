@@ -58,6 +58,8 @@ type Drawable interface {
 	GetID() int
 	SetID(int)
 	Render(zeroLocation rl.Vector2, maxHeight float64, maxWidth float64)
+	//TODO: instead of returning a keymap slice we should have smth like
+	// Binding(Key) Command
 	Keymaps() []Keymap
 	fmt.Stringer
 }
@@ -92,8 +94,8 @@ type Prompt struct {
 	Text       string
 	UserInput  string
 	Keymap     Keymap
-	ChangeHook func(userInput string, c *Context) error
-	DoneHook   func(userInput string, c *Context) error
+	ChangeHook func(userInput string, c *Context)
+	DoneHook   func(userInput string, c *Context)
 }
 
 const (
@@ -107,6 +109,8 @@ type BuildWindow struct {
 	Window
 	State int
 }
+
+var PromptKeymap = Keymap{}
 
 type Context struct {
 	CWD               string
@@ -128,6 +132,8 @@ type Context struct {
 	Prompt            Prompt
 	ActiveWindowIndex int
 }
+
+var GlobalKeymap = Keymap{}
 
 func (c *Context) GetBufferByFilename(filename string) *Buffer {
 	return c.Buffers[filename]
@@ -183,8 +189,8 @@ func (c *Context) BuildWindowToggleState() {
 }
 
 func (c *Context) SetPrompt(text string,
-	changeHook func(userInput string, c *Context) error,
-	doneHook func(userInput string, c *Context) error, keymap *Keymap, defaultValue string) {
+	changeHook func(userInput string, c *Context),
+	doneHook func(userInput string, c *Context), keymap *Keymap, defaultValue string) {
 	c.Prompt.IsActive = true
 	c.Prompt.Text = text
 	c.Prompt.ChangeHook = changeHook
@@ -193,7 +199,7 @@ func (c *Context) SetPrompt(text string,
 	if keymap != nil {
 		c.Prompt.Keymap = *keymap
 	} else {
-		c.Prompt.Keymap = DefaultPromptKeymap
+		c.Prompt.Keymap = PromptKeymap
 	}
 }
 
@@ -351,7 +357,7 @@ func (c *Context) DecreaseFontSize(n int) {
 
 }
 
-type Command func(*Context) error
+type Command func(*Context)
 type Variables map[string]any
 type Key struct {
 	Control bool
@@ -378,6 +384,11 @@ func (k Keymap) Clone() Keymap {
 
 func (k Keymap) BindKey(key Key, command Command) {
 	k[key] = command
+}
+func (k Keymap) SetKeys(k2 Keymap) {
+	for b, f := range k2 {
+		k[b] = f
+	}
 }
 
 type Commands map[string]Command
@@ -568,9 +579,7 @@ func (c *Context) HandleMouseEvents() {
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
-				if err := cmd(c); err != nil {
-					c.WriteMessage(err.Error())
-				}
+				cmd(c)
 				break
 			}
 		}
@@ -975,7 +984,7 @@ func New() (*Context, error) {
 	return p, nil
 }
 
-func (c *Context) Exit() {
+func Exit(c *Context) {
 	rl.CloseWindow()
 }
 
@@ -1002,9 +1011,9 @@ func (c *Context) StartMainLoop() {
 	}
 }
 
-func MakeCommand[T Drawable](f func(t T) error) Command {
-	return func(c *Context) error {
-		return f(c.ActiveDrawable().(T))
+func MakeCommand[T Drawable](f func(t T)) Command {
+	return func(c *Context) {
+		f(c.ActiveDrawable().(T))
 
 	}
 
@@ -1017,25 +1026,25 @@ func (c *Context) MaxWidthToMaxColumn(maxW int32) int32 {
 	return maxW / int32(measureTextSize(c.Font, ' ', c.FontSize, 0).X)
 }
 
-func (c *Context) openFileBuffer() {
+func (c *Context) OpenFileList() {
 	ofb := NewFileList(c, c.Cfg, c.getCWD())
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 }
 
-func (c *Context) openFuzzyFilePicker() {
+func (c *Context) OpenFuzzyFileList() {
 	ofb := NewFuzzyFileList(c, c.Cfg, c.getCWD())
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 
 }
-func (c *Context) openBufferSwitcher() {
+func (c *Context) OpenBufferList() {
 	ofb := NewBufferList(c, c.Cfg)
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
 }
 
-func (c *Context) openThemeSwitcher() {
+func (c *Context) OpenThemesList() {
 	ofb := NewThemeList(c, c.Cfg)
 	c.AddDrawable(ofb)
 	c.MarkDrawableAsActive(ofb.ID)
@@ -1070,7 +1079,7 @@ func (c *Context) openCompilationBuffer(command string) error {
 }
 
 func (c *Context) OpenCompilationBufferInAVSplit(command string) error {
-	win := c.VSplit()
+	win := VSplit(c)
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
@@ -1081,7 +1090,7 @@ func (c *Context) OpenCompilationBufferInAVSplit(command string) error {
 }
 
 func (c *Context) OpenCompilationBufferInAHSplit(command string) error {
-	win := c.HSplit()
+	win := HSplit(c)
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
@@ -1106,7 +1115,7 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	}
 
 	if window == nil {
-		window = c.HSplit()
+		window = HSplit(c)
 	}
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
@@ -1119,12 +1128,12 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 }
 
 func Compile(c *Context) {
-	c.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+	c.SetPrompt("Compile", nil, func(userInput string, c *Context) {
 		if err := c.openCompilationBuffer(userInput); err != nil {
-			return err
+			return
 		}
 
-		return nil
+		return
 	}, nil, "")
 
 }
@@ -1144,7 +1153,7 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	}
 
 	if window == nil {
-		window = c.VSplit()
+		window = VSplit(c)
 	}
 	cb, err := NewGrepBuffer(c, c.Cfg, command)
 	if err != nil {
@@ -1169,13 +1178,13 @@ func (c *Context) OpenCompilationBufferInBuildWindow(command string) error {
 	return nil
 }
 
-func (c *Context) VSplit() *Window {
+func VSplit(c *Context) *Window {
 	win := &Window{}
 	c.AddWindowInANewColumn(win)
 	return win
 }
 
-func (c *Context) HSplit() *Window {
+func HSplit(c *Context) *Window {
 	win := &Window{}
 	c.AddWindowInCurrentColumn(win)
 	return win

@@ -7,8 +7,8 @@ type Stack[T any] struct {
 	size int
 }
 
-func NewStack[T any](size int) Stack[T] {
-	return Stack[T]{data: make([]T, size), size: size}
+func NewStack[T any](size int) *Stack[T] {
+	return &Stack[T]{data: make([]T, size), size: size}
 }
 
 var (
