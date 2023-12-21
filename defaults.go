@@ -248,13 +248,13 @@ func setupDefaults() {
 		PointRight(e, 1)
 	}))
 	BufferKeymap.BindKey(Key{K: "<right>", Control: true}, MakeCommand(func(e *BufferView) {
-		PointForwardWord(e, 1)
+		PointForwardWord(e)
 	}))
 	BufferKeymap.BindKey(Key{K: "<left>"}, MakeCommand(func(e *BufferView) {
 		PointLeft(e, 1)
 	}))
 	BufferKeymap.BindKey(Key{K: "<left>", Control: true}, MakeCommand(func(e *BufferView) {
-		PointBackwardWord(e, 1)
+		PointBackwardWord(e)
 	}))
 
 	BufferKeymap.BindKey(Key{K: "b", Control: true}, MakeCommand(func(e *BufferView) {

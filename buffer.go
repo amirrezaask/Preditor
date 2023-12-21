@@ -286,7 +286,6 @@ type Buffer struct {
 	State    int
 	Readonly bool
 
-	tokens      []WordToken
 	oldTSTree   *sitter.Tree
 	highlights  []highlight
 	needParsing bool
@@ -376,127 +375,6 @@ func (e *BufferView) SetStateClean() {
 
 func (e *BufferView) replaceTabsWithSpaces() {
 	e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\t"), []byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), -1)
-}
-
-func isLetter(b byte) bool {
-	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
-}
-
-func isDigit(b byte) bool {
-	return b >= '0' && b <= '9'
-}
-
-func isWhitespace(b byte) bool {
-	return b == '\n' || b == '\r' || b == ' '
-}
-
-func isLetterOrDigit(b byte) bool {
-	return isLetter(b) || isDigit(b)
-}
-
-func isSymbol(c byte) bool {
-	return (c >= 33 && c <= 47) || (c >= 58 && c <= 64) || (c >= 91 && c <= 96) || (c >= 123 && c <= 126)
-}
-
-type WordToken struct {
-	Start int
-	End   int
-	Type  int
-}
-
-func (e *BufferView) generateWordTokens() []WordToken {
-	const (
-		WORD_LEXER_TOKEN_TYPE_WORD       = 1
-		WORD_LEXER_TOKEN_TYPE_SYMBOL     = 2
-		WORD_LEXER_TOKEN_TYPE_WHITESPACE = 3
-	)
-
-	const (
-		wordLexer_insideWord        = 1
-		wordLexer_insideWhitespaces = 2
-	)
-
-	state := 0
-	point := 0
-
-	var tokens []WordToken
-	for i := 0; i < len(e.Buffer.Content); i++ {
-		c := e.Buffer.Content[i]
-		switch {
-		case isLetterOrDigit(c):
-			switch state {
-			case wordLexer_insideWord, 0:
-				state = wordLexer_insideWord
-				continue
-			case wordLexer_insideWhitespaces:
-				tokens = append(tokens, WordToken{
-					Start: point,
-					End:   i,
-					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
-				})
-				state = wordLexer_insideWord
-				point = i
-
-			}
-		case isWhitespace(c):
-			switch state {
-			case wordLexer_insideWhitespaces, 0:
-				state = wordLexer_insideWhitespaces
-				continue
-			case wordLexer_insideWord:
-				tokens = append(tokens, WordToken{
-					Start: point,
-					End:   i,
-					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
-				})
-				state = wordLexer_insideWhitespaces
-				point = i
-			}
-		default:
-			switch state {
-			case wordLexer_insideWord:
-				tokens = append(tokens, WordToken{
-					Start: point,
-					End:   i,
-					Type:  WORD_LEXER_TOKEN_TYPE_WORD,
-				})
-				point = i
-				state = 0
-
-			case wordLexer_insideWhitespaces:
-				tokens = append(tokens, WordToken{
-					Start: point,
-					End:   i,
-					Type:  WORD_LEXER_TOKEN_TYPE_WHITESPACE,
-				})
-				point = i
-				state = 0
-			}
-
-			tokens = append(tokens, WordToken{
-				Start: point,
-				End:   i + 1,
-				Type:  WORD_LEXER_TOKEN_TYPE_SYMBOL,
-			})
-			point = i + 1
-		}
-	}
-	var typ int
-	if state == wordLexer_insideWord {
-		typ = WORD_LEXER_TOKEN_TYPE_WORD
-	} else if state == wordLexer_insideWhitespaces {
-		typ = WORD_LEXER_TOKEN_TYPE_WHITESPACE
-	} else {
-		typ = WORD_LEXER_TOKEN_TYPE_SYMBOL
-	}
-
-	tokens = append(tokens, WordToken{
-		Start: point,
-		End:   len(e.Buffer.Content) - 1,
-		Type:  typ,
-	})
-
-	return tokens
 }
 
 func (e *BufferView) getBufferLineForIndex(i int) BufferLine {
@@ -901,11 +779,6 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.maxLine = int32(maxH / float64(charSize.Y))
 	e.maxLine-- //reserve one line of screen for statusbar
 
-	// generate visual lines that we are going to render
-	if e.Buffer.needParsing {
-		e.Buffer.tokens = e.generateWordTokens()
-	}
-
 	if e.Buffer.needParsing || len(e.Buffer.Content) != oldBufferContentLen || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
 		e.bufferLines = []BufferLine{}
 		totalVisualLines := 0
@@ -1221,29 +1094,6 @@ func (e *BufferView) deleteSelectionsIfAnySelection() {
 
 }
 
-func (e *BufferView) findIndexPositionInTokens(idx int) int {
-	for i, t := range e.Buffer.tokens {
-		if t.Start <= idx && idx < t.End {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func (e *BufferView) findClosestLeftTokenToIndex(idx int) int {
-	var closestTokenIndex int
-	for i, t := range e.Buffer.tokens {
-		if t.Start <= idx && t.End <= idx {
-			if t.Start > e.Buffer.tokens[closestTokenIndex].Start {
-				closestTokenIndex = i
-			}
-		}
-	}
-
-	return closestTokenIndex
-}
-
 func (e *BufferView) sortCursors() {
 	sortme(e.Cursors, func(t1 Cursor, t2 Cursor) bool {
 		return t1.Start() < t2.Start()
@@ -1320,6 +1170,7 @@ func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
 	e.removeDuplicateSelectionsAndSort()
 	return nil
 }
+
 func AnotherSelectionOnMatch(e *BufferView) {
 	lastSel := e.Cursors[len(e.Cursors)-1]
 	var thingToSearch []byte
@@ -1335,10 +1186,9 @@ func AnotherSelectionOnMatch(e *BufferView) {
 		})
 
 	} else {
-		tokenPos := e.findIndexPositionInTokens(lastSel.Point)
-		if tokenPos != -1 {
-			token := e.Buffer.tokens[tokenPos]
-			thingToSearch = e.Buffer.Content[token.Start:token.End]
+		currentWordStart, currentWordEnd := WordAtPoint(e, len(e.Cursors)-1)
+		if currentWordStart != -1 && currentWordEnd != -1 {
+			thingToSearch = e.Buffer.Content[currentWordStart:currentWordEnd]
 			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
 			if len(next) == 0 {
 				return
@@ -1433,6 +1283,26 @@ func DeleteCharForward(e *BufferView) error {
 	return nil
 }
 
+func WordAtPoint(e *BufferView, curIndex int) (int, int) {
+	currentWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point) + 1
+	currentWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point)
+
+	return currentWordStart, currentWordEnd
+}
+
+func LeftWord(e *BufferView, curIndex int) (int, int) {
+	leftWordEnd := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point)
+	leftWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, leftWordEnd-1) + 1
+
+	return leftWordStart, leftWordEnd
+}
+
+func RightWord(e *BufferView, curIndex int) (int, int) {
+	rightWordStart := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point) + 1
+	rightWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, rightWordStart)
+	return rightWordStart, rightWordEnd
+}
+
 func DeleteWordBackward(e *BufferView) {
 	if e.Buffer.Readonly || len(e.Cursors) > 1 {
 		return
@@ -1441,16 +1311,12 @@ func DeleteWordBackward(e *BufferView) {
 
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
-		tokenPos := e.findClosestLeftTokenToIndex(cur.Point)
-		if tokenPos == -1 {
+		leftWordStart, leftWordEnd := LeftWord(e, i)
+		if leftWordStart == -1 || leftWordEnd == -1 {
 			continue
 		}
-		start := e.Buffer.tokens[tokenPos].Start
-		if start == cur.Point && tokenPos-1 >= 0 {
-			start = e.Buffer.tokens[tokenPos-1].Start
-		}
 		old := len(e.Buffer.Content)
-		e.RemoveRange(start, cur.Point, true)
+		e.RemoveRange(leftWordStart, cur.Point, true)
 		cur.SetBoth(cur.Point + (len(e.Buffer.Content) - old))
 	}
 
@@ -1762,10 +1628,9 @@ func MarkDown(e *BufferView, n int) {
 
 func MarkPreviousWord(e *BufferView) {
 	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos-1 >= 0 {
-			e.Cursors[i].Mark = e.Buffer.tokens[tokenPos-1].Start
+		leftWordStart, _ := LeftWord(e, i)
+		if leftWordStart != -1 {
+			e.Cursors[i].Mark = leftWordStart
 		}
 		e.ScrollIfNeeded()
 	}
@@ -1775,10 +1640,9 @@ func MarkPreviousWord(e *BufferView) {
 
 func MarkNextWord(e *BufferView) {
 	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Buffer.tokens)-1 {
-			e.Cursors[i].Mark = e.Buffer.tokens[tokenPos+1].Start
+		_, rightWordEnd := RightWord(e, i)
+		if rightWordEnd != -1 {
+			e.Cursors[i].Mark = rightWordEnd
 		}
 		e.ScrollIfNeeded()
 
@@ -1852,13 +1716,13 @@ func AddCursorPreviousLine(e *BufferView) {
 	return
 }
 
-func PointForwardWord(e *BufferView, n int) {
+func PointForwardWord(e *BufferView) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Buffer.tokens)-1 {
-			cur.SetBoth(e.Buffer.tokens[tokenPos+1].Start)
+		_, rightWordEnd := RightWord(e, i)
+		if rightWordEnd != -1 {
+			cur.SetBoth(rightWordEnd)
 		}
 		e.ScrollIfNeeded()
 
@@ -1867,13 +1731,13 @@ func PointForwardWord(e *BufferView, n int) {
 	return
 }
 
-func PointBackwardWord(e *BufferView, n int) {
+func PointBackwardWord(e *BufferView) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
-		tokenPos := e.findIndexPositionInTokens(cur.Point)
-		if tokenPos != -1 && tokenPos != 0 {
-			cur.SetBoth(e.Buffer.tokens[tokenPos-1].Start)
+		_, leftWordEnd := LeftWord(e, i)
+		if leftWordEnd != -1 {
+			cur.SetBoth(leftWordEnd)
 		}
 		e.ScrollIfNeeded()
 
