@@ -764,7 +764,10 @@ func safeSlice[T any](s []T, start int, end int) []T {
 	}
 
 	return s[start:end]
-
+}
+type bufferRenderContext struct {
+	textZeroLocation rl.Vector2
+	zeroLocation rl.Vector2
 }
 
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
@@ -1204,38 +1207,6 @@ func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
 	return nil
 }
 
-func AnotherSelectionOnMatch(e *BufferView) {
-	lastSel := e.Cursors[len(e.Cursors)-1]
-	var thingToSearch []byte
-	if lastSel.Point != lastSel.Mark {
-		thingToSearch = e.Buffer.Content[lastSel.Start():lastSel.End()]
-		next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
-		if len(next) == 0 {
-			return
-		}
-		e.Cursors = append(e.Cursors, Cursor{
-			Point: next[0],
-			Mark:  next[1],
-		})
-
-	} else {
-		currentWordStart, currentWordEnd := WordAtPoint(e, len(e.Cursors)-1)
-		if currentWordStart != -1 && currentWordEnd != -1 {
-			thingToSearch = e.Buffer.Content[currentWordStart:currentWordEnd]
-			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
-			if len(next) == 0 {
-				return
-			}
-			e.Cursors = append(e.Cursors, Cursor{
-				Point: next[0],
-				Mark:  next[0],
-			})
-		}
-
-	}
-
-	return
-}
 func (e *BufferView) ScrollIfNeeded() {
 	pos := e.BufferIndexToPosition(e.Cursors[0].End())
 	if int32(pos.Line) <= e.VisibleStart {
@@ -1314,6 +1285,39 @@ func DeleteCharForward(e *BufferView) error {
 
 	e.SetStateDirty()
 	return nil
+}
+
+func AnotherSelectionOnMatch(e *BufferView) {
+	lastSel := e.Cursors[len(e.Cursors)-1]
+	var thingToSearch []byte
+	if lastSel.Point != lastSel.Mark {
+		thingToSearch = e.Buffer.Content[lastSel.Start():lastSel.End()]
+		next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
+		if len(next) == 0 {
+			return
+		}
+		e.Cursors = append(e.Cursors, Cursor{
+			Point: next[0],
+			Mark:  next[1],
+		})
+
+	} else {
+		currentWordStart, currentWordEnd := WordAtPoint(e, len(e.Cursors)-1)
+		if currentWordStart != -1 && currentWordEnd != -1 {
+			thingToSearch = e.Buffer.Content[currentWordStart:currentWordEnd]
+			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
+			if len(next) == 0 {
+				return
+			}
+			e.Cursors = append(e.Cursors, Cursor{
+				Point: next[0],
+				Mark:  next[0],
+			})
+		}
+
+	}
+
+	return
 }
 
 func WordAtPoint(e *BufferView, curIndex int) (int, int) {
