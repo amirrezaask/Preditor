@@ -16,6 +16,9 @@ v0.5
 - Now buffers and their view are seperated and we can have multiple views (windows) for same buffer and editing at the same time
 - Solarized_Dark & Solarized_Light theme
 - Highlight matching open/close parens/braces/brackets
+- Remove word lexer and calculate word boundaries real time
+- QueryReplace Command: functionality similar to emacs
+- Fix bug when doing ISearch first visible line was hidden behind ISearch prompt.
 
 v0.4
 =====================

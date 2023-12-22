@@ -107,7 +107,7 @@ var defaultConfig = Config{
 			Colors: Colors{
 				Background:                mustParseHexColor("#0c0c0c"),
 				Foreground:                mustParseHexColor("#90B090"),
-				SelectionBackground:       mustParseHexColor("#DDEE00"),
+				SelectionBackground:       mustParseHexColor("#FF44DD"),
 				SelectionForeground:       mustParseHexColor("#ffffff"),
 				Prompts:                   mustParseHexColor("#333333"),
 				StatusBarBackground:       mustParseHexColor("#888888"),

@@ -94,7 +94,6 @@ type Prompt struct {
 	Text       string
 	UserInput  string
 	Keymap     Keymap
-	ChangeHook func(userInput string, c *Context)
 	DoneHook   func(userInput string, c *Context)
 }
 
@@ -193,7 +192,6 @@ func (c *Context) SetPrompt(text string,
 	doneHook func(userInput string, c *Context), keymap *Keymap, defaultValue string) {
 	c.Prompt.IsActive = true
 	c.Prompt.Text = text
-	c.Prompt.ChangeHook = changeHook
 	c.Prompt.DoneHook = doneHook
 	c.Prompt.UserInput = defaultValue
 	if keymap != nil {

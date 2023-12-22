@@ -112,9 +112,9 @@ func setupDefaults() {
 		c.Prompt.IsActive = false
 		userInput := c.Prompt.UserInput
 		c.Prompt.UserInput = ""
-		c.Prompt.DoneHook(userInput, c)
+		doneHook := c.Prompt.DoneHook
 		c.Prompt.DoneHook = nil
-		c.Prompt.ChangeHook = nil
+		doneHook(userInput, c)
 	})
 
 	PromptKeymap.BindKey(Key{K: "<backspace>"}, func(c *Context) {
@@ -125,7 +125,6 @@ func setupDefaults() {
 		c.Prompt.IsActive = false
 		c.Prompt.UserInput = ""
 		c.Prompt.DoneHook = nil
-		c.Prompt.ChangeHook = nil
 	})
 
 	BufferKeymap.SetKeys(MakeInsertionKeys(func(c *Context, b byte) {
@@ -153,6 +152,7 @@ func setupDefaults() {
 	BufferKeymap.BindKey(Key{K: "e", Shift: true, Control: true}, MakeCommand(MarkToEndOfLine))
 	BufferKeymap.BindKey(Key{K: "5", Shift: true, Control: true}, MakeCommand(MarkToMatchingChar))
 	BufferKeymap.BindKey(Key{K: "m", Shift: true, Control: true}, MakeCommand(MarkToMatchingChar))
+	BufferKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(QueryReplaceActivate))
 	BufferKeymap.BindKey(Key{K: "<lmouse>-click", Control: true}, MakeCommand(func(e *BufferView) {
 		e.addAnotherCursorAt(rl.GetMousePosition())
 	}))
@@ -337,4 +337,60 @@ func setupDefaults() {
 	}))
 
 	CompileKeymap.BindKey(Key{K: "<enter>"}, BufferOpenLocationInCurrentLine)
+
+	GlobalKeymap.BindKey(Key{K: "\\", Alt: true}, func(c *Context) { VSplit(c) })
+	GlobalKeymap.BindKey(Key{K: "=", Alt: true}, func(c *Context) { HSplit(c) })
+	GlobalKeymap.BindKey(Key{K: ";", Control: true}, func(c *Context) { Compile(c) })
+	GlobalKeymap.BindKey(Key{K: "q", Alt: true}, func(c *Context) { c.CloseWindow(c.ActiveWindowIndex) })
+	GlobalKeymap.BindKey(Key{K: "q", Alt: true, Shift: true}, Exit)
+	GlobalKeymap.BindKey(Key{K: "0", Control: true}, func(c *Context) { c.CloseWindow(c.ActiveWindowIndex) })
+	GlobalKeymap.BindKey(Key{K: "1", Control: true}, func(c *Context) { c.BuildWindowToggleState() })
+	GlobalKeymap.BindKey(Key{K: "k", Alt: true}, func(c *Context) { c.KillDrawable(c.ActiveDrawableID()) })
+	GlobalKeymap.BindKey(Key{K: "t", Alt: true}, func(c *Context) { c.OpenThemesList() })
+	GlobalKeymap.BindKey(Key{K: "o", Control: true}, func(c *Context) { c.OpenFileList() })
+	GlobalKeymap.BindKey(Key{K: "b", Alt: true}, func(c *Context) { c.OpenBufferList() })
+	GlobalKeymap.BindKey(Key{K: "<mouse-wheel-down>", Control: true}, func(c *Context) { c.DecreaseFontSize(2) })
+	GlobalKeymap.BindKey(Key{K: "<mouse-wheel-up>", Control: true}, func(c *Context) { c.IncreaseFontSize(2) })
+	GlobalKeymap.BindKey(Key{K: "=", Control: true}, func(c *Context) { c.IncreaseFontSize(2) })
+	GlobalKeymap.BindKey(Key{K: "-", Control: true}, func(c *Context) { c.DecreaseFontSize(2) })
+	GlobalKeymap.BindKey(Key{K: "w", Alt: true}, func(c *Context) { c.OtherWindow() })
+
+
+	// Query replace
+	QueryReplaceKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(func(editor *BufferView) {
+		QueryReplaceReplaceThisMatch(editor)
+	}))
+
+	QueryReplaceKeymap.BindKey(Key{K: "<enter>"}, MakeCommand(func(editor *BufferView) {
+		QueryReplaceReplaceThisMatch(editor)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "y"}, MakeCommand(func(editor *BufferView) {
+		QueryReplaceReplaceThisMatch(editor)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<enter>", Control: true}, MakeCommand(func(editor *BufferView) {
+		QueryReplaceIgnoreThisMatch(editor)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<esc>"}, MakeCommand(func(editor *BufferView) {
+		QueryReplaceExit(editor)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<lmouse>-click"}, MakeCommand(func(e *BufferView) {
+		e.moveCursorTo(rl.GetMousePosition())
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<mouse-wheel-up>"}, MakeCommand(func(e *BufferView) {
+		e.QueryReplace.MovedAwayFromCurrentMatch = true
+		ScrollUp(e, 30)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<mouse-wheel-down>"}, MakeCommand(func(e *BufferView) {
+		e.QueryReplace.MovedAwayFromCurrentMatch = true
+		ScrollDown(e, 30)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<pagedown>"}, MakeCommand(func(e *BufferView) {
+		e.QueryReplace.MovedAwayFromCurrentMatch = true
+		ScrollDown(e, 1)
+	}))
+	QueryReplaceKeymap.BindKey(Key{K: "<pageup>"}, MakeCommand(func(e *BufferView) {
+		e.QueryReplace.MovedAwayFromCurrentMatch = true
+		ScrollUp(e, 1)
+	}))
+
 }
