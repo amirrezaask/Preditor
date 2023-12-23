@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/smacker/go-tree-sitter/golang"
-	"go/format"
 	"image/color"
 	"math"
 	"os"
@@ -157,55 +156,7 @@ var FileTypes map[string]FileType
 
 func init() {
 	FileTypes = map[string]FileType{
-		".go": {
-			TabSize: 4,
-			BeforeSave: func(e *BufferView) error {
-				newBytes, err := format.Source(e.Buffer.Content)
-				if err != nil {
-					return err
-				}
-
-				e.Buffer.Content = newBytes
-				return nil
-			},
-			TSHighlightQuery: []byte(`
-[
-  "break"
-  "case"
-  "chan"
-  "const"
-  "continue"
-  "default"
-  "defer"
-  "else"
-  "fallthrough"
-  "for"
-  "func"
-  "go"
-  "goto"
-  "if"
-  "import"
-  "interface"
-  "map"
-  "package"
-  "range"
-  "return"
-  "select"
-  "struct"
-  "switch"
-  "type"
-  "var"
-] @keyword
-
-(type_identifier) @type
-(comment) @comment
-[(interpreted_string_literal) (raw_string_literal)] @string
-[(identifier)] @ident
-(selector_expression operand: (_) @selector field: (_) @field)
-(if_statement condition: (_) @if_condition)
-`),
-			DefaultCompileCommand: "go build -v ./...",
-		},
+		".go": GoFileType,
 	}
 }
 
@@ -311,6 +262,7 @@ type BufferView struct {
 	maxColumn                  int32
 	NoStatusbar                bool
 	zeroLocation               rl.Vector2
+	textZeroLocation           rl.Vector2
 	bufferLines                []BufferLine
 	VisibleStart               int32
 	MoveToPositionInNextRender *Position
@@ -452,23 +404,21 @@ func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
 	if len(e.Cursors) > 1 {
 		RemoveAllCursorsButOne(e)
 	}
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	apprLine := math.Floor(float64((pos.Y - e.zeroLocation.Y) / charSize.Y))
-	apprColumn := math.Floor(float64((pos.X - e.zeroLocation.X) / charSize.X))
-
-	if e.cfg.LineNumbers {
-		apprColumn -= float64(e.getLineNumbersMaxLength())
-	}
-
 	if len(e.bufferLines) < 1 {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.VisibleStart) - 1
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	apprLine := math.Floor(float64((pos.Y - e.textZeroLocation.Y) / charSize.Y))
+	apprColumn := math.Floor(float64((pos.X - e.textZeroLocation.X) / charSize.X))
+
+	line := int(apprLine) + int(e.VisibleStart)
 	col := int(apprColumn)
 	if line >= len(e.bufferLines) {
 		line = len(e.bufferLines) - 1
 	}
+
+	col -= e.getLineNumbersMaxLength()
 
 	if line < 0 {
 		line = 0
@@ -1082,7 +1032,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	e.zeroLocation = zeroLocation
-
+	e.textZeroLocation = textZeroLocation
 }
 
 func (e *BufferView) isValidCursorPosition(newPosition Position) bool {
@@ -1870,7 +1820,6 @@ func GrepAsk(a *BufferView) {
 
 	return
 }
-
 
 func SearchActivate(bufferView *BufferView) {
 	bufferView.parent.SetPrompt("Search", nil, func(query string, c *Context) {
