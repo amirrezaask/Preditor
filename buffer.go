@@ -26,7 +26,7 @@ import (
 )
 
 var BufferKeymap = Keymap{}
-var ISearchKeymap = Keymap{}
+var SearchKeymap = Keymap{}
 var QueryReplaceKeymap = Keymap{}
 var CompileKeymap = Keymap{}
 
@@ -271,7 +271,7 @@ func (r *Cursor) End() int {
 	}
 }
 
-type ISearch struct {
+type Search struct {
 	IsSearching               bool
 	LastSearchString          string
 	SearchString              string
@@ -322,7 +322,7 @@ type BufferView struct {
 	Cursors []Cursor
 
 	// Searching
-	ISearch ISearch
+	Search Search
 
 	QueryReplace QueryReplace
 
@@ -780,7 +780,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.maxLine = int32(maxH / float64(charSize.Y))
 	e.maxLine-- //reserve one line of screen for statusbar
 	textZeroLocation := zeroLocation
-	if e.ISearch.IsSearching || e.QueryReplace.IsQueryReplace {
+	if e.Search.IsSearching || e.QueryReplace.IsQueryReplace {
 		textZeroLocation.Y += charSize.Y
 	}
 	if e.Buffer.needParsing || len(e.Buffer.Content) != oldBufferContentLen || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
@@ -867,8 +867,8 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			}
 
 		}
-		if e.ISearch.IsSearching {
-			sections = append(sections, fmt.Sprintf("ISearch: Match#%d Of %d", e.ISearch.CurrentMatch+1, len(e.ISearch.SearchMatches)+1))
+		if e.Search.IsSearching {
+			sections = append(sections, fmt.Sprintf("Search: Match#%d Of %d", e.Search.CurrentMatch+1, len(e.Search.SearchMatches)+1))
 		}
 
 		bg := e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA()
@@ -916,15 +916,12 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.Buffer.needParsing = false
 	}
 
-	if e.ISearch.IsSearching {
-		if e.ISearch.SearchString != e.ISearch.LastSearchString && e.ISearch.SearchString != "" {
-			matchPatternAsync(&e.ISearch.SearchMatches, e.Buffer.Content, []byte(e.ISearch.SearchString))
-		}
-		for idx, match := range e.ISearch.SearchMatches {
-			if idx == e.ISearch.CurrentMatch {
+	if e.Search.IsSearching {
+		for idx, match := range e.Search.SearchMatches {
+			if idx == e.Search.CurrentMatch {
 				matchStartLine := e.BufferIndexToPosition(match[0])
 				matchEndLine := e.BufferIndexToPosition(match[0])
-				if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd() > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+				if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd() > int32(matchEndLine.Line)) && !e.Search.MovedAwayFromCurrentMatch {
 					// current match is not in view
 					// move the view
 					e.VisibleStart = int32(matchStartLine.Line) - e.maxLine/2
@@ -936,15 +933,15 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			}
 			e.highlightBetweenTwoIndexes(textZeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
-		e.ISearch.LastSearchString = e.ISearch.SearchString
-		if len(e.ISearch.SearchMatches) > 0 {
+		e.Search.LastSearchString = e.Search.SearchString
+		if len(e.Search.SearchMatches) > 0 {
 			e.Cursors = e.Cursors[:1]
-			e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
-			e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+			e.Cursors[0].Point = e.Search.SearchMatches[e.Search.CurrentMatch][0]
+			e.Cursors[0].Mark = e.Search.SearchMatches[e.Search.CurrentMatch][0]
 		}
 
 		rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
-		rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
+		rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Search: %s", e.Search.SearchString), rl.Vector2{
 			X: zeroLocation.X,
 			Y: zeroLocation.Y,
 		}, float32(e.parent.FontSize), 0, rl.White)
@@ -957,7 +954,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			if idx == e.QueryReplace.CurrentMatch {
 				matchStartLine := e.BufferIndexToPosition(match[0])
 				matchEndLine := e.BufferIndexToPosition(match[0])
-				if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd() > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+				if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd() > int32(matchEndLine.Line)) && !e.Search.MovedAwayFromCurrentMatch {
 					// current match is not in view
 					// move the view
 					e.VisibleStart = int32(matchStartLine.Line) - e.maxLine/2
@@ -1874,54 +1871,42 @@ func GrepAsk(a *BufferView) {
 	return
 }
 
-func ISearchDeleteBackward(e *BufferView) error {
-	if e.ISearch.SearchString == "" {
-		return nil
-	}
-	s := []byte(e.ISearch.SearchString)
-	if len(s) < 1 {
-		return nil
-	}
-	s = s[:len(s)-1]
 
-	e.ISearch.SearchString = string(s)
-
-	return nil
+func SearchActivate(bufferView *BufferView) {
+	bufferView.parent.SetPrompt("Search", nil, func(query string, c *Context) {
+		bufferView.Search.IsSearching = true
+		bufferView.Search.SearchString = query
+		bufferView.keymaps.Push(SearchKeymap)
+		matchPatternAsync(&bufferView.Search.SearchMatches, bufferView.Buffer.Content, []byte(query))
+	}, nil, "")
 }
 
-func ISearchActivate(e *BufferView) error {
-	e.ISearch.IsSearching = true
-	e.ISearch.SearchString = ""
-	e.keymaps.Push(ISearchKeymap)
-	return nil
-}
-
-func ISearchExit(editor *BufferView) error {
+func SearchExit(editor *BufferView) error {
 	editor.keymaps.Pop()
-	editor.ISearch.IsSearching = false
-	editor.ISearch.SearchMatches = nil
-	editor.ISearch.CurrentMatch = 0
-	editor.ISearch.MovedAwayFromCurrentMatch = false
+	editor.Search.IsSearching = false
+	editor.Search.SearchMatches = nil
+	editor.Search.CurrentMatch = 0
+	editor.Search.MovedAwayFromCurrentMatch = false
 	return nil
 }
-func ISearchNextMatch(editor *BufferView) error {
-	editor.ISearch.CurrentMatch++
-	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-		editor.ISearch.CurrentMatch = 0
+func SearchNextMatch(editor *BufferView) error {
+	editor.Search.CurrentMatch++
+	if editor.Search.CurrentMatch >= len(editor.Search.SearchMatches) {
+		editor.Search.CurrentMatch = 0
 	}
-	editor.ISearch.MovedAwayFromCurrentMatch = false
+	editor.Search.MovedAwayFromCurrentMatch = false
 	return nil
 }
 
-func ISearchPreviousMatch(editor *BufferView) error {
-	editor.ISearch.CurrentMatch--
-	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-		editor.ISearch.CurrentMatch = 0
+func SearchPreviousMatch(editor *BufferView) error {
+	editor.Search.CurrentMatch--
+	if editor.Search.CurrentMatch >= len(editor.Search.SearchMatches) {
+		editor.Search.CurrentMatch = 0
 	}
-	if editor.ISearch.CurrentMatch < 0 {
-		editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
+	if editor.Search.CurrentMatch < 0 {
+		editor.Search.CurrentMatch = len(editor.Search.SearchMatches) - 1
 	}
-	editor.ISearch.MovedAwayFromCurrentMatch = false
+	editor.Search.MovedAwayFromCurrentMatch = false
 	return nil
 }
 

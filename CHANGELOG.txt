@@ -19,6 +19,7 @@ v0.5
 - Remove word lexer and calculate word boundaries real time
 - QueryReplace Command: functionality similar to emacs
 - Fix bug when doing ISearch first visible line was hidden behind ISearch prompt.
+- ISearch renamed to Search since it's now using same prompt as other features which makes the implementation much simpler
 
 v0.4
 =====================

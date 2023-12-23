@@ -63,6 +63,7 @@ type Drawable interface {
 	Keymaps() []Keymap
 	fmt.Stringer
 }
+
 type BaseDrawable struct {
 	ID int
 }

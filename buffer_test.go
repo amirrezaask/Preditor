@@ -52,7 +52,7 @@ func Test_AddCursorPreviousLine(t *testing.T) {}
 func Test_PointForwardWord(t *testing.T) {}
 func Test_PointBackwardWord(t *testing.T) {}
 func Test_Copy(t *testing.T) {}
-func Test_ISearch(t *testing.T) {}
+func Test_Search(t *testing.T) {}
 func Test_QueryReplace(t *testing.T) {}
 func Test_IsvalidCursorPosition(t *testing.T) {}
 func Test_AnotherSelectionOnMatch(t *testing.T) {}
