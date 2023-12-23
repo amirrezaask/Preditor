@@ -120,6 +120,7 @@ type Context struct {
 	ScratchBufferID   int
 	MessageDrawableID int
 	Buffers           map[string]*Buffer
+	GlobalNoStatusbar bool
 	Drawables         []Drawable
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
@@ -1270,4 +1271,8 @@ func handlePanicAndWriteMessage(p *Context) {
 		fmt.Println(msg)
 		p.WriteMessage(msg)
 	}
+}
+
+func ToggleGlobalNoStatusbar(c *Context) {
+	c.GlobalNoStatusbar = !c.GlobalNoStatusbar
 }

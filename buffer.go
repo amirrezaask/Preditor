@@ -789,7 +789,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		}
 	}
 	e.OldBufferContentLen = len(e.Buffer.Content)
-	if !e.NoStatusbar {
+	if !e.NoStatusbar && !e.parent.GlobalNoStatusbar {
 		var sections []string
 
 		file := e.Buffer.File
@@ -1914,6 +1914,10 @@ func QueryReplaceExit(bufferView *BufferView) {
 	bufferView.QueryReplace.CurrentMatch = 0
 	bufferView.QueryReplace.MovedAwayFromCurrentMatch = false
 	bufferView.keymaps.Pop()
+}
+
+func ToggleStatusbar(bufferView *BufferView) {
+	bufferView.NoStatusbar = !bufferView.NoStatusbar
 }
 
 func GetClipboardContent() []byte {
