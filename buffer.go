@@ -612,6 +612,9 @@ func (e *BufferView) convertBufferIndexToLineAndColumn(idx int) *Position {
 }
 
 func matchPatternCaseInsensitive(data []byte, pattern []byte) [][]int {
+	if len(data) == 0 || len(pattern) == 0 {
+		return nil
+	}
 	var matched [][]int
 	var buf []byte
 	start := -1
@@ -1822,20 +1825,35 @@ func GrepAsk(a *BufferView) {
 }
 
 func SearchActivate(bufferView *BufferView) {
-	bufferView.parent.SetPrompt("Search", nil, func(query string, c *Context) {
-		bufferView.Search.IsSearching = true
+	thisPromptKeymap := PromptKeymap.Clone()
+	thisPromptKeymap.BindKey(Key{K: "<esc>"}, func(c *Context) {
+		c.ResetPrompt()
+		SearchExit(bufferView)
+	})
+	thisPromptKeymap.BindKey(Key{K: "<enter>"}, func(c *Context) {
+		SearchNextMatch(bufferView)
+	})
+	bufferView.parent.SetPrompt("Search", func(query string, c *Context) {
+		if !bufferView.Search.IsSearching {
+			bufferView.Search.IsSearching = true
+			bufferView.keymaps.Push(SearchKeymap)
+		}
 		bufferView.Search.SearchString = query
-		bufferView.keymaps.Push(SearchKeymap)
+
 		matchPatternAsync(&bufferView.Search.SearchMatches, bufferView.Buffer.Content, []byte(query))
-	}, nil, "")
+	}, nil, &thisPromptKeymap, "")
+
+	bufferView.parent.Prompt.NoRender = true
 }
 
 func SearchExit(editor *BufferView) error {
 	editor.keymaps.Pop()
+	editor.parent.ResetPrompt()
 	editor.Search.IsSearching = false
 	editor.Search.SearchMatches = nil
 	editor.Search.CurrentMatch = 0
 	editor.Search.MovedAwayFromCurrentMatch = false
+
 	return nil
 }
 func SearchNextMatch(editor *BufferView) error {
