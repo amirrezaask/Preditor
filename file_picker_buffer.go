@@ -189,18 +189,11 @@ func init() {
 		Key{K: "f", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputBox.CursorRight(1)
 		}),
-		Key{K: "y", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+		Key{K: "v", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputBox.paste()
 		}),
-		Key{K: "k", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
-			return e.UserInputBox.killLine()
-		}),
-		Key{K: "w", Alt: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
+		Key{K: "c", Control: true}: makeFilePickerCommand(func(e *FilePickerBuffer) error {
 			return e.UserInputBox.copy()
-		}),
-		Key{K: "s", Control: true}: makeFilePickerCommand(func(a *FilePickerBuffer) error {
-			a.keymaps = append(a.keymaps, searchModeKeymap)
-			return nil
 		}),
 		Key{K: "<esc>"}: makeFilePickerCommand(func(p *FilePickerBuffer) error {
 			// maybe close ?

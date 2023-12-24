@@ -91,12 +91,8 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 
 	switch last.Type {
 	case EditorActionType_Insert:
-		fmt.Println("last")
-		fmt.Printf("%+v\n", last)
 		e.Content = append(e.Content[:last.Idx], e.Content[last.Idx+len(last.Data):]...)
 	case EditorActionType_Delete:
-		fmt.Println("last")
-		fmt.Printf("%+v\n", last)
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
 	e.bufferIndex = last.BufferIndex
@@ -458,7 +454,7 @@ func (e *TextBuffer) renderStatusBar() {
 		e.cfg.Colors.StatusBarForeground)
 }
 
-func (e *TextBuffer) highilightBetweenTwoIndexes(idx1 int, idx2 int, color color.RGBA) {
+func (e *TextBuffer) highlightBetweenTwoIndexes(idx1 int, idx2 int, color color.RGBA) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	var start Position
 	var end Position
@@ -507,7 +503,7 @@ func (e *TextBuffer) renderSelection() {
 	if e.SelectionStart == -1 {
 		return
 	}
-	e.highilightBetweenTwoIndexes(e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
+	e.highlightBetweenTwoIndexes(e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
 
 }
 
@@ -609,7 +605,7 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string) error {
 				e.VisibleEnd += diff
 			}
 		}
-		e.highilightBetweenTwoIndexes(match[0], match[1], c)
+		e.highlightBetweenTwoIndexes(match[0], match[1], c)
 	}
 	e.LastSearchString = pattern
 
@@ -1016,13 +1012,14 @@ func (e *TextBuffer) killLine() error {
 		e.SelectionStart = -1
 	} else {
 		line := e.getIndexVisualLine(e.bufferIndex)
-		writeToClipboard(e.Content[e.bufferIndex : line.endIndex+1])
+		fmt.Printf("copied to clipboard: '%s'\n", string(e.Content[e.bufferIndex:line.endIndex]))
+		writeToClipboard(e.Content[e.bufferIndex:line.endIndex])
 		e.AddUndoAction(EditorAction{
 			Type: EditorActionType_Delete,
 			Idx:  e.bufferIndex,
 			Data: e.Content[e.bufferIndex:line.endIndex],
 		})
-		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex:]...)
+		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex+1:]...)
 	}
 	e.SetStateDirty()
 
@@ -1102,12 +1099,22 @@ func (e *TextBuffer) openFileBuffer() {
 	e.parent.Buffers = append(e.parent.Buffers, ofb)
 	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
+
 func (e *TextBuffer) openBufferSwitcher() {
 	ofb := NewBufferSwitcherBuffer(e.parent, e.cfg, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
 	e.parent.Buffers = append(e.parent.Buffers, ofb)
 	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
+
+func (e *TextBuffer) openGrepBuffer() {
+	dir := path.Dir(e.File)
+	ofb := NewGrepBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
+
+	e.parent.Buffers = append(e.parent.Buffers, ofb)
+	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
+}
+
 func (e *TextBuffer) deleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
@@ -1174,13 +1181,18 @@ var editorKeymap = Keymap{
 	Key{K: "x", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		return a.Write()
 	}),
-	Key{K: "o", Control: true}: makeCommand(func(a *TextBuffer) error {
+	Key{K: "o", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		a.openFileBuffer()
 
 		return nil
 	}),
 	Key{K: "b", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		a.openBufferSwitcher()
+
+		return nil
+	}),
+	Key{K: "s", Alt: true}: makeCommand(func(a *TextBuffer) error {
+		a.openGrepBuffer()
 
 		return nil
 	}),
