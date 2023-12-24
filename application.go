@@ -115,21 +115,42 @@ func (e *Application) renderStatusBar() {
 	)
 	file := t.File
 	if file == "" {
-		file = "*scratch*"
+		file = "[scratch]"
+	}
+	var state string
+	if t.State == State_Dirty {
+		state = "**"
+	} else {
+		state = "--"
 	}
 
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %d:%d", file, t.Cursor.Line, t.Cursor.Column),
+		fmt.Sprintf("%s %s %d:%d", state, file, t.Cursor.Line, t.Cursor.Column),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
 		t.Colors.StatusBarForeground)
 }
 
+func (e *Application) renderLineNumbers() {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+	t := e.ActiveEditor()
+	t.ZeroPosition.X = charSize.X
+
+	rl.DrawRectangle(0, 0, int32(charSize.X), t.maxLine, rl.Red)
+	//rl.DrawTextEx(font,
+	//	fmt.Sprintf("%s %s %d:%d", state, file, t.Cursor.Line, t.Cursor.Column),
+	//	rl.Vector2{X: 0, Y: float32(t.maxLine) * charSize.Y},
+	//	fontSize,
+	//	0,
+	//	t.Colors.StatusBarForeground)
+}
+
 func (e *Application) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
 
+	e.renderLineNumbers()
 	e.ActiveEditor().Render()
 	e.renderStatusBar()
 

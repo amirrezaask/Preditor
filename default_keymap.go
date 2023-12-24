@@ -81,13 +81,13 @@ var defaultKeymap = Keymap{
 		return e.ActiveEditor().DeleteCharBackward()
 	},
 	Key{K: "d", Control: true}: func(e *Application) error {
-		return e.ActiveEditor().DeleteCharForeward()
+		return e.ActiveEditor().DeleteCharForward()
 	},
 	Key{K: "d", Control: true}: func(e *Application) error {
-		return e.ActiveEditor().DeleteCharForeward()
+		return e.ActiveEditor().DeleteCharForward()
 	},
 	Key{K: "<delete>"}: func(e *Application) error {
-		return e.ActiveEditor().DeleteCharForeward()
+		return e.ActiveEditor().DeleteCharForward()
 	},
 	Key{K: "a"}:               func(e *Application) error { return insertCharAtCursor(e, 'a') },
 	Key{K: "b"}:               func(e *Application) error { return insertCharAtCursor(e, 'b') },
