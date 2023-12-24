@@ -36,7 +36,7 @@ func mustParseHexColor(hex string) color.RGBA {
 }
 
 var defaultConfig = Config{
-	CurrentTheme: "Light",
+	CurrentTheme: "Dark",
 	Themes: []Theme{
 		{
 			Name: "Dark",

@@ -7,7 +7,7 @@ import (
 const nonLetter = "~!@#$%^&*()_+{}[];:'\"\\\n\r <>,.?/"
 
 func SeekNextNonLetter(bs []byte, idx int) int {
-	for i := idx; i < len(bs); i++ {
+	for i := idx + 1; i < len(bs); i++ {
 		if i == len(bs) {
 			continue
 		}
@@ -20,7 +20,7 @@ func SeekNextNonLetter(bs []byte, idx int) int {
 }
 
 func SeekPreviousNonLetter(bs []byte, idx int) int {
-	for i := idx; i >= 0; i-- {
+	for i := idx - 1; i >= 0; i-- {
 		if i == len(bs) {
 			continue
 		}
@@ -31,12 +31,37 @@ func SeekPreviousNonLetter(bs []byte, idx int) int {
 	return -1
 }
 
+func SeekPreviousLetter(bs []byte, idx int) int {
+	for i := idx - 1; i < len(bs); i++ {
+		if i == len(bs) {
+			continue
+		}
+		if unicode.IsLetter(rune(bs[i])) {
+			return i
+		}
+	}
+	return -1
+}
+func SeekNextLetter(bs []byte, idx int) int {
+	for i := idx + 1; i >= 0; i-- {
+		if i == len(bs) {
+			continue
+		}
+		if unicode.IsLetter(rune(bs[i])) {
+			return i
+		}
+	}
+	return -1
+}
+
 func PreviousWordInBuffer(bs []byte, idx int) int {
-	lastWhitespaceIndex := SeekPreviousNonLetter(bs, idx)
-	return lastWhitespaceIndex - 1
+	lastNonLetter := SeekPreviousNonLetter(bs, idx)
+	lastLetterIndex := SeekPreviousLetter(bs, lastNonLetter)
+	return lastLetterIndex
 }
 
 func NextWordInBuffer(bs []byte, idx int) int {
-	firstWhitespaceIndex := SeekNextNonLetter(bs, idx)
-	return firstWhitespaceIndex + 1
+	nextNonLetter := SeekNextNonLetter(bs, idx)
+	nextLetterIndex := SeekNextLetter(bs, nextNonLetter)
+	return nextLetterIndex
 }
