@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -53,6 +54,8 @@ type TextBuffer struct {
 	LastCursorBlink           time.Time
 	BeforeSaveHook            []func(*TextBuffer) error
 	UndoStack                 Stack[EditorAction]
+	isGotoLine                bool
+	gotoLineBuffer            []byte
 }
 
 const (
@@ -61,9 +64,10 @@ const (
 )
 
 type EditorAction struct {
-	Type int
-	Idx  int
-	Data []byte
+	Type        int
+	Idx         int
+	BufferIndex int
+	Data        []byte
 }
 
 func (e *TextBuffer) Keymaps() []Keymap {
@@ -71,6 +75,7 @@ func (e *TextBuffer) Keymaps() []Keymap {
 }
 
 func (e *TextBuffer) AddUndoAction(a EditorAction) {
+	a.BufferIndex = e.bufferIndex
 	e.UndoStack.Push(a)
 }
 
@@ -90,7 +95,7 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 		fmt.Printf("%+v\n", last)
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
-	e.bufferIndex = last.Idx
+	e.bufferIndex = last.BufferIndex
 
 	e.SetStateDirty()
 }
@@ -391,7 +396,7 @@ func (e *TextBuffer) renderCursor() {
 	case CURSOR_SHAPE_OUTLINE:
 		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), e.cfg.Colors.Cursor)
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.Cursor, 0.6))
+		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.Cursor, 0.5))
 	case CURSOR_SHAPE_LINE:
 		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
 	}
@@ -433,8 +438,13 @@ func (e *TextBuffer) renderStatusBar() {
 		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.SearchString, e.CurrentMatch, len(e.SearchMatches)-1)
 	}
 
+	var gotoLine string
+	if e.isGotoLine {
+		gotoLine = fmt.Sprintf("Goto Line: %s", e.gotoLineBuffer)
+	}
+
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %s %d:%d %s", state, file, line, cursor.Column, searchString),
+		fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine),
 		rl.Vector2{X: e.ZeroPosition.X, Y: float32(e.maxLine) * charSize.Y},
 		fontSize,
 		0,
@@ -977,10 +987,20 @@ func (e *TextBuffer) killLine() error {
 		switch {
 		case e.SelectionStart < e.bufferIndex:
 			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.SelectionStart,
+				Data: e.Content[e.SelectionStart:e.bufferIndex],
+			})
 			e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
 
 		case e.SelectionStart > e.bufferIndex:
 			writeToClipboard(e.Content[e.bufferIndex:e.SelectionStart])
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.bufferIndex,
+				Data: e.Content[e.bufferIndex:e.SelectionStart],
+			})
 			e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
 
 		case e.bufferIndex == e.SelectionStart:
@@ -990,6 +1010,11 @@ func (e *TextBuffer) killLine() error {
 	} else {
 		line := e.getIndexVisualLine(e.bufferIndex)
 		writeToClipboard(e.Content[e.bufferIndex : line.endIndex+1])
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  e.bufferIndex,
+			Data: e.Content[e.bufferIndex:line.endIndex],
+		})
 		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex:]...)
 	}
 	e.SetStateDirty()
@@ -1002,10 +1027,20 @@ func (e *TextBuffer) cut() error {
 		switch {
 		case e.SelectionStart < e.bufferIndex:
 			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.SelectionStart,
+				Data: e.Content[e.SelectionStart:e.bufferIndex],
+			})
 			e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
 
 		case e.SelectionStart > e.bufferIndex:
 			writeToClipboard(e.Content[e.bufferIndex:e.SelectionStart])
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.bufferIndex,
+				Data: e.Content[e.bufferIndex:e.SelectionStart],
+			})
 			e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
 
 		case e.bufferIndex == e.SelectionStart:
@@ -1015,6 +1050,11 @@ func (e *TextBuffer) cut() error {
 	} else {
 		line := e.getIndexVisualLine(e.bufferIndex)
 		writeToClipboard(e.Content[line.startIndex : line.endIndex+1])
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  line.startIndex,
+			Data: e.Content[line.startIndex:line.endIndex],
+		})
 		e.Content = append(e.Content[:line.startIndex], e.Content[line.endIndex+1:]...)
 	}
 	e.SetStateDirty()
@@ -1027,8 +1067,18 @@ func (e *TextBuffer) paste() error {
 
 	contentToPaste := getClipboardContent()
 	if e.bufferIndex >= len(e.Content) { // end of file, appending
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Insert,
+			Idx:  e.bufferIndex,
+			Data: contentToPaste,
+		})
 		e.Content = append(e.Content, contentToPaste...)
 	} else {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Insert,
+			Idx:  e.bufferIndex,
+			Data: contentToPaste,
+		})
 		e.Content = append(e.Content[:e.bufferIndex], append(contentToPaste, e.Content[e.bufferIndex:]...)...)
 	}
 
@@ -1048,22 +1098,24 @@ func (e *TextBuffer) openFileBuffer() {
 
 func (e *TextBuffer) deleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
+	oldLen := len(e.Content)
 	if len(e.Content) > e.bufferIndex+1 {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  previousWordEndIdx + 1,
+			Data: e.Content[previousWordEndIdx+1 : e.bufferIndex],
+		})
 		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[e.bufferIndex+1:]...)
-		e.bufferIndex -= (e.bufferIndex + 1) - previousWordEndIdx
 	} else {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Delete,
+			Idx:  previousWordEndIdx + 1,
+			Data: e.Content[previousWordEndIdx+1:],
+		})
 		e.Content = e.Content[:previousWordEndIdx+1]
 	}
+	e.bufferIndex += len(e.Content) - oldLen
 	e.SetStateDirty()
-}
-
-func (e *TextBuffer) deleteWordForward() {
-	nextWordStartIdx := nextWordInBuffer(e.Content, e.bufferIndex)
-	if len(e.Content) > nextWordStartIdx+1 {
-		e.Content = (append(e.Content[:e.bufferIndex+1], e.Content[nextWordStartIdx+1:]...))
-	} else {
-		e.Content = (e.Content[:e.bufferIndex])
-	}
 }
 
 func makeCommand(f func(e *TextBuffer) error) Command {
@@ -1093,7 +1145,12 @@ var editorKeymap = Keymap{
 	Key{K: "k", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.killLine()
 	}),
+	Key{K: "g", Control: true}: makeCommand(func(e *TextBuffer) error {
+		e.keymaps = append(e.keymaps, gotoLineKeymap)
+		e.isGotoLine = true
 
+		return nil
+	}),
 	Key{K: "c", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.copy()
 	}),
@@ -1352,6 +1409,12 @@ func insertCharAtSearchString(editor *TextBuffer, char byte) error {
 	return nil
 }
 
+func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
+	editor.gotoLineBuffer = append(editor.gotoLineBuffer, char)
+
+	return nil
+}
+
 func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
 	if e.SearchString == nil {
 		return nil
@@ -1363,6 +1426,15 @@ func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
 	s = s[:len(s)-1]
 
 	e.SearchString = &[]string{string(s)}[0]
+
+	return nil
+}
+
+func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
+	if len(e.gotoLineBuffer) < 1 {
+		return nil
+	}
+	e.gotoLineBuffer = e.gotoLineBuffer[:len(e.gotoLineBuffer)-1]
 
 	return nil
 }
@@ -1545,4 +1617,55 @@ var searchModeKeymap = Keymap{
 	Key{K: "=", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '+') }),
 	Key{K: "`"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '`') }),
 	Key{K: "`", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '~') }),
+}
+
+var gotoLineKeymap = Keymap{
+	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
+		return e.DeleteCharBackwardFromActiveSearch()
+	}),
+	Key{K: "<enter>"}: makeCommand(func(editor *TextBuffer) error {
+		number, err := strconv.Atoi(string(editor.gotoLineBuffer))
+		if err != nil {
+			return nil
+		}
+
+		for _, line := range editor.visualLines {
+			if line.Index == number {
+				if !(editor.VisibleStart < int32(line.Index)) || !(editor.VisibleEnd > int32(line.Index)) {
+					editor.VisibleStart = int32(int32(line.Index) - editor.maxLine/2)
+					if editor.VisibleStart < 0 {
+						editor.VisibleStart = 0
+					}
+
+					editor.VisibleEnd = int32(int32(line.Index) + editor.maxLine/2)
+					if editor.VisibleEnd > int32(len(editor.visualLines)) {
+						editor.VisibleEnd = int32(len(editor.visualLines))
+					}
+
+					editor.isGotoLine = false
+					editor.gotoLineBuffer = nil
+					editor.bufferIndex = line.startIndex
+				}
+			}
+		}
+
+		return nil
+	}),
+
+	Key{K: "<esc>"}: makeCommand(func(editor *TextBuffer) error {
+		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
+		editor.isGotoLine = false
+		return nil
+	}),
+
+	Key{K: "0"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '0') }),
+	Key{K: "1"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '1') }),
+	Key{K: "2"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '2') }),
+	Key{K: "3"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '3') }),
+	Key{K: "4"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '4') }),
+	Key{K: "5"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '5') }),
+	Key{K: "6"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '6') }),
+	Key{K: "7"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '7') }),
+	Key{K: "8"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
+	Key{K: "9"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
 }
