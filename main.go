@@ -10,9 +10,7 @@ import (
 )
 
 func main() {
-	var fontname string
 	var configPath string
-	flag.StringVar(&fontname, "font", "Consolas", "")
 	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".core"), "path to config file, defaults to: ~/.core.cfg")
 	flag.Parse()
 
@@ -39,7 +37,7 @@ func main() {
 		Colors:       cfg.Colors,
 	}
 
-	err = loadFont(fontname, 20)
+	err = loadFont(cfg.FontName, 20)
 	if err != nil {
 		panic(err)
 	}
