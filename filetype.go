@@ -1,23 +1,33 @@
 package main
 
-import "go/format"
+import (
+	"go/format"
+	"image/color"
+	"regexp"
+)
 
 type FileType struct {
-	BeforeSave func(*Editor) error
+	BeforeSave  func(*Editor) error
+	ColorGroups map[*regexp.Regexp]color.RGBA
 }
 
-var GoFileType = FileType{
-	BeforeSave: func(e *Editor) error {
-		newBytes, err := format.Source(e.Content)
-		if err != nil {
-			return err
-		}
+func initFileTypes(cfg Colors) {
+	fileTypeMappings = map[string]FileType{
+		".go": {
+			BeforeSave: func(e *Editor) error {
+				newBytes, err := format.Source(e.Content)
+				if err != nil {
+					return err
+				}
 
-		e.Content = newBytes
-		return nil
-	},
+				e.Content = newBytes
+				return nil
+			},
+			ColorGroups: map[*regexp.Regexp]color.RGBA{
+				regexp.MustCompile("(func|if)"): cfg.SyntaxKeyword,
+			},
+		},
+	}
 }
 
-var fileTypeMapping = map[string]FileType{
-	".go": GoFileType,
-}
+var fileTypeMappings map[string]FileType

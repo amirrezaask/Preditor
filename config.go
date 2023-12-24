@@ -33,6 +33,7 @@ var defaultConfig = Config{
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
 		Cursor:                mustParseHexColor("#00ff00"),
+		SyntaxKeyword:         mustParseHexColor("#d4d4d4"),
 	},
 	CursorShape:    CURSOR_SHAPE_BLOCK,
 	CursorBlinking: false,
