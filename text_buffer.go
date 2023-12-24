@@ -996,9 +996,10 @@ func (e *TextBuffer) ScrollIfNeeded() error {
 }
 
 func (e *TextBuffer) Write() error {
-	if e.File == "" {
+	if e.File == "" || e.File[0] == '*' {
 		return nil
 	}
+
 	if e.TabSize != 0 {
 		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.TabSize)), []byte("\t"), -1)
 	}

@@ -76,7 +76,7 @@ func NewFilePickerBuffer(parent *Preditor,
 		List: ListComponent[LocationItem]{
 			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
 			VisibleStart: 0,
-			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
+			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH-startOfListY) - 1),
 		},
 		ZeroLocation:       zeroLocation,
 		UserInputComponent: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),

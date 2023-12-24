@@ -58,8 +58,14 @@ func (l *ListComponent[T]) Scroll(n int) {
 
 }
 func (l *ListComponent[T]) VisibleView() []T {
+	start := l.VisibleStart
+	end := l.VisibleEnd
 	if l.VisibleEnd >= len(l.Items) {
-		return nil
+		end = len(l.Items)
+		start = end - l.MaxLine
+		if start < 0 {
+			start = 0
+		}
 	}
-	return l.Items[l.VisibleStart:l.VisibleEnd]
+	return l.Items[start:end]
 }
