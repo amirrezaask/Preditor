@@ -1093,10 +1093,10 @@ func (e *TextBuffer) paste() error {
 
 func (e *TextBuffer) openFileBuffer() {
 	dir := path.Dir(e.File)
-	ofb := NewOpenFileBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
+	ofb := NewFilePickerBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
-	e.parent.Windows = append(e.parent.Windows, ofb)
-	e.parent.ActiveWindowIndex = len(e.parent.Windows) - 1
+	e.parent.Buffers = append(e.parent.Buffers, ofb)
+	e.parent.ActiveWindowIndex = len(e.parent.Buffers) - 1
 }
 
 func (e *TextBuffer) deleteWordBackward() {
@@ -1123,7 +1123,7 @@ func (e *TextBuffer) deleteWordBackward() {
 
 func makeCommand(f func(e *TextBuffer) error) Command {
 	return func(preditor *Preditor) error {
-		return f(preditor.ActiveWindow().(*TextBuffer))
+		return f(preditor.ActiveBuffer().(*TextBuffer))
 	}
 }
 
