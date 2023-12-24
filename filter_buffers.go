@@ -301,7 +301,7 @@ func NewGrepBuffer(
 		return fmt.Sprintf("%s:%d: %s", g.Filename, g.Line, g.Text)
 	}
 
-	return NewInteractiveFilterBuffer[GrepLocationItem](
+	gb := NewInteractiveFilterBuffer[GrepLocationItem](
 		parent,
 		cfg,
 		updateList,
@@ -309,6 +309,14 @@ func NewGrepBuffer(
 		repr,
 		nil,
 	)
+
+	//gb.keymaps[0].SetKey(Key{K: "x", Control: true}, func(c *Context) error {
+	//TODO(amirreza): export results into a text buffer
+
+	//return nil
+	// })
+
+	return gb
 }
 
 type LocationItem struct {

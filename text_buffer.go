@@ -884,6 +884,18 @@ func (e *TextBuffer) ScrollUp(n int) error {
 
 }
 
+func (e *TextBuffer) CenteralizeCursor() error {
+	cur := e.Cursors[0]
+	pos := e.convertBufferIndexToLineAndColumn(cur.Start())
+	e.View.StartLine = int32(pos.Line) - (e.maxLine / 2)
+	e.View.EndLine = int32(pos.Line) + (e.maxLine / 2)
+	if e.View.StartLine < 0 {
+		e.View.StartLine = 0
+		e.View.EndLine = e.maxLine
+	}
+	return nil
+}
+
 func (e *TextBuffer) ScrollToTop() error {
 	e.View.StartLine = 0
 	e.View.EndLine = e.maxLine
@@ -1499,6 +1511,12 @@ var EditorKeymap = Keymap{
 
 		return nil
 	}),
+	Key{K: "l", Control: true}: MakeCommand(func(e *TextBuffer) error {
+		e.CenteralizeCursor()
+
+		return nil
+	}),
+
 	Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.ScrollToBottom()
 
