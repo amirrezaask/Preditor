@@ -113,9 +113,6 @@ type TextBuffer struct {
 	ISearch ISearch
 
 	UndoStack Stack[EditorAction]
-
-	//Active Prompt
-	Prompt Prompt
 }
 
 const (
@@ -234,7 +231,7 @@ func NewTextBuffer(parent *Context, cfg *Config, filename string) (*TextBuffer, 
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
 	t.File = filename
-	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 		return t.InsertCharAtCursor(b)
 	}))
 	t.UndoStack = NewStack[EditorAction](1000)
@@ -660,20 +657,6 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
-func (e *TextBuffer) renderPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if !e.Prompt.IsActive {
-		return
-	}
-
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("%s: %s", e.Prompt.Text, e.Prompt.UserInput), rl.Vector2{
-		X: zeroLocation.X,
-		Y: zeroLocation.Y,
-	}, float32(e.parent.FontSize), 0, rl.White)
-
-}
-
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
 	e.calculateVisualLines()
@@ -683,7 +666,6 @@ func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
 	e.renderCursors(zeroLocation, maxH, maxW)
-	e.renderPrompt(zeroLocation, maxH, maxW)
 }
 
 func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -1499,7 +1481,6 @@ func (e *TextBuffer) Paste() error {
 }
 
 var EditorKeymap Keymap
-var PromptKeymap Keymap
 
 func insertChar(editor *TextBuffer, char byte) error {
 	return editor.InsertCharAtCursor(char)
@@ -1620,33 +1601,7 @@ var SearchTextBufferKeymap = Keymap{
 }
 
 func init() {
-	PromptKeymap = Keymap{
-		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Prompt.IsActive = false
-			e.keymaps = e.keymaps[:len(e.keymaps)-2]
-			userInput := e.Prompt.UserInput
-			e.Prompt.UserInput = ""
-			e.Prompt.DoneHook(userInput, e.parent)
-			e.Prompt.DoneHook = nil
-			e.Prompt.ChangeHook = nil
-			return nil
-		}),
 
-		Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Prompt.UserInput = e.Prompt.UserInput[:len(e.Prompt.UserInput)-1]
-
-			return nil
-		}),
-		Key{K: "<esc>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Prompt.IsActive = false
-			e.keymaps = e.keymaps[:len(e.keymaps)-2]
-			e.Prompt.UserInput = ""
-			e.Prompt.DoneHook = nil
-			e.Prompt.ChangeHook = nil
-
-			return nil
-		}),
-	}
 	EditorKeymap = Keymap{
 
 		Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
@@ -1765,10 +1720,7 @@ func init() {
 			return e.KillLine()
 		}),
 		Key{K: "g", Control: true}: MakeCommand(func(e *TextBuffer) error {
-			e.Prompt.IsActive = true
-			e.Prompt.Text = "Goto"
-			e.Prompt.UserInput = ""
-			e.Prompt.DoneHook = func(userInput string, c *Context) error {
+			doneHook := func(userInput string, c *Context) error {
 				number, err := strconv.Atoi(userInput)
 				if err != nil {
 					return nil
@@ -1776,9 +1728,6 @@ func init() {
 
 				for _, line := range e.View.Lines {
 					if line.Index == number {
-						e.Prompt.IsActive = false
-						e.Prompt.UserInput = ""
-
 						e.Cursors[0].SetBoth(line.startIndex)
 						e.ScrollIfNeeded()
 					}
@@ -1786,15 +1735,7 @@ func init() {
 
 				return nil
 			}
-			e.Prompt.ChangeHook = func(userInput string, c *Context) error {
-				return nil
-			}
-
-			e.keymaps = append(e.keymaps, PromptKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
-				e.Prompt.UserInput += string(b)
-
-				return nil
-			}))
+			e.parent.SetPrompt("Goto", nil, doneHook)
 
 			return nil
 		}),
@@ -1803,29 +1744,18 @@ func init() {
 		}),
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *TextBuffer) error {
-			a.Prompt.IsActive = true
-			a.Prompt.Text = "Compile"
-			a.keymaps = append(a.keymaps, PromptKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
-				a.Prompt.UserInput += string(b)
+			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+				a.parent.openCompilationBuffer(userInput)
 				return nil
-			}))
+			})
 
-			a.Prompt.ChangeHook = func(userInput string, c *Context) error {
-				return nil
-			}
-			a.Prompt.DoneHook = func(userInput string, c *Context) error {
-				a.parent.openCompilationBufferInAVSplit(userInput)
-
-				return nil
-			}
 			return nil
 		}),
 
 		Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 			a.ISearch.IsSearching = true
-			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 				a.ISearch.SearchString += string(b)
-
 				return nil
 			}))
 			return nil

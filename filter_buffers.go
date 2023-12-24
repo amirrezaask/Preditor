@@ -60,7 +60,7 @@ func NewInteractiveFilterBuffer[T any](
 		ifb.List.Items = iList
 	}
 
-	ifb.keymaps = append(ifb.keymaps, MakeInsertionKeys[*InteractiveFilterBuffer[T]](func(b byte) error {
+	ifb.keymaps = append(ifb.keymaps, MakeInsertionKeys(func(c *Context, b byte) error {
 		return ifb.UserInputComponent.InsertCharAtBuffer(b)
 	}))
 	return ifb

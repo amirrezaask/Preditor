@@ -96,6 +96,15 @@ type Context struct {
 	ActiveWindowIndex int
 }
 
+func (c *Context) SetPrompt(text string,
+	changeHook func(userInput string, c *Context) error,
+	doneHook func(userInput string, c *Context) error) {
+	c.Prompt.IsActive = true
+	c.Prompt.Text = text
+	c.Prompt.ChangeHook = changeHook
+	c.Prompt.DoneHook = doneHook
+}
+
 func (c *Context) ActiveWindow() *Window {
 	w := c.GetWindow(c.ActiveWindowIndex)
 	return w
@@ -296,6 +305,9 @@ func (c *Context) HandleKeyEvents() {
 		if c.ActiveBuffer() != nil {
 			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
 		}
+		if c.Prompt.IsActive {
+			keymaps = append(keymaps, PromptKeymap)
+		}
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
@@ -322,6 +334,11 @@ func (c *Context) GetWindow(id int) *Window {
 func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background)
+	height := c.OSWindowHeight
+	if c.Prompt.IsActive {
+		charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
+		height -= float64(charsize.Y)
+	}
 	for i, column := range c.Windows {
 		columnWidth := c.OSWindowWidth / float64(len(c.Windows))
 		columnZeroX := float64(i) * float64(columnWidth)
@@ -329,7 +346,7 @@ func (c *Context) Render() {
 			if win == nil {
 				continue
 			}
-			winHeight := c.OSWindowHeight / float64(len(column))
+			winHeight := height / float64(len(column))
 			winZeroY := float64(j) * winHeight
 			zeroLocation := rl.Vector2{X: float32(columnZeroX), Y: float32(winZeroY)}
 			win.Render(c, zeroLocation, winHeight, columnWidth)
@@ -341,6 +358,16 @@ func (c *Context) Render() {
 		}
 
 	}
+	if c.Prompt.IsActive {
+		charSize := measureTextSize(c.Font, ' ', c.FontSize, 0)
+		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charSize.Y), c.Cfg.CurrentThemeColors().Prompts)
+		rl.DrawTextEx(c.Font, fmt.Sprintf("%s: %s", c.Prompt.Text, c.Prompt.UserInput), rl.Vector2{
+			X: 0,
+			Y: float32(height),
+		}, float32(c.FontSize), 0, rl.White)
+
+	}
+
 	rl.EndDrawing()
 }
 
