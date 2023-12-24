@@ -1058,7 +1058,8 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.Buffers[window.BufferID] = cb
+	c.AddBuffer(cb)
+	window.BufferID = cb.ID
 
 	return nil
 }
@@ -1084,7 +1085,8 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	if err != nil {
 		return err
 	}
-	c.Buffers[window.BufferID] = cb
+	c.AddBuffer(cb)
+	window.BufferID = cb.ID
 
 	return nil
 }
