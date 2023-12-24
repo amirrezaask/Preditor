@@ -9,9 +9,10 @@ import (
 )
 
 type FileType struct {
-	TabSize          int
-	BeforeSave       func(*Buffer) error
-	SyntaxHighlights SyntaxHighlights
+	TabSize                  int
+	BeforeSave               func(*Buffer) error
+	CommentLineBeginingChars []byte
+	SyntaxHighlights         SyntaxHighlights
 }
 
 type SyntaxHighlights map[*regexp.Regexp]color.RGBA
@@ -41,6 +42,7 @@ func initFileTypes(cfg Colors) {
 				e.Content = newBytes
 				return nil
 			},
+			CommentLineBeginingChars: []byte("//"),
 
 			SyntaxHighlights: SyntaxHighlights{
 				regexp.MustCompile(keywordsPat("break", "case", "const",
