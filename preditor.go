@@ -116,11 +116,12 @@ type Context struct {
 
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context) error,
-	doneHook func(userInput string, c *Context) error, keymap *Keymap) {
+	doneHook func(userInput string, c *Context) error, keymap *Keymap, defaultValue string) {
 	c.Prompt.IsActive = true
 	c.Prompt.Text = text
 	c.Prompt.ChangeHook = changeHook
 	c.Prompt.DoneHook = doneHook
+	c.Prompt.UserInput = defaultValue
 	if keymap != nil {
 		c.Prompt.Keymap = *keymap
 	} else {
