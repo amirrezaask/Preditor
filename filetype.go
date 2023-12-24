@@ -1,14 +1,39 @@
 package main
 
 import (
+	"fmt"
 	"go/format"
 	"image/color"
 	"regexp"
+	"strings"
 )
 
 type FileType struct {
-	BeforeSave  func(*Editor) error
-	ColorGroups map[*regexp.Regexp]color.RGBA
+	BeforeSave func(*Editor) error
+	SyntaxHighlights
+}
+
+type SyntaxHighlights struct {
+	Keywords    SyntaxHighlight
+	Types       SyntaxHighlight
+	Identifiers SyntaxHighlight
+}
+
+type SyntaxHighlight struct {
+	Regex *regexp.Regexp
+	Color color.RGBA
+}
+
+func keywordPat(word string) string {
+	return fmt.Sprintf("\\s*%s\\s+", word)
+}
+func keywordsPat(words ...string) string {
+	var pats []string
+	for _, word := range words {
+		pats = append(pats, keywordPat(word))
+	}
+
+	return fmt.Sprintf("(%s)", strings.Join(pats, "|"))
 }
 
 func initFileTypes(cfg Colors) {
@@ -23,8 +48,20 @@ func initFileTypes(cfg Colors) {
 				e.Content = newBytes
 				return nil
 			},
-			ColorGroups: map[*regexp.Regexp]color.RGBA{
-				regexp.MustCompile("(func|if|package|import|type|struct)"): cfg.SyntaxKeyword,
+
+			SyntaxHighlights: SyntaxHighlights{
+				Keywords: SyntaxHighlight{
+					Regex: regexp.MustCompile(keywordsPat("if", "struct", "type", "interface", "else", "func")),
+					Color: cfg.SyntaxKeywords,
+				},
+				Types: SyntaxHighlight{
+					Regex: regexp.MustCompile(keywordsPat("int", "int8", "int16", "int32", "int64")),
+					Color: cfg.SyntaxTypes,
+				},
+				Identifiers: SyntaxHighlight{
+					Regex: regexp.MustCompile("\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"),
+					Color: cfg.SyntaxIdentifiers,
+				},
 			},
 		},
 	}

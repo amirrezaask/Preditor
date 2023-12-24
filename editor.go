@@ -25,7 +25,7 @@ type Editor struct {
 	File                      string
 	Content                   []byte
 	Keymaps                   []Keymap
-	ColorGroups               map[*regexp.Regexp]color.RGBA
+	SyntaxHighlights          SyntaxHighlights
 	EnableSyntaxHighlighting  bool
 	Variables                 Variables
 	Commands                  Commands
@@ -126,7 +126,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 		fileType, exists := fileTypeMappings[path.Ext(t.File)]
 		if exists {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
-			t.ColorGroups = fileType.ColorGroups
+			t.SyntaxHighlights = fileType.SyntaxHighlights
 		}
 	}
 	t.replaceTabsWithSpaces()
@@ -156,17 +156,33 @@ type visualLine struct {
 
 func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
 	var highlights []highlight
-	for re, c := range t.ColorGroups {
-		indexes := re.FindAllStringIndex(string(bs), -1)
-		for _, index := range indexes {
-			highlights = append(highlights, highlight{
-				start: index[0] + offset,
-				end:   index[1] + offset - 1,
-				Color: c,
-			})
-		}
+	//keywords
+	indexes := t.SyntaxHighlights.Keywords.Regex.FindAllStringIndex(string(bs), -1)
+	for _, index := range indexes {
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: t.SyntaxHighlights.Keywords.Color,
+		})
 	}
-
+	//types
+	indexesTypes := t.SyntaxHighlights.Types.Regex.FindAllStringIndex(string(bs), -1)
+	for _, index := range indexesTypes {
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: t.SyntaxHighlights.Types.Color,
+		})
+	}
+	//identifiers
+	indexesIdentifiers := t.SyntaxHighlights.Identifiers.Regex.FindAllStringIndex(string(bs), -1)
+	for _, index := range indexesIdentifiers {
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: t.SyntaxHighlights.Identifiers.Color,
+		})
+	}
 	return highlights
 }
 func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
