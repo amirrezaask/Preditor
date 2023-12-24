@@ -765,9 +765,10 @@ func safeSlice[T any](s []T, start int, end int) []T {
 
 	return s[start:end]
 }
+
 type bufferRenderContext struct {
 	textZeroLocation rl.Vector2
-	zeroLocation rl.Vector2
+	zeroLocation     rl.Vector2
 }
 
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {

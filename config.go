@@ -116,7 +116,7 @@ var defaultConfig = Config{
 				ActiveStatusBarForeground: mustParseHexColor("#000000"),
 				LineNumbersForeground:     mustParseHexColor("#F2F2F2"),
 				ActiveWindowBorder:        mustParseHexColor("#292929"),
-				Cursor:                    mustParseHexColor("#00ff00"),
+				Cursor:                    mustParseHexColor("#90ee90"),
 				CursorLineBackground:      mustParseHexColor("#52534E"),
 				HighlightMatching:         mustParseHexColor("#00ff00"),
 				SyntaxColors: SyntaxColors{
