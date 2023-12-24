@@ -1,14 +1,17 @@
 package main
 
 import (
+	"flag"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 func main() {
+	
+	flag.Parse()
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.InitWindow(1920, 1080, "editor")
-
 
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
@@ -31,11 +34,14 @@ func main() {
 
 	fontSize = 20
 	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
-
+	filename := ""
+	if len(flag.Args()) > 0 {
+		filename = flag.Args()[0]
+	}
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		File:	"main.go",
+		File:	filename,
 		TabSize: 4,
 	}
 

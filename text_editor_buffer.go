@@ -38,7 +38,6 @@ func (t *TextEditorBuffer) SetMaxWidth(w int32) {
 }
 func (t *TextEditorBuffer) SetMaxHeight(h int32) {
 	t.MaxHeight = h
-	fmt.Println("max height changed ", h)
 	t.updateMaxLineAndColumn()
 }
 func (t *TextEditorBuffer) updateMaxLineAndColumn() {
@@ -63,9 +62,13 @@ func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
 	var err error
-	t.Content, err = os.ReadFile(t.File)
-	if err != nil {
-		return err
+	if t.File != "" {
+		t.Content, err = os.ReadFile(t.File)
+		if err != nil {
+			return err
+		}
+	} else {
+		t.Content = make([]byte, 1000)
 	}
 	t.replaceTabsWithSpaces()
 	t.updateMaxLineAndColumn()
@@ -115,7 +118,7 @@ func (t *TextEditorBuffer) Render() {
 			start = idx + 1
 
 		}
-		if idx == len(t.Content)-1 {
+		if idx >= len(t.Content)-1 {
 			// last index
 			line := visualLine{
 				Index:      totalVisualLines,
@@ -182,8 +185,12 @@ func (t *TextEditorBuffer) Render() {
 		int32(charSize.Y),
 		t.Colors.StatusBarBackground,
 	)
+	file := t.File
+	if file == "" {
+		file = "*scratch*"
+	}
 	rl.DrawTextEx(font,
-		string(fmt.Sprintf("%s %d:%d", t.File, t.Cursor.Line, t.Cursor.Column)),
+		string(fmt.Sprintf("%s %d:%d", file, t.Cursor.Line, t.Cursor.Column)),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
@@ -211,6 +218,9 @@ func (t *TextEditorBuffer) renderVisualLine(line visualLine, index int) {
 }
 
 func (t *TextEditorBuffer) cursorToBufferIndex() int {
+	if t.Cursor.Line >= len(t.visualLines) {
+		return 0
+	}
 	return t.visualLines[t.Cursor.Line].startIndex + t.Cursor.Column
 }
 
@@ -463,6 +473,9 @@ func (t *TextEditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) e
 }
 
 func (t *TextEditorBuffer) Write() error {
+	if t.File == "" {
+		return nil
+	}
 	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
