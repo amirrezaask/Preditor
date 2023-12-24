@@ -1256,7 +1256,7 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 }
 
 func (e *TextBuffer) ScrollIfNeeded() error {
-	pos := e.getIndexPosition(e.Cursors[0].Start())
+	pos := e.getIndexPosition(e.Cursors[0].End())
 	if int32(pos.Line) <= e.VisibleStart {
 		e.VisibleStart = int32(pos.Line) - e.maxLine/3
 		e.VisibleEnd = e.VisibleStart + e.maxLine
