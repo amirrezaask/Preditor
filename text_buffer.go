@@ -21,6 +21,8 @@ import (
 )
 
 const (
+
+	//this is a comment
 	State_Clean = 1
 	State_Dirty = 2
 )
@@ -180,6 +182,7 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 
 func (e *TextBuffer) SetStateDirty() {
 	e.State = State_Dirty
+	e.calculateVisualLines()
 }
 
 func (e *TextBuffer) SetStateClean() {
@@ -698,7 +701,9 @@ func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, ma
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
-	e.calculateVisualLines()
+	if len(e.View.Lines) == 0 {
+		e.calculateVisualLines()
+	}
 
 	e.renderStatusbar(zeroLocation, maxH, maxW)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
@@ -1353,6 +1358,7 @@ func (e *TextBuffer) Write() error {
 	}
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
+	e.calculateVisualLines()
 	return nil
 }
 
