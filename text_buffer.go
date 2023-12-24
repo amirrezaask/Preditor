@@ -285,7 +285,7 @@ func (e *TextBuffer) calculateVisualLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-
+			continue
 		}
 		if idx >= len(e.Content)-1 {
 			// last index
@@ -301,7 +301,7 @@ func (e *TextBuffer) calculateVisualLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-
+			continue
 		}
 
 		if int32(lineCharCounter) > e.maxColumn {
@@ -317,7 +317,7 @@ func (e *TextBuffer) calculateVisualLines() {
 			totalVisualLines++
 			lineCharCounter = 0
 			start = idx
-
+			continue
 		}
 	}
 }
