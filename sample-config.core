@@ -1,7 +1,8 @@
-font Consolas.ttf
+font Consolas
 font_size 20
 
 background #062329
 foreground #d3b58d
 statusbar_background #d3b58d
 statusbar_foreground #000000
+linenumbers_foreground #ffffff
