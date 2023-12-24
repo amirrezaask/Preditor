@@ -2,14 +2,20 @@ package preditor
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"github.com/smacker/go-tree-sitter/golang"
+	"go/format"
 	"image/color"
 	"math"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+	"unicode"
 
 	"golang.design/x/clipboard"
 
@@ -22,6 +28,110 @@ import (
 var EditorKeymap Keymap
 var SearchTextBufferKeymap Keymap
 
+func OpenLocationInCurrentLine(c *Context) error {
+	b, ok := c.ActiveDrawable().(*BufferView)
+	if !ok {
+		return nil
+	}
+
+	line := BufferGetCurrentLine(b)
+	if line == nil || len(line) < 1 {
+		return nil
+	}
+
+	segs := bytes.SplitN(line, []byte(":"), 4)
+	if len(segs) < 2 {
+		return nil
+
+	}
+
+	var targetWindow *Window
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if c.ActiveWindowIndex != win.ID {
+				targetWindow = win
+				break
+			}
+		}
+	}
+
+	filename := segs[0]
+	var lineNum int
+	var col int
+	var err error
+	switch len(segs) {
+	case 3:
+		//filename:line: text
+		lineNum, err = strconv.Atoi(string(segs[1]))
+		if err != nil {
+		}
+	case 4:
+		//filename:line:col: text
+		lineNum, err = strconv.Atoi(string(segs[1]))
+		if err != nil {
+		}
+		col, err = strconv.Atoi(string(segs[2]))
+		if err != nil {
+		}
+
+	}
+	_ = SwitchOrOpenFileInWindow(c, c.Cfg, string(filename), &Position{Line: lineNum, Column: col}, targetWindow)
+
+	c.ActiveWindowIndex = targetWindow.ID
+	return nil
+}
+
+func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
+	bufferView := NewBufferViewFromFilename(parent, cfg, bufferName)
+	cwd := parent.getCWD()
+
+	bufferView.Buffer.Readonly = true
+	runCompileCommand := func() {
+		bufferView.Buffer.Content = nil
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Command: %s\n", command))...)
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Dir: %s\n", cwd))...)
+		go func() {
+			segs := strings.Split(command, " ")
+			var args []string
+			bin := segs[0]
+			if len(segs) > 1 {
+				args = segs[1:]
+			}
+			cmd := exec.Command(bin, args...)
+			cmd.Dir = cwd
+			since := time.Now()
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				bufferView.Buffer.Content = []byte(err.Error())
+				bufferView.Buffer.Content = append(bufferView.Buffer.Content, '\n')
+			}
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, output...)
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
+
+		}()
+
+	}
+
+	bufferView.keymaps[1].BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) error {
+		runCompileCommand()
+
+		return nil
+	}))
+	bufferView.keymaps[1].BindKey(Key{K: "<enter>"}, OpenLocationInCurrentLine)
+
+	runCompileCommand()
+	return bufferView, nil
+}
+
+func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
+	return RunCommandWithOutputBuffer(parent, cfg, "*Grep", command)
+}
+
+func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
+	return RunCommandWithOutputBuffer(parent, cfg, "*Compilation*", command)
+
+}
+
 func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *BufferView {
 	buffer := parent.GetBufferByFilename(filename)
 	if buffer == nil {
@@ -29,6 +139,72 @@ func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *B
 	}
 
 	return NewBufferView(parent, cfg, buffer)
+}
+
+type FileType struct {
+	TabSize                  int
+	BeforeSave               func(*BufferView) error
+	AfterSave                func(*BufferView) error
+	DefaultCompileCommand    string
+	CommentLineBeginingChars []byte
+	FindRootOfProject        func(currentFilePath string) (string, error)
+	TSHighlightQuery         []byte
+}
+
+var FileTypes map[string]FileType
+
+func init() {
+	FileTypes = map[string]FileType{
+		".go": {
+			TabSize: 4,
+			BeforeSave: func(e *BufferView) error {
+				newBytes, err := format.Source(e.Buffer.Content)
+				if err != nil {
+					return err
+				}
+
+				e.Buffer.Content = newBytes
+				return nil
+			},
+			TSHighlightQuery: []byte(`
+[
+  "break"
+  "case"
+  "chan"
+  "const"
+  "continue"
+  "default"
+  "defer"
+  "else"
+  "fallthrough"
+  "for"
+  "func"
+  "go"
+  "goto"
+  "if"
+  "import"
+  "interface"
+  "map"
+  "package"
+  "range"
+  "return"
+  "select"
+  "struct"
+  "switch"
+  "type"
+  "var"
+] @keyword
+
+(type_identifier) @type
+(comment) @comment
+[(interpreted_string_literal) (raw_string_literal)] @string
+[(identifier)] @ident
+(selector_expression operand: (_) @selector field: (_) @field)
+(if_statement condition: (_) @if_condition)
+`),
+			DefaultCompileCommand: "go build -v ./...",
+		},
+	}
 }
 
 func NewBufferView(parent *Context, cfg *Config, buffer *Buffer) *BufferView {
@@ -604,9 +780,99 @@ func (e *BufferView) convertBufferIndexToLineAndColumn(idx int) *Position {
 
 	return nil
 }
+
+func matchPatternCaseInsensitive(data []byte, pattern []byte) [][]int {
+	var matched [][]int
+	var buf []byte
+	start := -1
+	for i, b := range data {
+
+		if len(pattern) == len(buf) {
+			matched = append(matched, []int{start, i - 1})
+			buf = nil
+			start = -1
+		}
+		idxToCheck := len(buf)
+		if idxToCheck == 0 {
+			start = i
+		}
+		if unicode.ToLower(rune(pattern[idxToCheck])) == unicode.ToLower(rune(b)) {
+			buf = append(buf, b)
+		} else {
+			buf = nil
+			start = -1
+		}
+	}
+
+	return matched
+}
+
+func findNextMatch(data []byte, idx int, pattern []byte) []int {
+	var buf []byte
+	start := -1
+	for i := idx; i < len(data); i++ {
+		if len(pattern) == len(buf) {
+			return []int{start, i - 1}
+		}
+		idxToCheck := len(buf)
+		if idxToCheck == 0 {
+			start = i
+		}
+		if unicode.ToLower(rune(pattern[idxToCheck])) == unicode.ToLower(rune(data[i])) {
+			buf = append(buf, data[i])
+		} else {
+			buf = nil
+			start = -1
+		}
+	}
+
+	return nil
+}
+
+func matchPatternAsync(dst *[][]int, data []byte, pattern []byte) {
+	go func() {
+		*dst = matchPatternCaseInsensitive(data, pattern)
+	}()
+}
+
 func (e *BufferView) findMatches(pattern string) {
 	e.ISearch.SearchMatches = [][]int{}
 	matchPatternAsync(&e.ISearch.SearchMatches, e.Buffer.Content, []byte(pattern))
+}
+func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
+	var highlights []highlight
+	parser := sitter.NewParser()
+	parser.SetLanguage(golang.GetLanguage())
+
+	tree, err := parser.ParseCtx(context.Background(), prev, code)
+	if err != nil {
+		return nil, nil, err
+	}
+	query, err := sitter.NewQuery(queryString, golang.GetLanguage())
+	if err != nil {
+		return nil, tree, err
+	}
+
+	qc := sitter.NewQueryCursor()
+	qc.Exec(query, tree.RootNode())
+	for {
+		qm, exists := qc.NextMatch()
+		if !exists {
+			break
+		}
+		for _, capture := range qm.Captures {
+			captureName := query.CaptureNameForId(capture.Index)
+			if c, exists := cfg.CurrentThemeColors().SyntaxColors[captureName]; exists {
+				highlights = append(highlights, highlight{
+					start: int(capture.Node.StartByte()),
+					end:   int(capture.Node.EndByte()),
+					Color: c.ToColorRGBA(),
+				})
+			}
+		}
+	}
+
+	return highlights, tree, nil
 }
 
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
