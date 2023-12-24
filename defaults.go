@@ -178,7 +178,7 @@ func setupDefaults() {
 		e.readFileFromDisk()
 	}))
 	BufferKeymap.BindKey(Key{K: "z", Control: true}, MakeCommand(func(e *BufferView) {
-		e.RevertLastBufferAction()
+		RevertLastBufferAction(e)
 	}))
 	BufferKeymap.BindKey(Key{K: "f", Control: true}, MakeCommand(func(e *BufferView) {
 		PointRight(e, 1)

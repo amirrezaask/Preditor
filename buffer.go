@@ -310,23 +310,6 @@ func (e *BufferView) AddBufferAction(a BufferAction) {
 	a.Data = bytes.Clone(a.Data)
 	e.ActionStack.Push(a)
 }
-func (e *BufferView) RevertLastBufferAction() {
-	last, err := e.ActionStack.Pop()
-	if err != nil {
-		if errors.Is(err, EmptyStack) {
-			e.SetStateClean()
-		}
-		return
-	}
-	switch last.Type {
-	case BufferActionType_Insert:
-		e.RemoveRange(last.Idx, last.Idx+len(last.Data), false)
-	case BufferActionType_Delete:
-		e.Buffer.Content = append(e.Buffer.Content[:last.Idx], append(last.Data, e.Buffer.Content[last.Idx:]...)...)
-	}
-	e.SetStateDirty()
-}
-
 func (e *BufferView) SetStateDirty() {
 	e.Buffer.State = State_Dirty
 	e.Buffer.needParsing = true
@@ -509,14 +492,13 @@ func (e *BufferView) RemoveRange(start int, end int, addBufferAction bool) {
 	if end >= len(e.Buffer.Content) {
 		end = len(e.Buffer.Content)
 	}
-	rangeData := e.Buffer.Content[start:end]
+	rangeData := bytes.Clone(e.Buffer.Content[start:end])
 	if len(e.Buffer.Content) <= end {
 		e.Buffer.Content = e.Buffer.Content[:start]
 	} else {
 		e.Buffer.Content = append(e.Buffer.Content[:start], e.Buffer.Content[end:]...)
 	}
 	if addBufferAction {
-
 		e.AddBufferAction(BufferAction{
 			Type: BufferActionType_Delete,
 			Idx:  start,
@@ -1236,6 +1218,22 @@ func DeleteCharForward(e *BufferView) error {
 
 	e.SetStateDirty()
 	return nil
+}
+func RevertLastBufferAction(e *BufferView) {
+	last, err := e.ActionStack.Pop()
+	if err != nil {
+		if errors.Is(err, EmptyStack) {
+			e.SetStateClean()
+		}
+		return
+	}
+	switch last.Type {
+	case BufferActionType_Insert:
+		e.RemoveRange(last.Idx, last.Idx+len(last.Data), false)
+	case BufferActionType_Delete:
+		e.AddBytesAtIndex(last.Data, last.Idx, false)
+	}
+	e.SetStateDirty()
 }
 
 func AnotherSelectionOnMatch(e *BufferView) {
