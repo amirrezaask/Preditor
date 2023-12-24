@@ -480,7 +480,7 @@ func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, max
 				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
 			}
 
-			rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
+			rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
 
 		} else {
 			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), e.cfg.Colors.Selection)

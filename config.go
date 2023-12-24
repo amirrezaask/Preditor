@@ -35,6 +35,7 @@ var defaultConfig = Config{
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
+		ActiveWindowBorder:    mustParseHexColor("#8cde94"),
 		Cursor:                mustParseHexColor("#00ff00"),
 		CursorLineBackground:  mustParseHexColor("#52534E"),
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),

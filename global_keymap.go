@@ -37,4 +37,15 @@ var GlobalKeymap = Keymap{
 		return nil
 
 	},
+
+	Key{K: "w", Alt: true}: func(c *Context) error {
+		c.OtherWindow()
+
+		return nil
+	},
+	Key{K: "\\", Alt: true}: func(c *Context) error {
+		c.VSplit()
+
+		return nil
+	},
 }
