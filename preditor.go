@@ -1070,6 +1070,32 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	return nil
 }
 
+func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
+	var window *Window
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if buf := c.GetBuffer(win.BufferID); buf != nil {
+				if b, is := buf.(*Buffer); is {
+					if b.File == "*Grep*" {
+						window = win
+					}
+				}
+			}
+		}
+	}
+
+	if window == nil {
+		window = c.VSplit()
+	}
+	cb, err := NewGrepBuffer(c, c.Cfg, command)
+	if err != nil {
+		return err
+	}
+	c.Buffers[window.BufferID] = cb
+
+	return nil
+}
+
 func (c *Context) OpenCompilationBufferInBuildWindow(command string) error {
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
