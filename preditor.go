@@ -76,8 +76,8 @@ type Window struct {
 }
 
 type Overlay struct {
-	Active   bool
-	BufferID int
+	Active bool
+	*Window
 }
 
 func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
@@ -111,25 +111,9 @@ type Context struct {
 	OSWindowWidth     float64
 	Windows           [][]*Window
 	Prompt            Prompt
-	BottomOverlay     Overlay
 	ActiveWindowIndex int
 }
 
-func (c *Context) ToggleBottomOverlay() {
-	if !c.BottomOverlay.Active || c.ActiveWindowIndex != -10 {
-		c.BottomOverlay.Active = true
-		c.ActiveWindowIndex = -10
-	} else {
-		c.BottomOverlay.Active = false
-		for _, col := range c.Windows {
-			for _, win := range col {
-				c.ActiveWindowIndex = win.ID
-				break
-			}
-		}
-	}
-
-}
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context) error,
 	doneHook func(userInput string, c *Context) error, keymap *Keymap) {
@@ -361,22 +345,7 @@ func (c *Context) HandleKeyEvents() {
 	defer handlePanicAndWriteMessage(c)
 	key := getKey()
 	if !key.IsEmpty() {
-		if c.BottomOverlay.Active && c.ActiveWindowIndex == -10 {
-			keymaps := []Keymap{c.GlobalKeymap}
-			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
-				keymaps = append(keymaps, buf.Keymaps()...)
-			}
-			for i := len(keymaps) - 1; i >= 0; i-- {
-				cmd := keymaps[i][key]
-				if cmd != nil {
-					if err := cmd(c); err != nil {
-						c.WriteMessage(err.Error())
-					}
-					break
-				}
-			}
-			return
-		}
+
 		keymaps := []Keymap{c.GlobalKeymap}
 		if c.ActiveBuffer() != nil {
 			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
@@ -444,14 +413,6 @@ func (c *Context) Render() {
 		}
 
 	}
-	if c.BottomOverlay.Active {
-		bottomOverlayZerolocationY := c.OSWindowHeight - (c.OSWindowHeight * c.Cfg.BottomOverlayHeight)
-		rl.DrawRectangle(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
-		rl.DrawRectangleLines(0, int32(bottomOverlayZerolocationY), int32(c.OSWindowWidth), int32(c.OSWindowHeight), rl.Red)
-		if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
-			buf.Render(rl.Vector2{X: 0, Y: float32(bottomOverlayZerolocationY)}, c.OSWindowHeight, c.OSWindowWidth)
-		}
-	}
 
 	if c.Prompt.IsActive {
 		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charsize.Y), c.Cfg.CurrentThemeColors().Prompts.ToColorRGBA())
@@ -477,23 +438,6 @@ func (c *Context) HandleMouseEvents() {
 
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		if c.BottomOverlay.Active {
-			keymaps := []Keymap{c.GlobalKeymap}
-			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
-				keymaps = append(keymaps, buf.Keymaps()...)
-				for i := len(keymaps) - 1; i >= 0; i-- {
-					cmd := keymaps[i][key]
-					if cmd != nil {
-						if err := cmd(c); err != nil {
-							c.WriteMessage(err.Error())
-						}
-						break
-					}
-				}
-			}
-			return
-		}
-
 		//first check if mouse position is in the window context otherwise switch
 		pos := rl.GetMousePosition()
 		win := c.GetWindow(c.ActiveWindowIndex)
@@ -931,6 +875,10 @@ func New() (*Context, error) {
 	return p, nil
 }
 
+func (c *Context) Exit() {
+	rl.CloseWindow()
+}
+
 func (c *Context) StartMainLoop() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -956,11 +904,6 @@ func (c *Context) StartMainLoop() {
 
 func MakeCommand[T Drawable](f func(t T) error) Command {
 	return func(c *Context) error {
-		if c.BottomOverlay.Active {
-			if buf := c.GetBuffer(c.BottomOverlay.BufferID); buf != nil {
-				return f(buf.(T))
-			}
-		}
 		return f(c.ActiveBuffer().(T))
 
 	}
@@ -1017,42 +960,46 @@ func (c *Context) openCompilationBuffer(command string) error {
 }
 
 func (c *Context) openCompilationBufferInAVSplit(command string) error {
-	c.VSplit()
+	win := c.VSplit()
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
 	}
 	c.AddBuffer(cb)
-
+	win.BufferID = cb.ID
 	return nil
 }
 
-func (c *Context) openCompilationBufferInCompilationPanel(command string) error {
+func (c *Context) openCompilationBufferInAHSplit(command string) error {
+	win := c.HSplit()
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
 	}
-
 	c.AddBuffer(cb)
-	c.BottomOverlay.BufferID = cb.ID
-	c.BottomOverlay.Active = true
-
+	win.BufferID = cb.ID
 	return nil
 }
 
-func (c *Context) VSplit() {
+func (c *Context) VSplit() *Window {
 	win := &Window{}
 	c.AddWindowInANewColumn(win)
+	return win
 }
 
-func (c *Context) HSplit() {
+func (c *Context) HSplit() *Window {
 	win := &Window{}
 	c.AddWindowInCurrentColumn(win)
+	return win
 }
 
 func (c *Context) OtherWindow() {
 	for i, col := range c.Windows {
 		for j, win := range col {
+			if c.ActiveWindowIndex == -10 {
+				c.ActiveWindowIndex = win.ID
+				break
+			}
 			if win.ID == c.ActiveWindowIndex {
 				if j+1 < len(col) {
 					c.ActiveWindowIndex = col[j+1].ID
