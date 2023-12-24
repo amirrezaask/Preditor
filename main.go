@@ -48,13 +48,14 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 
 	// initialize first editor
-	textEditorBuffer, err := NewTextEditor(TextEditorOptions{
-		Filename:    filename,
-		LineNumbers: true,
-		TabSize:     4,
-		MaxHeight:   int32(rl.GetRenderHeight()),
-		MaxWidth:    int32(rl.GetRenderWidth()),
-		Colors:      editor.Colors,
+	textEditorBuffer, err := NewEditorBuffer(EditorBufferOptions{
+		Filename:       filename,
+		LineNumbers:    true,
+		TabSize:        4,
+		MaxHeight:      int32(rl.GetRenderHeight()),
+		MaxWidth:       int32(rl.GetRenderWidth()),
+		Colors:         editor.Colors,
+		CursorBlinking: false,
 	})
 	if err != nil {
 		panic(err)
