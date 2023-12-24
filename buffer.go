@@ -1108,24 +1108,21 @@ func (e *BufferView) moveLeft(s *Cursor, n int) {
 	e.ScrollIfNeeded()
 }
 func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	apprLine := math.Floor(float64(pos.Y / charSize.Y))
-	apprColumn := math.Floor(float64(pos.X / charSize.X))
-
-	if e.cfg.LineNumbers {
-		apprColumn -= float64(e.getLineNumbersMaxLength())
-	}
-
 	if len(e.bufferLines) < 1 {
 		return nil
 	}
 
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	apprLine := math.Floor(float64((pos.Y - e.textZeroLocation.Y) / charSize.Y))
+	apprColumn := math.Floor(float64((pos.X - e.textZeroLocation.X) / charSize.X))
+
 	line := int(apprLine) + int(e.VisibleStart)
 	col := int(apprColumn)
-
 	if line >= len(e.bufferLines) {
 		line = len(e.bufferLines) - 1
 	}
+
+	col -= e.getLineNumbersMaxLength()
 
 	if line < 0 {
 		line = 0
@@ -1138,10 +1135,12 @@ func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
 	if col < 0 {
 		col = 0
 	}
+
 	idx := e.PositionToBufferIndex(Position{Line: line, Column: col})
 	e.Cursors = append(e.Cursors, Cursor{Point: idx, Mark: idx})
 
 	e.removeDuplicateSelectionsAndSort()
+
 	return nil
 }
 
