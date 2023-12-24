@@ -85,7 +85,7 @@ func Test_KillLine(t *testing.T) {
 
 }
 
-func Test_Cut(t *testing.T) {
+func Test_Copy(t *testing.T) {
 	t.Run("test_copy_selection", func(t *testing.T) {
 		bufferView := BufferView{
 			Buffer: &Buffer{
@@ -128,7 +128,29 @@ func Test_Cut(t *testing.T) {
 
 	})
 }
-//func Test_Paste(t *testing.T)              {}
+
+func Test_Paste(t *testing.T) {
+	bufferView := BufferView{
+		Buffer: &Buffer{
+			File:    "",
+			Content: []byte("01\n012345678"),
+			CRLF:    false,
+		},
+		Cursors: []Cursor{
+			{
+				Point: 2,
+				Mark:  2,
+			},
+		},
+		ActionStack: NewStack[BufferAction](10),
+	}
+	WriteToClipboard([]byte("2345678"))
+	Paste(&bufferView)
+	assert.Equal(t, "012345678\n012345678", string(bufferView.Buffer.Content))
+	RevertLastBufferAction(&bufferView)
+	assert.Equal(t, "01\n012345678", string(bufferView.Buffer.Content))
+}
+
 //func Test_DeleteCharBackword(t *testing.T) {}
 //func Test_DeleteCharForeward(t *testing.T) {}
 //
