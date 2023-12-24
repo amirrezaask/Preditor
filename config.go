@@ -2,6 +2,7 @@ package preditor
 
 import (
 	"errors"
+	rl "github.com/gen2brain/raylib-go/raylib"
 	"image/color"
 	"os"
 	"strconv"
@@ -32,6 +33,7 @@ var defaultConfig = Config{
 		Background:            mustParseHexColor("#000000"),
 		Foreground:            mustParseHexColor("#a9a9a9"),
 		Selection:             mustParseHexColor("#0000cd"),
+		Prompts:               mustParseHexColor("#333333"),
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
@@ -40,6 +42,7 @@ var defaultConfig = Config{
 		CursorLineBackground:  mustParseHexColor("#52534E"),
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
+		SyntaxComments:        rl.Red,
 	},
 	TabSize:                  4,
 	LineNumbers:              false,

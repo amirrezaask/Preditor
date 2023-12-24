@@ -339,6 +339,15 @@ func (e *TextBuffer) calculateHighlights(bs []byte, offset int) []highlight {
 			Color: e.SyntaxHighlights.Types.Color,
 		})
 	}
+	//comments
+	comments := e.SyntaxHighlights.Comments.Regex.FindAllStringIndex(string(bs), -1)
+	for _, index := range comments {
+		highlights = append(highlights, highlight{
+			start: index[0] + offset,
+			end:   index[1] + offset - 1,
+			Color: e.SyntaxHighlights.Comments.Color,
+		})
+	}
 	return highlights
 }
 
@@ -533,17 +542,17 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 	}
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 
-	var searchString string
-	if e.IncrementalSearch.SearchString != nil {
-		searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.IncrementalSearch.SearchString, e.IncrementalSearch.CurrentMatch, len(e.IncrementalSearch.SearchMatches)-1)
-		sections = append(sections, searchString)
-	}
-
-	var gotoLine string
-	if e.isGotoLine {
-		gotoLine = fmt.Sprintf("Goto Line: %s", e.GotoLineUserInput)
-		sections = append(sections, gotoLine)
-	}
+	//var searchString string
+	//if e.IncrementalSearch.SearchString != nil {
+	//	searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.IncrementalSearch.SearchString, e.IncrementalSearch.CurrentMatch, len(e.IncrementalSearch.SearchMatches)-1)
+	//	sections = append(sections, searchString)
+	//}
+	//
+	//var gotoLine string
+	//if e.isGotoLine {
+	//	gotoLine = fmt.Sprintf("Goto Line: %s", e.GotoLineUserInput)
+	//	sections = append(sections, gotoLine)
+	//}
 
 	rl.DrawTextEx(e.parent.Font,
 		strings.Join(sections, " | "),
@@ -694,7 +703,7 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vec
 
 	return nil
 }
-func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
+func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if e.IncrementalSearch.SearchString == nil || len(*e.IncrementalSearch.SearchString) < 1 {
 		return
 	}
@@ -704,12 +713,19 @@ func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
 		e.Cursors[0].Point = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
 		e.Cursors[0].Mark = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
 	}
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", *e.IncrementalSearch.SearchString), rl.Vector2{
+		X: zeroLocation.X,
+		Y: zeroLocation.Y,
+	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
 	e.renderText(zeroLocation, maxH, maxW)
-	e.renderSearchResults(zeroLocation)
+	e.renderSearch(zeroLocation, maxH, maxW)
+	//e.renderGoto()
 	e.renderSelections(zeroLocation, maxH, maxW)
 	e.renderStatusBar(zeroLocation, maxH, maxW)
 }
