@@ -703,24 +703,6 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
 	if !e.NoStatusbar {
 		var sections []string
-		if len(e.Cursors) > 1 {
-			sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
-		} else {
-			if e.Cursors[0].Start() == e.Cursors[0].End() {
-				selStart := e.getIndexPosition(e.Cursors[0].Start())
-				if len(e.View.Lines) > selStart.Line {
-					selLine := e.View.Lines[selStart.Line]
-					sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selLine.ActualLine, selStart.Column))
-				} else {
-					sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selStart.Line, selStart.Column))
-				}
-
-			} else {
-				selEnd := e.getIndexPosition(e.Cursors[0].End())
-				sections = append(sections, fmt.Sprintf("Line#%d Col#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
-			}
-
-		}
 
 		file := e.File
 
@@ -730,26 +712,46 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 		} else {
 			state = ""
 		}
-		//render status bar
+		sections = append(sections, fmt.Sprintf("%s %s", state, file))
+
+		if len(e.Cursors) > 1 {
+			sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
+		} else {
+			if e.Cursors[0].Start() == e.Cursors[0].End() {
+				selStart := e.getIndexPosition(e.Cursors[0].Start())
+				if len(e.View.Lines) > selStart.Line {
+					selLine := e.View.Lines[selStart.Line]
+					sections = append(sections, fmt.Sprintf("L#%d C#%d", selLine.ActualLine, selStart.Column))
+				} else {
+					sections = append(sections, fmt.Sprintf("L#%d C#%d", selStart.Line, selStart.Column))
+				}
+
+			} else {
+				selEnd := e.getIndexPosition(e.Cursors[0].End())
+				sections = append(sections, fmt.Sprintf("L#%d C#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
+			}
+
+		}
+
+		bg := e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA()
+		fg := e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA()
+		if win := e.parent.ActiveWindow(); win != nil && win.DrawableID == e.ID {
+			bg = e.cfg.CurrentThemeColors().ActiveStatusBarBackground.ToColorRGBA()
+			fg = e.cfg.CurrentThemeColors().ActiveStatusBarForeground.ToColorRGBA()
+		}
 		rl.DrawRectangle(
 			int32(zeroLocation.X),
 			int32(zeroLocation.Y),
 			int32(maxW),
 			int32(charSize.Y),
-			e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA(),
+			bg,
 		)
-		rl.DrawRectangleLines(int32(zeroLocation.X),
-			int32(zeroLocation.Y),
-			int32(maxW),
-			int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
-
-		sections = append(sections, fmt.Sprintf("%s %s", state, file))
 		rl.DrawTextEx(e.parent.Font,
 			strings.Join(sections, " "),
 			rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
 			float32(e.parent.FontSize),
 			0,
-			e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA())
+			fg)
 		zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 
 	}
@@ -795,37 +797,38 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if e.ISearch.IsSearching {
 		if e.ISearch.SearchString != e.ISearch.LastSearchString && e.ISearch.SearchString != "" {
 			e.findMatches(e.ISearch.SearchString)
-			for idx, match := range e.ISearch.SearchMatches {
-				if idx == e.ISearch.CurrentMatch {
-					matchStartLine := e.getIndexPosition(match[0])
-					matchEndLine := e.getIndexPosition(match[0])
-					if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
-						// current match is not in view
-						// move the view
-						oldStart := e.View.StartLine
-						e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
-						if e.View.StartLine < 0 {
-							e.View.StartLine = int32(matchStartLine.Line)
-						}
-
-						diff := e.View.StartLine - oldStart
-						e.View.EndLine += diff
-					}
-				}
-				e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
-			}
-			e.ISearch.LastSearchString = e.ISearch.SearchString
-			if len(e.ISearch.SearchMatches) > 0 {
-				e.Cursors = e.Cursors[:1]
-				e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
-				e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
-			}
-			rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
-			rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
-				X: zeroLocation.X,
-				Y: zeroLocation.Y,
-			}, float32(e.parent.FontSize), 0, rl.White)
 		}
+		for idx, match := range e.ISearch.SearchMatches {
+			if idx == e.ISearch.CurrentMatch {
+				matchStartLine := e.getIndexPosition(match[0])
+				matchEndLine := e.getIndexPosition(match[0])
+				if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+					// current match is not in view
+					// move the view
+					oldStart := e.View.StartLine
+					e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
+					if e.View.StartLine < 0 {
+						e.View.StartLine = int32(matchStartLine.Line)
+					}
+
+					diff := e.View.StartLine - oldStart
+					e.View.EndLine += diff
+				}
+			}
+			e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
+		}
+		e.ISearch.LastSearchString = e.ISearch.SearchString
+		if len(e.ISearch.SearchMatches) > 0 {
+			e.Cursors = e.Cursors[:1]
+			e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+			e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+		}
+
+		rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
+		rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", e.ISearch.SearchString), rl.Vector2{
+			X: zeroLocation.X,
+			Y: zeroLocation.Y,
+		}, float32(e.parent.FontSize), 0, rl.White)
 	}
 
 	for _, sel := range e.Cursors {

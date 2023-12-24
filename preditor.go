@@ -35,18 +35,20 @@ func (r RGBA) ToColorRGBA() color.RGBA {
 type SyntaxColors map[string]RGBA
 
 type Colors struct {
-	Background            RGBA
-	Foreground            RGBA
-	SelectionBackground   RGBA
-	SelectionForeground   RGBA
-	Prompts               RGBA
-	StatusBarBackground   RGBA
-	StatusBarForeground   RGBA
-	LineNumbersForeground RGBA
-	ActiveWindowBorder    RGBA
-	Cursor                RGBA
-	CursorLineBackground  RGBA
-	SyntaxColors          SyntaxColors
+	Background                RGBA
+	Foreground                RGBA
+	SelectionBackground       RGBA
+	SelectionForeground       RGBA
+	Prompts                   RGBA
+	StatusBarBackground       RGBA
+	StatusBarForeground       RGBA
+	ActiveStatusBarBackground RGBA
+	ActiveStatusBarForeground RGBA
+	LineNumbersForeground     RGBA
+	ActiveWindowBorder        RGBA
+	Cursor                    RGBA
+	CursorLineBackground      RGBA
+	SyntaxColors              SyntaxColors
 }
 
 type Drawable interface {
