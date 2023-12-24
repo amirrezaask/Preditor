@@ -84,8 +84,10 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 	case EditorActionType_Insert:
 		fmt.Println("last")
 		fmt.Printf("%+v\n", last)
-		e.Content = append(e.Content[:last.Idx], e.Content[last.Idx+1:]...)
+		e.Content = append(e.Content[:last.Idx], e.Content[last.Idx+len(last.Data):]...)
 	case EditorActionType_Delete:
+		fmt.Println("last")
+		fmt.Printf("%+v\n", last)
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
 	e.bufferIndex = last.Idx
@@ -684,8 +686,18 @@ func (e *TextBuffer) DeleteCharBackward() error {
 		case e.bufferIndex == 0:
 			return nil
 		case e.bufferIndex < len(e.Content):
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.bufferIndex - 1,
+				Data: []byte{e.Content[e.bufferIndex-1]},
+			})
 			e.Content = append(e.Content[:e.bufferIndex-1], e.Content[e.bufferIndex:]...)
 		case e.bufferIndex == len(e.Content):
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  e.bufferIndex - 1,
+				Data: []byte{e.Content[e.bufferIndex-1]},
+			})
 			e.Content = e.Content[:e.bufferIndex-1]
 		}
 	}
@@ -696,6 +708,11 @@ func (e *TextBuffer) DeleteCharBackward() error {
 }
 
 func (e *TextBuffer) DeleteCharForward() error {
+	e.AddUndoAction(EditorAction{
+		Type: EditorActionType_Delete,
+		Idx:  e.bufferIndex,
+		Data: []byte{e.Content[e.bufferIndex]},
+	})
 	e.Content = append(e.Content[:e.bufferIndex], e.Content[e.bufferIndex+1:]...)
 	e.SetStateDirty()
 	return nil
@@ -916,8 +933,18 @@ func (e *TextBuffer) GetMaxHeight() int32 { return e.MaxHeight }
 func (e *TextBuffer) GetMaxWidth() int32  { return e.MaxWidth }
 func (e *TextBuffer) Indent() error {
 	if e.bufferIndex >= len(e.Content) { // end of file, appending
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Insert,
+			Idx:  e.bufferIndex,
+			Data: []byte(strings.Repeat(" ", e.TabSize)),
+		})
 		e.Content = append(e.Content, []byte(strings.Repeat(" ", e.TabSize))...)
 	} else {
+		e.AddUndoAction(EditorAction{
+			Type: EditorActionType_Insert,
+			Idx:  e.bufferIndex,
+			Data: []byte(strings.Repeat(" ", e.TabSize)),
+		})
 		e.Content = append(e.Content[:e.bufferIndex], append([]byte(strings.Repeat(" ", e.TabSize)), e.Content[e.bufferIndex:]...)...)
 	}
 
