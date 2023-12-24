@@ -9,8 +9,8 @@ import (
 )
 
 type FileType struct {
-	BeforeSave func(*Editor) error
-	SyntaxHighlights
+	BeforeSave       func(*Editor) error
+	SyntaxHighlights *SyntaxHighlights
 }
 
 type SyntaxHighlights struct {
@@ -48,14 +48,14 @@ func initFileTypes(cfg Colors) {
 				return nil
 			},
 
-			SyntaxHighlights: SyntaxHighlights{
+			SyntaxHighlights: &SyntaxHighlights{
 				Keywords: SyntaxHighlight{
 					Regex: regexp.MustCompile(keywordsPat("break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
 						"import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var")),
 					Color: cfg.SyntaxKeywords,
 				},
 				Types: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)")),
+					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "chan", "byte")),
 					Color: cfg.SyntaxTypes,
 				},
 			},
