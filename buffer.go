@@ -112,12 +112,6 @@ func (r *Cursor) End() int {
 	}
 }
 
-type View struct {
-	StartLine int32
-	EndLine   int32
-	Lines     []BufferLine
-}
-
 type ISearch struct {
 	IsSearching               bool
 	LastSearchString          string
@@ -129,18 +123,20 @@ type ISearch struct {
 
 type Buffer struct {
 	BaseDrawable
-	cfg          *Config
-	parent       *Context
-	File         string
-	Content      []byte
-	CRLF         bool
-	State        int
-	Readonly     bool
-	maxLine      int32
-	maxColumn    int32
-	NoStatusbar  bool
-	zeroLocation rl.Vector2
-
+	cfg                        *Config
+	parent                     *Context
+	File                       string
+	Content                    []byte
+	CRLF                       bool
+	State                      int
+	Readonly                   bool
+	maxLine                    int32
+	maxColumn                  int32
+	NoStatusbar                bool
+	zeroLocation               rl.Vector2
+	Lines                      []BufferLine
+	StartLine                  int32
+	EndLine                    int32
 	MoveToPositionInNextRender *Position
 
 	Tokens []WordToken
@@ -151,8 +147,6 @@ type Buffer struct {
 	fileType    FileType
 
 	keymaps []Keymap
-
-	View View
 
 	// Cursor
 	Cursors []Cursor
@@ -346,14 +340,14 @@ func (e *Buffer) generateWordTokens() []WordToken {
 }
 
 func (e *Buffer) getBufferLineForIndex(i int) BufferLine {
-	for _, line := range e.View.Lines {
+	for _, line := range e.Lines {
 		if line.startIndex <= i && line.endIndex >= i {
 			return line
 		}
 	}
 
-	if len(e.View.Lines) > 0 {
-		lastLine := e.View.Lines[len(e.View.Lines)-1]
+	if len(e.Lines) > 0 {
+		lastLine := e.Lines[len(e.Lines)-1]
 		lastLine.endIndex++
 		return lastLine
 	}
@@ -361,7 +355,7 @@ func (e *Buffer) getBufferLineForIndex(i int) BufferLine {
 }
 
 func (e *Buffer) BufferIndexToPosition(i int) Position {
-	if len(e.View.Lines) == 0 {
+	if len(e.Lines) == 0 {
 		return Position{Line: 0, Column: i}
 	}
 
@@ -374,14 +368,14 @@ func (e *Buffer) BufferIndexToPosition(i int) Position {
 }
 
 func (e *Buffer) PositionToBufferIndex(pos Position) int {
-	if len(e.View.Lines) < 1 {
+	if len(e.Lines) < 1 {
 		e.generateBufferLines()
 	}
-	if len(e.View.Lines) <= pos.Line {
+	if len(e.Lines) <= pos.Line {
 		return len(e.Content)
 	}
 
-	return e.View.Lines[pos.Line].startIndex + pos.Column
+	return e.Lines[pos.Line].startIndex + pos.Column
 }
 
 func (e *Buffer) Destroy() error {
@@ -419,14 +413,14 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 		apprColumn -= float64(e.getLineNumbersMaxLength())
 	}
 
-	if len(e.View.Lines) < 1 {
+	if len(e.Lines) < 1 {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.View.StartLine) - 1
+	line := int(apprLine) + int(e.StartLine) - 1
 	col := int(apprColumn)
-	if line >= len(e.View.Lines) {
-		line = len(e.View.Lines) - 1
+	if line >= len(e.Lines) {
+		line = len(e.Lines) - 1
 	}
 
 	if line < 0 {
@@ -434,8 +428,8 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 	}
 
 	// check if cursor should be moved back
-	if col > e.View.Lines[line].Length {
-		col = e.View.Lines[line].Length
+	if col > e.Lines[line].Length {
+		col = e.Lines[line].Length
 	}
 	if col < 0 {
 		col = 0
@@ -447,13 +441,13 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 }
 func (e *Buffer) generateBufferLines() {
 	e.Tokens = e.generateWordTokens()
-	e.View.Lines = []BufferLine{}
+	e.Lines = []BufferLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
 	var actualLineIndex = 1
 	var start int
-	if e.View.EndLine == 0 {
-		e.View.EndLine = e.maxLine
+	if e.EndLine == 0 {
+		e.EndLine = e.maxLine
 	}
 
 	for idx, char := range e.Content {
@@ -466,7 +460,7 @@ func (e *Buffer) generateBufferLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-			e.View.Lines = append(e.View.Lines, line)
+			e.Lines = append(e.Lines, line)
 			totalVisualLines++
 			actualLineIndex++
 			lineCharCounter = 0
@@ -480,7 +474,7 @@ func (e *Buffer) generateBufferLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-			e.View.Lines = append(e.View.Lines, line)
+			e.Lines = append(e.Lines, line)
 			totalVisualLines++
 			actualLineIndex++
 			lineCharCounter = 0
@@ -493,7 +487,7 @@ func (e *Buffer) generateBufferLines() {
 				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
-			e.View.Lines = append(e.View.Lines, line)
+			e.Lines = append(e.Lines, line)
 			totalVisualLines++
 			lineCharCounter = 0
 			start = idx + 1
@@ -512,19 +506,19 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 		end = e.BufferIndexToPosition(idx2)
 	}
 	for i := start.Line; i <= end.Line; i++ {
-		if len(e.View.Lines) <= i {
+		if len(e.Lines) <= i {
 			break
 		}
 		var thisLineEnd int
 		var thisLineStart int
-		line := e.View.Lines[i]
+		line := e.Lines[i]
 		if i == start.Line {
 			thisLineStart = start.Column
 		} else {
 			thisLineStart = 0
 		}
 
-		if i > int(e.View.EndLine) || i < int(e.View.StartLine) {
+		if i > int(e.EndLine) || i < int(e.StartLine) {
 			break
 		}
 
@@ -537,7 +531,7 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 		if e.cfg.LineNumbers {
 			posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 		}
-		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
+		posY := int32(i-int(e.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 		rl.DrawTextEx(e.parent.Font,
 			string(e.Content[thisLineStart+line.startIndex:thisLineEnd+line.startIndex]),
 			rl.Vector2{
@@ -586,15 +580,15 @@ func (e *Buffer) RemoveRange(start int, end int, addBufferAction bool) {
 }
 
 func (e *Buffer) getLineNumbersMaxLength() int {
-	return len(fmt.Sprint(len(e.View.Lines))) + 1
+	return len(fmt.Sprint(len(e.Lines))) + 1
 }
 
 func BufferGetCurrentLine(e *Buffer) []byte {
 	cur := e.Cursors[0]
 	pos := e.BufferIndexToPosition(cur.Point)
 
-	if pos.Line < len(e.View.Lines) {
-		line := e.View.Lines[pos.Line]
+	if pos.Line < len(e.Lines) {
+		line := e.Lines[pos.Line]
 		return e.Content[line.startIndex:line.endIndex]
 	}
 
@@ -613,12 +607,12 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 		end = e.BufferIndexToPosition(idx2)
 	}
 	for i := start.Line; i <= end.Line; i++ {
-		if len(e.View.Lines) <= i {
+		if len(e.Lines) <= i {
 			break
 		}
 		var thisLineEnd int
 		var thisLineStart int
-		line := e.View.Lines[i]
+		line := e.Lines[i]
 		if i == start.Line {
 			thisLineStart = start.Column
 		} else {
@@ -635,7 +629,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 			posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 		}
 
-		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
+		posY := int32(i-int(e.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 		if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 			continue
 		}
@@ -647,7 +641,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 			if e.cfg.LineNumbers {
 				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 			}
-			posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
+			posY := int32(i-int(e.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 				continue
 			}
@@ -658,7 +652,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 }
 
 func (e *Buffer) convertBufferIndexToLineAndColumn(idx int) *Position {
-	for lineIndex, line := range e.View.Lines {
+	for lineIndex, line := range e.Lines {
 		if line.startIndex <= idx && line.endIndex >= idx {
 			return &Position{
 				Line:   lineIndex,
@@ -686,7 +680,7 @@ func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	e.maxLine = int32(maxH / float64(charSize.Y))
 	e.maxLine-- //reserve one line of screen for statusbar
 	diff := e.maxLine - oldMaxLine
-	e.View.EndLine += diff
+	e.EndLine += diff
 }
 
 func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
@@ -714,8 +708,8 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 		} else {
 			if e.Cursors[0].Start() == e.Cursors[0].End() {
 				selStart := e.BufferIndexToPosition(e.Cursors[0].Start())
-				if len(e.View.Lines) > selStart.Line {
-					selLine := e.View.Lines[selStart.Line]
+				if len(e.Lines) > selStart.Line {
+					selLine := e.Lines[selStart.Line]
 					sections = append(sections, fmt.Sprintf("L#%d C#%d", selLine.ActualLine, selStart.Column))
 				} else {
 					sections = append(sections, fmt.Sprintf("L#%d C#%d", selStart.Line, selStart.Column))
@@ -758,23 +752,23 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if e.MoveToPositionInNextRender != nil {
 		bufferIndex := e.PositionToBufferIndex(*e.MoveToPositionInNextRender)
 		e.Cursors[0].SetBoth(bufferIndex)
-		e.View.StartLine = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
-		e.View.EndLine = int32(e.MoveToPositionInNextRender.Line) + e.maxLine/2
+		e.StartLine = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
+		e.EndLine = int32(e.MoveToPositionInNextRender.Line) + e.maxLine/2
 		e.MoveToPositionInNextRender = nil
 	}
 
 	var visibleLines []BufferLine
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
+	if e.StartLine < 0 {
+		e.StartLine = 0
 	}
-	if e.View.EndLine < 0 {
-		e.View.EndLine = e.View.StartLine + e.maxLine
+	if e.EndLine < 0 {
+		e.EndLine = e.StartLine + e.maxLine
 	}
 
-	if e.View.EndLine > int32(len(e.View.Lines)) {
-		visibleLines = e.View.Lines[e.View.StartLine:]
+	if e.EndLine > int32(len(e.Lines)) {
+		visibleLines = e.Lines[e.StartLine:]
 	} else {
-		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
+		visibleLines = e.Lines[e.StartLine:e.EndLine]
 	}
 	if e.needParsing {
 		var err error
@@ -813,17 +807,17 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 			if idx == e.ISearch.CurrentMatch {
 				matchStartLine := e.BufferIndexToPosition(match[0])
 				matchEndLine := e.BufferIndexToPosition(match[0])
-				if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+				if !(e.StartLine < int32(matchStartLine.Line) && e.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
 					// current match is not in view
 					// move the view
-					oldStart := e.View.StartLine
-					e.View.StartLine = int32(matchStartLine.Line) - e.maxLine/2
-					if e.View.StartLine < 0 {
-						e.View.StartLine = int32(matchStartLine.Line)
+					oldStart := e.StartLine
+					e.StartLine = int32(matchStartLine.Line) - e.maxLine/2
+					if e.StartLine < 0 {
+						e.StartLine = int32(matchStartLine.Line)
 					}
 
-					diff := e.View.StartLine - oldStart
-					e.View.EndLine += diff
+					diff := e.StartLine - oldStart
+					e.EndLine += diff
 				}
 			}
 			e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
@@ -846,7 +840,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 		if sel.Start() == sel.End() {
 			cursor := e.BufferIndexToPosition(sel.Start())
 			cursorView := Position{
-				Line:   cursor.Line - int(e.View.StartLine),
+				Line:   cursor.Line - int(e.StartLine),
 				Column: cursor.Column,
 			}
 			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
@@ -871,7 +865,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			}
 			if e.cfg.CursorLineHighlight {
-				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
+				rl.DrawRectangle(int32(zeroLocation.X), int32(cursor.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
 			}
 
 		} else {
@@ -881,7 +875,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 }
 
 func (e *Buffer) shouldBufferLineBeRendered(line BufferLine) bool {
-	if e.View.StartLine <= int32(line.Index) && line.Index <= int(e.View.EndLine) {
+	if e.StartLine <= int32(line.Index) && line.Index <= int(e.EndLine) {
 		return true
 	}
 
@@ -892,17 +886,17 @@ func (e *Buffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
-	if len(e.View.Lines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn-int32(len(fmt.Sprint(newPosition.Line)))-1 {
+	if len(e.Lines) == 0 && newPosition.Line == 0 && newPosition.Column >= 0 && int32(newPosition.Column) < e.maxColumn-int32(len(fmt.Sprint(newPosition.Line)))-1 {
 		return true
 	}
-	if newPosition.Line >= len(e.View.Lines) && (len(e.View.Lines) != 0) {
+	if newPosition.Line >= len(e.Lines) && (len(e.Lines) != 0) {
 		return false
 	}
 
 	if newPosition.Column < 0 {
 		return false
 	}
-	if newPosition.Column > e.View.Lines[newPosition.Line].Length+1 {
+	if newPosition.Column > e.Lines[newPosition.Line].Length+1 {
 		return false
 	}
 
@@ -1017,15 +1011,15 @@ func (e *Buffer) addAnotherCursorAt(pos rl.Vector2) error {
 		apprColumn -= float64(e.getLineNumbersMaxLength())
 	}
 
-	if len(e.View.Lines) < 1 {
+	if len(e.Lines) < 1 {
 		return nil
 	}
 
-	line := int(apprLine) + int(e.View.StartLine)
+	line := int(apprLine) + int(e.StartLine)
 	col := int(apprColumn)
 
-	if line >= len(e.View.Lines) {
-		line = len(e.View.Lines) - 1
+	if line >= len(e.Lines) {
+		line = len(e.Lines) - 1
 	}
 
 	if line < 0 {
@@ -1033,8 +1027,8 @@ func (e *Buffer) addAnotherCursorAt(pos rl.Vector2) error {
 	}
 
 	// check if cursor should be moved back
-	if col > e.View.Lines[line].Length {
-		col = e.View.Lines[line].Length
+	if col > e.Lines[line].Length {
+		col = e.Lines[line].Length
 	}
 	if col < 0 {
 		col = 0
@@ -1080,27 +1074,27 @@ func (e *Buffer) AnotherSelectionOnMatch() error {
 }
 func (e *Buffer) ScrollIfNeeded() error {
 	pos := e.BufferIndexToPosition(e.Cursors[0].End())
-	if int32(pos.Line) <= e.View.StartLine {
-		e.View.StartLine = int32(pos.Line) - e.maxLine/3
-		e.View.EndLine = e.View.StartLine + e.maxLine
+	if int32(pos.Line) <= e.StartLine {
+		e.StartLine = int32(pos.Line) - e.maxLine/3
+		e.EndLine = e.StartLine + e.maxLine
 
-	} else if int32(pos.Line) >= e.View.EndLine {
-		e.View.EndLine = int32(pos.Line) + e.maxLine/3
-		e.View.StartLine = e.View.EndLine - e.maxLine
+	} else if int32(pos.Line) >= e.EndLine {
+		e.EndLine = int32(pos.Line) + e.maxLine/3
+		e.StartLine = e.EndLine - e.maxLine
 	}
 
-	if int(e.View.EndLine) >= len(e.View.Lines) {
-		e.View.EndLine = int32(len(e.View.Lines) - 1)
-		e.View.StartLine = e.View.EndLine - e.maxLine
+	if int(e.EndLine) >= len(e.Lines) {
+		e.EndLine = int32(len(e.Lines) - 1)
+		e.StartLine = e.EndLine - e.maxLine
 	}
 
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = e.maxLine
+	if e.StartLine < 0 {
+		e.StartLine = 0
+		e.EndLine = e.maxLine
 	}
-	if e.View.EndLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = e.maxLine
+	if e.EndLine < 0 {
+		e.StartLine = 0
+		e.EndLine = e.maxLine
 	}
 
 	return nil
@@ -1259,7 +1253,7 @@ func InteractiveGotoLine(e *Buffer) error {
 			return nil
 		}
 
-		for _, line := range e.View.Lines {
+		for _, line := range e.Lines {
 			if line.ActualLine == number {
 				e.Cursors[0].SetBoth(line.startIndex)
 				e.ScrollIfNeeded()
@@ -1276,17 +1270,17 @@ func InteractiveGotoLine(e *Buffer) error {
 // @Scroll
 
 func ScrollUp(e *Buffer, n int) error {
-	if e.View.StartLine <= 0 {
+	if e.StartLine <= 0 {
 		return nil
 	}
-	e.View.EndLine += int32(-1 * n)
-	e.View.StartLine += int32(-1 * n)
+	e.EndLine += int32(-1 * n)
+	e.StartLine += int32(-1 * n)
 
-	diff := e.View.EndLine - e.View.StartLine
+	diff := e.EndLine - e.StartLine
 
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = diff
+	if e.StartLine < 0 {
+		e.StartLine = 0
+		e.EndLine = diff
 	}
 
 	return nil
@@ -1294,31 +1288,31 @@ func ScrollUp(e *Buffer, n int) error {
 }
 
 func ScrollToTop(e *Buffer) error {
-	e.View.StartLine = 0
-	e.View.EndLine = e.maxLine
+	e.StartLine = 0
+	e.EndLine = e.maxLine
 	e.Cursors[0].SetBoth(0)
 
 	return nil
 }
 
 func ScrollToBottom(e *Buffer) error {
-	e.View.StartLine = int32(len(e.View.Lines) - 1 - int(e.maxLine))
-	e.View.EndLine = int32(len(e.View.Lines) - 1)
-	e.Cursors[0].SetBoth(e.View.Lines[len(e.View.Lines)-1].startIndex)
+	e.StartLine = int32(len(e.Lines) - 1 - int(e.maxLine))
+	e.EndLine = int32(len(e.Lines) - 1)
+	e.Cursors[0].SetBoth(e.Lines[len(e.Lines)-1].startIndex)
 
 	return nil
 }
 
 func ScrollDown(e *Buffer, n int) error {
-	if int(e.View.EndLine) >= len(e.View.Lines) {
+	if int(e.EndLine) >= len(e.Lines) {
 		return nil
 	}
-	e.View.EndLine += int32(n)
-	e.View.StartLine += int32(n)
-	diff := e.View.EndLine - e.View.StartLine
-	if int(e.View.EndLine) >= len(e.View.Lines) {
-		e.View.EndLine = int32(len(e.View.Lines) - 1)
-		e.View.StartLine = e.View.EndLine - diff
+	e.EndLine += int32(n)
+	e.StartLine += int32(n)
+	diff := e.EndLine - e.StartLine
+	if int(e.EndLine) >= len(e.Lines) {
+		e.EndLine = int32(len(e.Lines) - 1)
+		e.StartLine = e.EndLine - diff
 	}
 
 	return nil
@@ -1355,7 +1349,7 @@ func PointUp(e *Buffer) error {
 			return nil
 		}
 
-		prevLine := e.View.Lines[prevLineIndex]
+		prevLine := e.Lines[prevLineIndex]
 		col := e.Cursors[i].Point - currentLine.startIndex
 		newidx := prevLine.startIndex + col
 		if newidx > prevLine.endIndex {
@@ -1373,11 +1367,11 @@ func PointDown(e *Buffer) error {
 	for i := range e.Cursors {
 		currentLine := e.getBufferLineForIndex(e.Cursors[i].Point)
 		nextLineIndex := currentLine.Index + 1
-		if nextLineIndex >= len(e.View.Lines) {
+		if nextLineIndex >= len(e.Lines) {
 			return nil
 		}
 
-		nextLine := e.View.Lines[nextLineIndex]
+		nextLine := e.Lines[nextLineIndex]
 		col := e.Cursors[i].Point - currentLine.startIndex
 		newIndex := nextLine.startIndex + col
 		if newIndex > nextLine.endIndex {
@@ -1395,11 +1389,11 @@ func PointDown(e *Buffer) error {
 func CentralizePoint(e *Buffer) error {
 	cur := e.Cursors[0]
 	pos := e.convertBufferIndexToLineAndColumn(cur.Start())
-	e.View.StartLine = int32(pos.Line) - (e.maxLine / 2)
-	e.View.EndLine = int32(pos.Line) + (e.maxLine / 2)
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = e.maxLine
+	e.StartLine = int32(pos.Line) - (e.maxLine / 2)
+	e.EndLine = int32(pos.Line) + (e.maxLine / 2)
+	if e.StartLine < 0 {
+		e.StartLine = 0
+		e.EndLine = e.maxLine
 	}
 	return nil
 }
@@ -1459,11 +1453,11 @@ func MarkUp(e *Buffer, n int) error {
 	for i := range e.Cursors {
 		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index - n
-		if nextLineIndex >= len(e.View.Lines) || nextLineIndex < 0 {
+		if nextLineIndex >= len(e.Lines) || nextLineIndex < 0 {
 			return nil
 		}
 
-		nextLine := e.View.Lines[nextLineIndex]
+		nextLine := e.Lines[nextLineIndex]
 		newcol := nextLine.startIndex
 		e.Cursors[i].Mark = newcol
 		e.ScrollIfNeeded()
@@ -1476,11 +1470,11 @@ func MarkDown(e *Buffer, n int) error {
 	for i := range e.Cursors {
 		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index + n
-		if nextLineIndex >= len(e.View.Lines) {
+		if nextLineIndex >= len(e.Lines) {
 			return nil
 		}
 
-		nextLine := e.View.Lines[nextLineIndex]
+		nextLine := e.Lines[nextLineIndex]
 		newcol := nextLine.startIndex
 		e.Cursors[i].Mark = newcol
 		e.ScrollIfNeeded()
