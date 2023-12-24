@@ -189,7 +189,12 @@ func (t *EditorBuffer) renderCursor() {
 	}
 	posX := int32(cursorView.Column)*int32(charSize.X) + int32(t.ZeroPosition.X)
 	if t.RenderLineNumbers {
-		posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
+		if len(t.visualLines) > t.Cursor.Line {
+			posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
+		} else {
+			posX += int32(charSize.X)
+
+		}
 	}
 	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
@@ -215,9 +220,15 @@ func (t *EditorBuffer) renderStatusBar() {
 	} else {
 		state = "--"
 	}
+	var line int
+	if len(t.visualLines) > t.Cursor.Line {
+		line = t.visualLines[t.Cursor.Line].ActualLine
+	} else {
+		line = 0
+	}
 
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %s %d:%d", state, file, t.visualLines[t.Cursor.Line].ActualLine, t.Cursor.Column),
+		fmt.Sprintf("%s %s %d:%d", state, file, line, t.Cursor.Column),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
@@ -504,7 +515,11 @@ func (t *EditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	apprLine := pos.Y / charSize.Y
 	apprColumn := pos.X / charSize.X
 	if t.RenderLineNumbers {
-		apprColumn -= float32((len(fmt.Sprint(t.visualLines[int(apprLine)].ActualLine)) + 1))
+		var line int
+		if len(t.visualLines) > t.Cursor.Line {
+			line = t.visualLines[t.Cursor.Line].ActualLine
+		}
+		apprColumn -= float32((len(fmt.Sprint(line)) + 1))
 
 	}
 
