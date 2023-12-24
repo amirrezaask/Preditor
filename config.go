@@ -123,7 +123,7 @@ var defaultConfig = Config{
 		{
 			Name: "Light",
 			Colors: Colors{
-				Background:            mustParseHexColor("#969696"),
+				Background:            mustParseHexColor("#ffffff"),
 				Foreground:            mustParseHexColor("#000000"),
 				Selection:             mustParseHexColor("#0000cd"),
 				Prompts:               mustParseHexColor("#333333"),
@@ -133,10 +133,10 @@ var defaultConfig = Config{
 				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
 				Cursor:                mustParseHexColor("#171717"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
-				SyntaxKeywords:        mustParseHexColor("#cd950c"),
-				SyntaxTypes:           mustParseHexColor("#8cde94"),
-				SyntaxComments:        mustParseHexColor("#118a1a"),
-				SyntaxStrings:         mustParseHexColor("#118a1a"),
+				SyntaxKeywords:        mustParseHexColor("#0000ff"),
+				SyntaxTypes:           mustParseHexColor("#0000ff"),
+				SyntaxComments:        mustParseHexColor("#008000"),
+				SyntaxStrings:         mustParseHexColor("#a31515"),
 			},
 		},
 		{

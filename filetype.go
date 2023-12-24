@@ -15,6 +15,7 @@ type FileType struct {
 	DefaultCompileCommand    string
 	CommentLineBeginingChars []byte
 	SyntaxHighlights         SyntaxHighlights
+	FindRootOfProject        func(currentFilePath string) (string, error)
 }
 
 type SyntaxHighlights map[*regexp.Regexp]color.RGBA
