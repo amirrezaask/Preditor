@@ -35,7 +35,7 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		File:	"test.txt",
+		File:	"main.go",
 		TabSize: 4,
 	}
 

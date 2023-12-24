@@ -156,10 +156,13 @@ func (t *TextEditorBuffer) Render() {
 	}
 	// fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
 	// loopStart = time.Now()
+	var visibleLines []visualLine
 	if t.VisibleEnd > int32(len(t.visualLines)) {
-		t.VisibleEnd = int32(len(t.visualLines))
+		visibleLines = t.visualLines[t.VisibleStart:]
+	} else {
+		visibleLines = t.visualLines[t.VisibleStart:t.VisibleEnd]
 	}
-	for idx, line := range t.visualLines[t.VisibleStart:t.VisibleEnd] {
+	for idx, line := range visibleLines {
 		if t.visualLineShouldBeRendered(line) {
 			t.renderVisualLine(line, idx)
 		}
@@ -353,6 +356,10 @@ func (t *TextEditorBuffer) CursorUp() error {
 	newPosition := t.Cursor
 	newPosition.Line--
 
+	if newPosition.Line < 0 {
+		newPosition.Line = 0
+	}
+
 	if newPosition.Column > t.visualLines[newPosition.Line].Length {
 		newPosition.Column = t.visualLines[newPosition.Line].Length
 	}
@@ -442,11 +449,13 @@ func (t *TextEditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) e
 	t.Cursor = pos
 
 	if t.Cursor.Line == int(t.VisibleStart -1) {
-		t.ScrollUp(1)
+		jump := int(t.maxLine / 2)
+		t.ScrollUp(jump)
 	}
 
 	if t.Cursor.Line == int(t.VisibleEnd) + 1 {
-		t.ScrollDown(1)
+		jump := int(t.maxLine / 2)
+		t.ScrollDown(jump)
 	}
 
 
