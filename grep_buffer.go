@@ -57,7 +57,7 @@ func NewGrepBuffer(parent *Preditor,
 		cfg:          cfg,
 		parent:       parent,
 		root:         absRoot,
-		keymaps:      []Keymap{grepBuffferKeymap},
+		keymaps:      []Keymap{GrepBufferKeymap},
 		maxHeight:    maxH,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
@@ -190,7 +190,7 @@ func makeGrepBufferCommand(f func(e *GrepBuffer) error) Command {
 }
 
 func init() {
-	grepBuffferKeymap = Keymap{
+	GrepBufferKeymap = Keymap{
 
 		Key{K: "f", Control: true}: makeGrepBufferCommand(func(e *GrepBuffer) error {
 			return e.UserInputBox.CursorRight(1)
@@ -202,7 +202,7 @@ func init() {
 			return e.UserInputBox.copy()
 		}),
 		Key{K: "s", Control: true}: makeGrepBufferCommand(func(a *GrepBuffer) error {
-			a.keymaps = append(a.keymaps, searchModeKeymap)
+			a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
 			return nil
 		}),
 		Key{K: "<esc>"}: makeGrepBufferCommand(func(p *GrepBuffer) error {
@@ -358,4 +358,4 @@ func init() {
 	}
 }
 
-var grepBuffferKeymap Keymap
+var GrepBufferKeymap Keymap

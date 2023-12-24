@@ -188,7 +188,7 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	t.MaxHeight = maxH
 	t.MaxWidth = maxW
 	t.ZeroPosition = zeroPosition
-	t.keymaps = append([]Keymap{}, editorKeymap)
+	t.keymaps = append([]Keymap{}, EditorKeymap)
 	t.SelectionStart = -1
 	t.UndoStack = NewStack[EditorAction](1000)
 	var err error
@@ -1181,6 +1181,14 @@ func (e *TextBuffer) openGrepBuffer() {
 	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
 
+func (e *TextBuffer) openCommandBuffer() {
+	dir := path.Dir(e.File)
+	ofb := NewCommandBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
+
+	e.parent.Buffers = append(e.parent.Buffers, ofb)
+	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
+}
+
 func (e *TextBuffer) DeleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
@@ -1209,7 +1217,7 @@ func makeCommand(f func(e *TextBuffer) error) Command {
 	}
 }
 
-var editorKeymap = Keymap{
+var EditorKeymap = Keymap{
 	Key{K: "r", Alt: true}: makeCommand(func(e *TextBuffer) error {
 		return e.readFileFromDisk()
 	}),
@@ -1234,7 +1242,7 @@ var editorKeymap = Keymap{
 		return e.KillLine()
 	}),
 	Key{K: "g", Control: true}: makeCommand(func(e *TextBuffer) error {
-		e.keymaps = append(e.keymaps, gotoLineKeymap)
+		e.keymaps = append(e.keymaps, GotoLineKeymap)
 		e.isGotoLine = true
 
 		return nil
@@ -1244,7 +1252,7 @@ var editorKeymap = Keymap{
 	}),
 
 	Key{K: "s", Control: true}: makeCommand(func(a *TextBuffer) error {
-		a.keymaps = append(a.keymaps, searchModeKeymap)
+		a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
 		return nil
 	}),
 	Key{K: "x", Alt: true}: makeCommand(func(a *TextBuffer) error {
@@ -1262,6 +1270,11 @@ var editorKeymap = Keymap{
 	}),
 	Key{K: "s", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		a.openGrepBuffer()
+
+		return nil
+	}),
+	Key{K: "c", Alt: true}: makeCommand(func(a *TextBuffer) error {
+		a.openCommandBuffer()
 
 		return nil
 	}),
@@ -1551,7 +1564,7 @@ func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
 	return nil
 }
 
-var searchModeKeymap = Keymap{
+var SearchTextBufferKeymap = Keymap{
 	Key{K: "<space>"}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ' ') }),
 	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
@@ -1731,7 +1744,7 @@ var searchModeKeymap = Keymap{
 	Key{K: "`", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '~') }),
 }
 
-var gotoLineKeymap = Keymap{
+var GotoLineKeymap = Keymap{
 	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
