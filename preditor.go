@@ -73,6 +73,7 @@ type Prompt struct {
 	IsActive   bool
 	Text       string
 	UserInput  string
+	Keymap     Keymap
 	ChangeHook func(userInput string, c *Context) error
 	DoneHook   func(userInput string, c *Context) error
 }
@@ -98,11 +99,16 @@ type Context struct {
 
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context) error,
-	doneHook func(userInput string, c *Context) error) {
+	doneHook func(userInput string, c *Context) error, keymap *Keymap) {
 	c.Prompt.IsActive = true
 	c.Prompt.Text = text
 	c.Prompt.ChangeHook = changeHook
 	c.Prompt.DoneHook = doneHook
+	if keymap != nil {
+		c.Prompt.Keymap = *keymap
+	} else {
+		c.Prompt.Keymap = DefaultPromptKeymap
+	}
 }
 
 func (c *Context) ActiveWindow() *Window {
@@ -257,6 +263,15 @@ func (k Key) IsEmpty() bool {
 
 type Keymap map[Key]Command
 
+func (k Keymap) Clone() Keymap {
+	cloned := Keymap{}
+	for i, v := range k {
+		cloned[i] = v
+	}
+
+	return cloned
+}
+
 func (k Keymap) SetKeyCommand(key Key, command Command) {
 	k[key] = command
 }
@@ -306,7 +321,7 @@ func (c *Context) HandleKeyEvents() {
 			keymaps = append(keymaps, c.ActiveBuffer().Keymaps()...)
 		}
 		if c.Prompt.IsActive {
-			keymaps = append(keymaps, PromptKeymap)
+			keymaps = append(keymaps, c.Prompt.Keymap)
 		}
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]

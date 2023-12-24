@@ -196,10 +196,10 @@ func MergeKeymaps(k1 Keymap, k2 Keymap) Keymap {
 	return k1
 }
 
-var PromptKeymap Keymap
+var DefaultPromptKeymap Keymap
 
 func init() {
-	PromptKeymap = MergeKeymaps(Keymap{
+	DefaultPromptKeymap = MergeKeymaps(Keymap{
 		Key{K: "<enter>"}: func(c *Context) error {
 			c.Prompt.IsActive = false
 			userInput := c.Prompt.UserInput
