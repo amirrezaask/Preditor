@@ -20,8 +20,6 @@ import (
 )
 
 const (
-
-	//this is a comment
 	State_Clean = 1
 	State_Dirty = 2
 )
