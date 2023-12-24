@@ -536,6 +536,9 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 
 func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	var visibleLines []visualLine
+	if e.View.EndLine < 0 {
+		return
+	}
 	if e.View.EndLine > int32(len(e.View.Lines)) {
 		visibleLines = e.View.Lines[e.View.StartLine:]
 	} else {
