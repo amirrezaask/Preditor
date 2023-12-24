@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -43,12 +41,11 @@ func getKey() Key {
 		Shift: modifierState.shift,
 		K: key,
 	}
-	if !k.IsEmpty() {
-		fmt.Println("=================================")
-		fmt.Printf("key: %+v\n", k)
-		fmt.Println("=================================")
-		
-	}
+	// if !k.IsEmpty() {
+	// 	fmt.Println("=================================")
+	// 	fmt.Printf("key: %+v\n", k)
+	// 	fmt.Println("=================================")
+	// }
 
 	return k
 }
@@ -252,9 +249,5 @@ func getKeyPressedString() string {
 	default:
 		return ""
 	}
-
-
-	return ""
-	
 }
 

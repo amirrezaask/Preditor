@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"time"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -58,12 +61,12 @@ func (t *TextEditorBuffer) Render() {
 	var start int
 	t.maxColumn = t.MaxWidth / int32(charSize.X)
 	t.maxLine = t.MaxHeight / int32(charSize.Y)
-	//loopStart := time.Now()
 	if t.VisibleEnd == 0 {
 		t.VisibleEnd = t.maxLine
 	}
 
-	//	fmt.Printf("window visible part: %d %d\n", window.VisiblePartStartLine, window.VisiblePartEndLine)
+	loopStart := time.Now()
+
 	for idx, char := range t.Content {
 		lineCharCounter++
 		if char == '\n' {
@@ -96,15 +99,15 @@ func (t *TextEditorBuffer) Render() {
 		
 		}
 	}
-	//	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
-	//	loopStart = time.Now()
+	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
+		loopStart = time.Now()
 	visibleView := t.visibleLines()
 	for idx, line := range visibleView {
 		if t.visualLineShouldBeRendered(line) {
 			t.renderVisualLine(line, idx)
 		}
 	}
-	//fmt.Printf("Render buffer in window: render Loop took: %s\n", time.Since(loopStart))
+	fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
 	rl.DrawRectangleLines(int32(t.Cursor.Column)*int32(charSize.X), int32(t.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
@@ -308,4 +311,13 @@ func (t *TextEditorBuffer) BeginingOfTheLine() error {
 	}
 	return nil
 	
+}
+
+
+func (t *TextEditorBuffer) PreviousLine() error {
+	return t.CursorUp()
+}
+
+func (t *TextEditorBuffer) NextLine() error {
+	return t.CursorDown()
 }
