@@ -2,14 +2,18 @@
 ## Programmable Editor
 Simple text editor implemented in Golang using Raylib with the goal of replacing Emacs for me, easier to extend and much faster and better language to work with than Elisp.
 
-## Show case
-![Opening Files](assets/file-opening.gif)
-![Opening Files](assets/searching.gif)
-![Opening Files](assets/moving-around.gif)
+# Screenshots
+![Main](assets/main.png)
+#### File Picker
+![Main](assets/file-picker.png)
+#### Searching text (ripgrep backend)
+![Main](assets/search-grep.png)
+#### Split windows
+![Main](assets/split-windows.png)
+#### Build window
+![Main](assets/build-window.png)
+![Main](assets/build-window-max.png)
 
-# Demo
-[![Demo](http://img.youtube.com/vi/ogmozlzDAPY/0.jpg)](http://www.youtube.com/watch?v=ogmozlzDAPY)
- 
 ## Features
 - reading/writing files
 - simple keybindings (no key chords yet)
@@ -32,19 +36,3 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Multi Window ( Splits )
 - Compile commands
 
-# Design and Terminology
-
-## Buffers
-Buffers are things that get rendered on screen and handle key events, they are usually made up by composing multiple components, each one have stack of keymaps
-which they use to handle user interactions.
-
-## Components
-Components are things that represent a section in UI and have their own state and logics but they don't handle user interactions and are controllable from buffers.
-
-## Keymaps
-Mapping from a Key event to a function that handles it, specific to each buffer.
-
-
-# Screenshot
-![Main.go](assets/screenshot.png)
-![Open File Menu](assets/files.png)
