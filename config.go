@@ -26,9 +26,9 @@ func mustParseHexColor(hex string) color.RGBA {
 
 var defaultConfig = Config{
 	Colors: Colors{
-		Background:            mustParseHexColor("#333333"),
-		Foreground:            mustParseHexColor("#F2F2F2"),
-		Selection:             mustParseHexColor("#48B9C7"),
+		Background:            mustParseHexColor("#272822"),
+		Foreground:            mustParseHexColor("#f8f8f2"),
+		Selection:             mustParseHexColor("#414339"),
 		StatusBarBackground:   mustParseHexColor("#ffffff"),
 		StatusBarForeground:   mustParseHexColor("#000000"),
 		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
@@ -97,6 +97,9 @@ func addToConfig(cfg *Config, key string, value string) error {
 		}
 	case "cursor_background":
 		cfg.Colors.Cursor, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
