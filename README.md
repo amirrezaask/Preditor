@@ -10,22 +10,23 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 # Demo
 [![Demo](http://img.youtube.com/vi/ogmozlzDAPY/0.jpg)](http://www.youtube.com/watch?v=ogmozlzDAPY)
  
-## Features So far
+## Features
 
 - reading/writing files
 - simple keybindings (no key chords yet)
-- left mouse click
-- mouse scroll
-- basic emacs bindings for movements
+- Scrolling with both mouse and keyboard
 - Line numbers
-- Basic status bar to show file name, file state
+- Statusbar
 - Selecting text
-- Incremental Buffer Search
+- Cut/Copy/Paste
+- Incremental Search
 - Support BeforeSaveHook to use formatting tools like Go fmt
 - Auto format go code using pkg/format
-- Copy/paste
 - Basic Regex syntax highlighting for keywords and types.
-- Undo (still work in progress)
+- Undo (still work in progress!)
+- Open file with glob completion
+- switch between open files
+
 
 ## TODO:
 - Zoom in/out (increase/decrease) font size
