@@ -250,6 +250,7 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 		if exists {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
 			t.AfterSaveHook = append(t.AfterSaveHook, fileType.AfterSave)
+			t.LastCompileCommand = fileType.DefaultCompileCommand
 			t.SyntaxHighlights = fileType.SyntaxHighlights
 			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
 			t.TabSize = fileType.TabSize
@@ -1802,7 +1803,6 @@ func init() {
 		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
 			return a.CompileAskForCommand()
 		}),
-
 		Key{K: "s", Control: true}: MakeCommand(func(a *Buffer) error {
 			a.ISearch.IsSearching = true
 			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
