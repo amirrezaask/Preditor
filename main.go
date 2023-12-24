@@ -49,7 +49,7 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 
 	// initialize first editor
-	textEditorBuffer, err := NewEditorBuffer(EditorBufferOptions{
+	textEditorBuffer, err := NewEditor(EditorOptions{
 		Filename:       filename,
 		LineNumbers:    true,
 		TabSize:        4,

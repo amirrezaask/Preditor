@@ -16,7 +16,7 @@ const (
 	State_Dirty = 2
 )
 
-type EditorBuffer struct {
+type Editor struct {
 	File              string
 	Content           []byte
 	Keymap            Keymap
@@ -40,19 +40,19 @@ type EditorBuffer struct {
 	SelectionStart    *Position
 }
 
-func (t *EditorBuffer) replaceTabsWithSpaces() {
+func (t *Editor) replaceTabsWithSpaces() {
 	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
 }
 
-func (t *EditorBuffer) SetMaxWidth(w int32) {
+func (t *Editor) SetMaxWidth(w int32) {
 	t.MaxWidth = w
 	t.updateMaxLineAndColumn()
 }
-func (t *EditorBuffer) SetMaxHeight(h int32) {
+func (t *Editor) SetMaxHeight(h int32) {
 	t.MaxHeight = h
 	t.updateMaxLineAndColumn()
 }
-func (t *EditorBuffer) updateMaxLineAndColumn() {
+func (t *Editor) updateMaxLineAndColumn() {
 	oldMaxLine := t.maxLine
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	t.maxColumn = t.MaxWidth / int32(charSize.X)
@@ -64,11 +64,11 @@ func (t *EditorBuffer) updateMaxLineAndColumn() {
 	diff := t.maxLine - oldMaxLine
 	t.VisibleEnd += diff
 }
-func (t *EditorBuffer) Type() string {
+func (t *Editor) Type() string {
 	return "text_editor_buffer"
 }
 
-type EditorBufferOptions struct {
+type EditorOptions struct {
 	MaxHeight      int32
 	MaxWidth       int32
 	ZeroPosition   rl.Vector2
@@ -79,8 +79,8 @@ type EditorBufferOptions struct {
 	CursorBlinking bool
 }
 
-func NewEditorBuffer(opts EditorBufferOptions) (*EditorBuffer, error) {
-	t := EditorBuffer{}
+func NewEditor(opts EditorOptions) (*Editor, error) {
+	t := Editor{}
 	t.File = opts.Filename
 	t.RenderLineNumbers = opts.LineNumbers
 	t.TabSize = opts.TabSize
@@ -102,7 +102,7 @@ func NewEditorBuffer(opts EditorBufferOptions) (*EditorBuffer, error) {
 
 }
 
-func (t *EditorBuffer) Destroy() error {
+func (t *Editor) Destroy() error {
 	return nil
 }
 
@@ -114,7 +114,7 @@ type visualLine struct {
 	Length     int
 }
 
-func (t *EditorBuffer) calculateVisualLines() {
+func (t *Editor) calculateVisualLines() {
 	t.visualLines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -177,7 +177,7 @@ func (t *EditorBuffer) calculateVisualLines() {
 
 }
 
-func (t *EditorBuffer) renderCursor() {
+func (t *Editor) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	// render cursor
@@ -201,7 +201,7 @@ func (t *EditorBuffer) renderCursor() {
 	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
-func (t *EditorBuffer) renderStatusBar() {
+func (t *Editor) renderStatusBar() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	//render status bar
@@ -237,7 +237,7 @@ func (t *EditorBuffer) renderStatusBar() {
 		t.Colors.StatusBarForeground)
 }
 
-func (t *EditorBuffer) renderSelection() {
+func (t *Editor) renderSelection() {
 	if t.SelectionStart == nil {
 		return
 	}
@@ -306,7 +306,7 @@ func (t *EditorBuffer) renderSelection() {
 
 }
 
-func (t *EditorBuffer) Render() {
+func (t *Editor) Render() {
 
 	t.calculateVisualLines()
 
@@ -329,7 +329,7 @@ func (t *EditorBuffer) Render() {
 	t.renderSelection()
 }
 
-func (t *EditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
+func (t *Editor) visualLineShouldBeRendered(line visualLine) bool {
 	if t.VisibleStart <= int32(line.Index) && line.Index <= int(t.VisibleEnd) {
 		return true
 	}
@@ -337,7 +337,7 @@ func (t *EditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
 	return false
 }
 
-func (t *EditorBuffer) renderVisualLine(line visualLine, index int) {
+func (t *Editor) renderVisualLine(line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	var lineNumberWidth int
 	if t.RenderLineNumbers {
@@ -360,14 +360,14 @@ func (t *EditorBuffer) renderVisualLine(line visualLine, index int) {
 
 }
 
-func (t *EditorBuffer) cursorToBufferIndex() int {
-	if t.Cursor.Line >= len(t.visualLines) {
+func (t *Editor) positionToBufferIndex(pos Position) int {
+	if pos.Line >= len(t.visualLines) {
 		return 0
 	}
-	return t.visualLines[t.Cursor.Line].startIndex + t.Cursor.Column
+	return t.visualLines[pos.Line].startIndex + pos.Column
 }
 
-func (t *EditorBuffer) isValidCursorPosition(newPosition Position) bool {
+func (t *Editor) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
@@ -384,8 +384,47 @@ func (t *EditorBuffer) isValidCursorPosition(newPosition Position) bool {
 	return true
 }
 
-func (t *EditorBuffer) InsertCharAtCursor(char byte) error {
-	idx := t.cursorToBufferIndex()
+func (t *Editor) InsertCharAtCursor(char byte) error {
+	var idx int
+	if t.HasSelection {
+		var startLine int
+		var startColumn int
+		var endLine int
+		var endColumn int
+		switch {
+		case t.SelectionStart.Line < t.Cursor.Line:
+			startLine = t.SelectionStart.Line
+			startColumn = t.SelectionStart.Column
+			endLine = t.Cursor.Line
+			endColumn = t.Cursor.Column
+		case t.Cursor.Line < t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			startColumn = t.Cursor.Column
+			endLine = t.SelectionStart.Line
+			endColumn = t.SelectionStart.Column
+		case t.Cursor.Line == t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			endLine = t.Cursor.Line
+			if t.SelectionStart.Column > t.Cursor.Column {
+				startColumn = t.Cursor.Column
+				endColumn = t.SelectionStart.Column
+			} else {
+				startColumn = t.SelectionStart.Column
+				endColumn = t.Cursor.Column
+			}
+			t.HasSelection = false
+			t.SelectionStart = nil
+		}
+		idx = t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
+		startIndex := t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
+		endIndex := t.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
+
+		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
+		t.Cursor = Position{Line: startLine, Column: startColumn}
+		t.calculateVisualLines()
+	} else {
+		idx = t.positionToBufferIndex(t.Cursor)
+	}
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, char)
 	} else {
@@ -402,11 +441,10 @@ func (t *EditorBuffer) InsertCharAtCursor(char byte) error {
 		t.CursorRight(1)
 	}
 	return nil
-
 }
 
-func (t *EditorBuffer) DeleteCharBackward() error {
-	idx := t.cursorToBufferIndex()
+func (t *Editor) DeleteCharBackward() error {
+	idx := t.positionToBufferIndex(t.Cursor)
 	if idx <= 0 {
 		return nil
 	}
@@ -423,8 +461,8 @@ func (t *EditorBuffer) DeleteCharBackward() error {
 
 }
 
-func (t *EditorBuffer) DeleteCharForward() error {
-	idx := t.cursorToBufferIndex()
+func (t *Editor) DeleteCharForward() error {
+	idx := t.positionToBufferIndex(t.Cursor)
 	if idx < 0 || t.Cursor.Column < 0 {
 		return nil
 	}
@@ -435,7 +473,7 @@ func (t *EditorBuffer) DeleteCharForward() error {
 	return nil
 }
 
-func (t *EditorBuffer) ScrollUp(n int) error {
+func (t *Editor) ScrollUp(n int) error {
 	if t.VisibleStart <= 0 {
 		return nil
 	}
@@ -453,7 +491,7 @@ func (t *EditorBuffer) ScrollUp(n int) error {
 
 }
 
-func (t *EditorBuffer) ScrollDown(n int) error {
+func (t *Editor) ScrollDown(n int) error {
 	if int(t.VisibleEnd) >= len(t.visualLines) {
 		return nil
 	}
@@ -469,7 +507,7 @@ func (t *EditorBuffer) ScrollDown(n int) error {
 
 }
 
-func (t *EditorBuffer) CursorLeft() error {
+func (t *Editor) CursorLeft() error {
 	newPosition := t.Cursor
 	newPosition.Column--
 	if t.Cursor.Column <= 0 {
@@ -492,7 +530,7 @@ func (t *EditorBuffer) CursorLeft() error {
 
 }
 
-func (t *EditorBuffer) CursorRight(n int) error {
+func (t *Editor) CursorRight(n int) error {
 	newPosition := t.Cursor
 	newPosition.Column += n
 	if t.Cursor.Line == len(t.visualLines) {
@@ -512,7 +550,7 @@ func (t *EditorBuffer) CursorRight(n int) error {
 
 }
 
-func (t *EditorBuffer) CursorUp() error {
+func (t *Editor) CursorUp() error {
 	newPosition := t.Cursor
 	newPosition.Line--
 
@@ -532,7 +570,7 @@ func (t *EditorBuffer) CursorUp() error {
 
 }
 
-func (t *EditorBuffer) CursorDown() error {
+func (t *Editor) CursorDown() error {
 	newPosition := t.Cursor
 	newPosition.Line++
 
@@ -553,7 +591,7 @@ func (t *EditorBuffer) CursorDown() error {
 
 }
 
-func (t *EditorBuffer) BeginingOfTheLine() error {
+func (t *Editor) BeginingOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = 0
 	if t.isValidCursorPosition(newPosition) {
@@ -563,7 +601,7 @@ func (t *EditorBuffer) BeginingOfTheLine() error {
 
 }
 
-func (t *EditorBuffer) EndOfTheLine() error {
+func (t *Editor) EndOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = t.visualLines[t.Cursor.Line].Length
 	if t.isValidCursorPosition(newPosition) {
@@ -573,15 +611,15 @@ func (t *EditorBuffer) EndOfTheLine() error {
 
 }
 
-func (t *EditorBuffer) PreviousLine() error {
+func (t *Editor) PreviousLine() error {
 	return t.CursorUp()
 }
 
-func (t *EditorBuffer) NextLine() error {
+func (t *Editor) NextLine() error {
 	return t.CursorDown()
 }
 
-func (t *EditorBuffer) MoveCursorTo(pos rl.Vector2) error {
+func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	apprLine := pos.Y / charSize.Y
@@ -616,7 +654,7 @@ func (t *EditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 
-func (t *EditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
+func (t *Editor) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
 	t.Cursor = pos
 
 	if t.Cursor.Line == int(t.VisibleStart-1) {
@@ -632,7 +670,7 @@ func (t *EditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error
 	return nil
 }
 
-func (t *EditorBuffer) Write() error {
+func (t *Editor) Write() error {
 	if t.File == "" {
 		return nil
 	}
@@ -645,10 +683,10 @@ func (t *EditorBuffer) Write() error {
 	return nil
 }
 
-func (t *EditorBuffer) GetMaxHeight() int32 { return t.MaxHeight }
-func (t *EditorBuffer) GetMaxWidth() int32  { return t.MaxWidth }
-func (t *EditorBuffer) Indent() error {
-	idx := t.cursorToBufferIndex()
+func (t *Editor) GetMaxHeight() int32 { return t.MaxHeight }
+func (t *Editor) GetMaxWidth() int32  { return t.MaxWidth }
+func (t *Editor) Indent() error {
+	idx := t.positionToBufferIndex(t.Cursor)
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, []byte(strings.Repeat(" ", t.TabSize))...)
 	} else {
