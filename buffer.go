@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	sitter "github.com/smacker/go-tree-sitter"
 	"image/color"
 	"math"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	sitter "github.com/smacker/go-tree-sitter"
 
 	"github.com/amirrezaask/preditor/lexers"
 
@@ -412,12 +413,12 @@ func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float
 			case CURSOR_SHAPE_OUTLINE:
 				rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			case CURSOR_SHAPE_BLOCK:
-				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().Cursor.ToColorRGBA(), 0.5))
+				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			case CURSOR_SHAPE_LINE:
 				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			}
 			if e.cfg.CursorLineHighlight {
-				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.2))
+				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
 			}
 
 		} else {
@@ -483,6 +484,57 @@ func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW flo
 		0,
 		e.cfg.CurrentThemeColors().StatusBarForeground.ToColorRGBA())
 
+}
+
+func (e *Buffer) renderTextSliceWithColor(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	var start Position
+	var end Position
+	if idx1 > idx2 {
+		start = e.getIndexPosition(idx2)
+		end = e.getIndexPosition(idx1)
+	} else if idx2 > idx1 {
+		start = e.getIndexPosition(idx1)
+		end = e.getIndexPosition(idx2)
+	}
+	for i := start.Line; i <= end.Line; i++ {
+		if len(e.View.Lines) <= i {
+			break
+		}
+		var thisLineEnd int
+		var thisLineStart int
+		line := e.View.Lines[i]
+		if i == start.Line {
+			thisLineStart = start.Column
+		} else {
+			thisLineStart = 0
+		}
+
+		if i > int(e.View.EndLine) || i < int(e.View.StartLine) {
+			break
+		}
+
+		if i < end.Line {
+			thisLineEnd = line.Length - 1
+		} else {
+			thisLineEnd = end.Column
+		}
+		posX := int32(thisLineStart)*int32(charSize.X) + int32(zeroLocation.X)
+		if e.cfg.LineNumbers {
+			if len(e.View.Lines) > i {
+				posX += int32((len(fmt.Sprint(e.View.Lines[i].ActualLine)) + 1) * int(charSize.X))
+			} else {
+				posX += int32(charSize.X)
+
+			}
+		}
+		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
+		rl.DrawTextEx(e.parent.Font,
+			string(e.Content[thisLineStart+line.startIndex:thisLineEnd+line.startIndex]),
+			rl.Vector2{
+				X: float32(posX), Y: float32(posY),
+			}, float32(e.parent.FontSize), 0, color)
+	}
 }
 
 func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
@@ -573,19 +625,12 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				0,
 				e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 
-			if e.cfg.EnableSyntaxHighlighting {
-				for _, h := range e.highlights {
-					if h.start >= line.startIndex && h.end <= line.endIndex {
-						rl.DrawTextEx(e.parent.Font,
-							string(e.Content[h.start:h.end]),
-							rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
-							float32(e.parent.FontSize),
-							0,
-							h.Color)
+		}
+	}
 
-					}
-				}
-			}
+	if e.cfg.EnableSyntaxHighlighting {
+		for _, h := range e.highlights {
+			e.renderTextSliceWithColor(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
 		}
 	}
 }
