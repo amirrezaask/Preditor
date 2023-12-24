@@ -80,12 +80,16 @@ func (e *TextBuffer) Keymaps() []Keymap {
 
 func (e *TextBuffer) AddUndoAction(a EditorAction) {
 	a.BufferIndex = e.bufferIndex
+	a.Data = bytes.Clone(a.Data)
 	e.UndoStack.Push(a)
 }
 
 func (e *TextBuffer) PopAndReverseLastAction() {
 	last, err := e.UndoStack.Pop()
 	if err != nil {
+		if err == EmptyStack {
+			e.SetStateClean()
+		}
 		return
 	}
 
@@ -1085,7 +1089,7 @@ func (e *TextBuffer) KillLine() error {
 			Idx:  e.bufferIndex,
 			Data: e.Content[e.bufferIndex:line.endIndex],
 		})
-		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex+1:]...)
+		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex:]...)
 	}
 	e.SetStateDirty()
 
