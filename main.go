@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"os"
-	"path"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
+	"os"
+	"path"
 )
 
 func main() {
