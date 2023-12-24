@@ -8,6 +8,9 @@ const nonLetter = "~!@#$%^&*()_+{}[];:'\"\\\n\r <>,.?/"
 
 func SeekNextNonLetter(bs []byte, idx int) int {
 	for i := idx; i < len(bs); i++ {
+		if i == len(bs) {
+			continue
+		}
 		if !unicode.IsLetter(rune(bs[i])) {
 			return i
 		}
@@ -18,6 +21,9 @@ func SeekNextNonLetter(bs []byte, idx int) int {
 
 func SeekPreviousNonLetter(bs []byte, idx int) int {
 	for i := idx; i >= 0; i-- {
+		if i == len(bs) {
+			continue
+		}
 		if !unicode.IsLetter(rune(bs[i])) {
 			return i
 		}
