@@ -139,7 +139,6 @@ func (c *Context) OpenFileAsBuffer(filename string) *Buffer {
 
 	buf := Buffer{
 		File:    filename,
-		Content: content,
 		State:   State_Clean,
 	}
 
@@ -154,7 +153,7 @@ func (c *Context) OpenFileAsBuffer(filename string) *Buffer {
 		buf.fileType = fileType
 		buf.needParsing = true
 	}
-
+	buf.Content = content
 	c.Buffers[filename] = &buf
 
 	return &buf
@@ -1050,6 +1049,10 @@ func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, sta
 	window.DrawableID = bufferView.ID
 	bufferView.MoveToPositionInNextRender = startingPos
 	return nil
+}
+
+func SwitchOrOpenFileInCurrentWindow(parent *Context, cfg *Config, filename string, startingPos *Position) error {
+	return SwitchOrOpenFileInWindow(parent, cfg, filename, startingPos, parent.ActiveWindow())
 }
 
 func (c *Context) openCompilationBuffer(command string) error {
