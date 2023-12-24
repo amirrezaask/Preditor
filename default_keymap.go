@@ -8,6 +8,13 @@ import (
 
 var defaultKeymap = Keymap{
 
+	Key{K: "s", Control: true}: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).Write()
+		}
+
+		return nil
+	},
 	// navigation
 	Key{K: "<lmouse>"}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
