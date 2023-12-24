@@ -1076,6 +1076,17 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	return nil
 }
 
+func Compile(c *Context) {
+	c.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+		if err := c.openCompilationBuffer(userInput); err != nil {
+			return err
+		}
+
+		return nil
+	}, nil, "")
+
+}
+
 func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	var window *Window
 	for _, col := range c.Windows {

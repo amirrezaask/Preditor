@@ -7,6 +7,11 @@ v0.5
 - Build window has 3 states now
 - Improve Line numbers rendering, now line numbers are rendered in a fixed sized space and lines don't move when line number width increases
 - Remove Lexers to decrease complexity, since for syntax highlighting we now have treesitter
+- ActiveStatusbar* Colors to better differentiate between active and non active windows
+- Better <tab> complete for file pickers
+- Improve and fix some bugs regarding undo
+- Fix copy command not including last character
+- Changes to default theme, credits @4coder and @Alan Webster
 
 
 v0.4

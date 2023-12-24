@@ -740,6 +740,11 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 			int32(charSize.Y),
 			bg,
 		)
+		rl.DrawRectangleLines(int32(zeroLocation.X),
+			int32(zeroLocation.Y),
+			int32(maxW),
+			int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+
 		rl.DrawTextEx(e.parent.Font,
 			strings.Join(sections, " "),
 			rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
