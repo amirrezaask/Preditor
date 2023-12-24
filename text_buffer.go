@@ -1494,6 +1494,27 @@ var EditorKeymap = Keymap{
 
 		return nil
 	}),
+
+	Key{K: "n", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionsDown(e, 1)
+
+		return nil
+	}),
+	Key{K: "p", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionsUp(e, 1)
+
+		return nil
+	}),
+	Key{K: "f", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionsToRight(e, 1)
+
+		return nil
+	}),
+	Key{K: "b", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		SelectionsToLeft(e, 1)
+
+		return nil
+	}),
 	Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return AnotherSelectionHere(e, rl.GetMousePosition())
 	}),
