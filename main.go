@@ -18,7 +18,6 @@ var (
 
 type BufferID int64
 type Buffer struct {
-	Cursor    Position
 	Content   []byte
 	FilePath  string
 	Keymaps   []Keymap
@@ -89,7 +88,7 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 	// every new line adds a visual line
 	// every time we reach windowMaxColumn we add visualLine
 	window.VisualLines = []visualLine{}
-	charSize := measureTextSize(font, 'a', fontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 	totalVisualLines := 0
 	lineCharCounter := 0
 	var actualLineIndex int
@@ -99,7 +98,6 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 	for idx, char := range buffer.Content {
 		lineCharCounter++
 		if char == '\n' {
-			fmt.Printf("At %d, saw a new line char\n", idx)
 			window.VisualLines = append(window.VisualLines, visualLine{
 				visualLineIndex: totalVisualLines,
 				startIndex: start,
@@ -113,8 +111,6 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 		}
 
 		if lineCharCounter > windowMaxColumn {
-			fmt.Printf("At %d, need to break line\n", idx)
-
 			window.VisualLines = append(window.VisualLines, visualLine{
 				visualLineIndex: totalVisualLines,
 				startIndex: start,
@@ -130,10 +126,8 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 
 	}
 
+	// render visual lines
 	for _, line := range window.VisualLines {
-		fmt.Printf("%+v\n", line)
-		fmt.Printf("Y %f\n", float32(line.visualLineIndex)*charSize.Y)
-		fmt.Println(string(buffer.Content[line.startIndex:line.endIndex]))
 		if line.visualLineIndex > windowMaxLine {
 			break
 		}
@@ -145,7 +139,10 @@ func (e *Editor) RenderBufferInWindow(buffer *Buffer, window *Window) {
 			rl.White)
 	}
 
-	
+	// render cursor
+	fmt.Printf("Cursor: %+v\n", window.Cursor)
+
+	rl.DrawRectangleLines(int32(window.Cursor.Column)*int32(charSize.X), int32(window.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
 
@@ -169,12 +166,11 @@ func main() {
 		LineWrapping: true,
 	}
 
-	fontSize = 20
+	fontSize = 90
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	editor.Buffers = append(editor.Buffers, Buffer{
-		Cursor:   Position{0, 0},
-		Content:  []byte(`orem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
+		Content:  []byte(`lorem ipsum dolor sit amet . The graphic and typographic operators know this well, in reality all the professions dealing with the universe of communication have a stable relationship with these words, but what is it? Lorem ipsum is a dummy text without any sense.
 
 It is a sequence of Latin words that, as they are positioned, do not form sentences with a complete sense, but give life to a test text useful to fill spaces that will subsequently be occupied from ad hoc texts composed by communication professionals.
 
@@ -182,7 +178,7 @@ It is certainly the most famous placeholder text even if there are different ver
 
 Lorem ipsum contains the typefaces more in use, an aspect that allows you to have an overview of the rendering of the text in terms of font choice and font size .
 
-When referring to Lorem ipsum, different expressions are used, namely fill text , fictitious text , blind text or placeholder text : in short, its meaning can also be zero, but its usefulness is so clear as to go through the centuries and resist the ironic and modern versions that came with the arrival of the web.l`),
+When referring to Lorem ipsum, different expressions are used, namely fill text , fictitious text , blind text or placeholder text : in short, its meaning can also be zero, but its usefulness is so clear as to go through the centuries and resist the ironic and modern versions that came with the arrival of the web.`),
 		FilePath: "test.txt",
 	})
 	editor.Windows = append(editor.Windows, Window{
@@ -192,6 +188,7 @@ When referring to Lorem ipsum, different expressions are used, namely fill text 
 		},
 		Height: rl.GetRenderHeight(),
 		Width:  rl.GetRenderWidth(),
+		Cursor: Position{},
 	})
 
 	font = rl.LoadFontEx("FiraCode.ttf", int32(fontSize), nil)
