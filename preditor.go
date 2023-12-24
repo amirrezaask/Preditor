@@ -230,6 +230,7 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 }
 
 func (c *Context) HandleKeyEvents() {
+	defer handlePanicAndWriteMessage(c)
 	key := getKey()
 	if !key.IsEmpty() {
 		keymaps := []Keymap{c.GlobalKeymap}
@@ -287,6 +288,7 @@ func (c *Context) HandleWindowResize() {
 }
 
 func (c *Context) HandleMouseEvents() {
+	defer handlePanicAndWriteMessage(c)
 	key := getMouseKey()
 	if !key.IsEmpty() {
 		keymaps := []Keymap{c.GlobalKeymap}
@@ -724,7 +726,6 @@ func (c *Context) StartMainLoop() {
 
 func MakeCommand[T Buffer](f func(t T) error) Command {
 	return func(c *Context) error {
-		defer handlePanicAndWriteMessage(c)
 		return f(c.ActiveBuffer().(T))
 	}
 }
