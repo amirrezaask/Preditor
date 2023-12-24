@@ -79,7 +79,16 @@ func main() {
 				buffer.Cursor.Line = buffer.Cursor.Line - 1
 			}
 		}
-
+		if rl.IsKeyPressed(rl.KeyLeft) {
+			if buffer.Cursor.Column-1 >= 0 {
+				buffer.Cursor.Column = buffer.Cursor.Column - 1
+			}
+		}
+		if rl.IsKeyPressed(rl.KeyRight) {
+			if buffer.Cursor.Column+1 < len(buffer.Content[buffer.Cursor.Line]) {
+				buffer.Cursor.Column = buffer.Cursor.Column + 1
+			}
+		}
 		fmt.Println("buffer cursor", buffer.Cursor)
 
 		rl.BeginDrawing()
