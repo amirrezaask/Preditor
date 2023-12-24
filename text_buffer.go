@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/amirrezaask/preditor/byteutils"
@@ -86,17 +85,6 @@ type ISearch struct {
 	MovedAwayFromCurrentMatch bool
 }
 
-type Gotoline struct {
-	IsGotoLine        bool
-	GotoLineUserInput []byte
-}
-
-type Compilation struct {
-	IsActive                  bool
-	CompilationCommand        []byte
-	CompilationOutputBufferID int
-}
-
 type TextBuffer struct {
 	BaseBuffer
 	cfg            *Config
@@ -126,13 +114,8 @@ type TextBuffer struct {
 
 	UndoStack Stack[EditorAction]
 
-	//Gotoline
-	GotoLine Gotoline
-
-	//Compilation
-	Compilation Compilation
-
-	LastCursorBlink time.Time
+	//Active Prompt
+	Prompt Prompt
 }
 
 const (
@@ -677,28 +660,18 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 	}, float32(e.parent.FontSize), 0, rl.White)
 }
 
-func (e *TextBuffer) renderGotoPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if !e.GotoLine.IsGotoLine {
+func (e *TextBuffer) renderPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	if !e.Prompt.IsActive {
 		return
 	}
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Goto: %s", string(e.GotoLine.GotoLineUserInput)), rl.Vector2{
-		X: zeroLocation.X,
-		Y: zeroLocation.Y,
-	}, float32(e.parent.FontSize), 0, rl.White)
-}
 
-func (e *TextBuffer) renderCompilationPrompt(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if !e.Compilation.IsActive {
-		return
-	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Compile: %s", string(e.Compilation.CompilationCommand)), rl.Vector2{
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("%s: %s", e.Prompt.Text, e.Prompt.UserInput), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
 	}, float32(e.parent.FontSize), 0, rl.White)
+
 }
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
@@ -709,9 +682,8 @@ func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
-	e.renderGotoPrompt(zeroLocation, maxH, maxW)
-	e.renderCompilationPrompt(zeroLocation, maxH, maxW)
 	e.renderCursors(zeroLocation, maxH, maxW)
+	e.renderPrompt(zeroLocation, maxH, maxW)
 }
 
 func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -1526,251 +1498,8 @@ func (e *TextBuffer) Paste() error {
 	return nil
 }
 
-var EditorKeymap = Keymap{
-
-	Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.AnotherSelectionOnMatch()
-	}),
-	Key{K: ",", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.ScrollToTop()
-
-		return nil
-	}),
-	Key{K: "l", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.CenteralizeCursor()
-
-		return nil
-	}),
-
-	Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.ScrollToBottom()
-
-		return nil
-	}),
-	Key{K: "<right>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsToRight(e, 1)
-
-		return nil
-	}),
-	Key{K: "<right>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionNextWord(e)
-
-		return nil
-	}),
-	Key{K: "<left>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionPreviousWord(e)
-
-		return nil
-	}),
-	Key{K: "<left>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsToLeft(e, 1)
-
-		return nil
-	}),
-	Key{K: "<up>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsUp(e, 1)
-
-		return nil
-	}),
-	Key{K: "<down>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsDown(e, 1)
-
-		return nil
-	}),
-	Key{K: "a", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.SelectionBeginningOfLine()
-
-		return nil
-	}),
-	Key{K: "e", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.SelectionEndOfLine()
-
-		return nil
-	}),
-	Key{K: "n", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsDown(e, 1)
-
-		return nil
-	}),
-	Key{K: "p", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsUp(e, 1)
-
-		return nil
-	}),
-	Key{K: "f", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsToRight(e, 1)
-
-		return nil
-	}),
-	Key{K: "b", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
-		SelectionsToLeft(e, 1)
-
-		return nil
-	}),
-	Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return AnotherSelectionHere(e, rl.GetMousePosition())
-	}),
-	Key{K: "<lmouse>-hold", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return AnotherSelectionHere(e, rl.GetMousePosition())
-	}),
-	Key{K: "<up>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return PlaceAnotherCursorPreviousLine(e)
-	}),
-
-	Key{K: "<down>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return PlaceAnotherCursorNextLine(e)
-	}),
-	Key{K: "r", Alt: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.readFileFromDisk()
-	}),
-	Key{K: "/", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.PopAndReverseLastAction()
-		return nil
-	}),
-	Key{K: "z", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.PopAndReverseLastAction()
-		return nil
-	}),
-	Key{K: "f", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveAllRight(1)
-	}),
-	Key{K: "x", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.Cut()
-	}),
-	Key{K: "v", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.Paste()
-	}),
-	Key{K: "k", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.KillLine()
-	}),
-	Key{K: "g", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.keymaps = append(e.keymaps, GotoLineKeymap)
-		e.GotoLine.IsGotoLine = true
-
-		return nil
-	}),
-	Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.Copy()
-	}),
-
-	Key{K: "c", Alt: true}: MakeCommand(func(a *TextBuffer) error {
-		a.Compilation.IsActive = true
-		a.keymaps = append(a.keymaps, CompilationKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
-			a.Compilation.CompilationCommand = append(a.Compilation.CompilationCommand, b)
-
-			return nil
-		}))
-		return nil
-	}),
-
-	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
-		a.ISearch.IsSearching = true
-		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
-			a.ISearch.SearchString += string(b)
-
-			return nil
-		}))
-		return nil
-	}),
-	Key{K: "w", Control: true}: MakeCommand(func(a *TextBuffer) error {
-		return a.Write()
-	}),
-
-	Key{K: "<esc>"}: MakeCommand(func(p *TextBuffer) error {
-		p.Cursors = p.Cursors[:1]
-		p.Cursors[0].Point = p.Cursors[0].Mark
-
-		return nil
-	}),
-
-	// navigation
-	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveCursorTo(rl.GetMousePosition())
-	}),
-
-	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.ScrollDown(5)
-	}),
-
-	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.ScrollUp(5)
-	}),
-
-	Key{K: "<lmouse>-hold"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveCursorTo(rl.GetMousePosition())
-	}),
-
-	Key{K: "a", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveToBeginningOfTheLine()
-	}),
-	Key{K: "e", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveToEndOfTheLine()
-	}),
-
-	Key{K: "p", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveUp()
-	}),
-
-	Key{K: "n", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveDown()
-	}),
-
-	Key{K: "<up>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveUp()
-	}),
-	Key{K: "<down>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveDown()
-	}),
-	Key{K: "<right>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveAllRight(1)
-	}),
-	Key{K: "<right>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveToNextWord()
-	}),
-	Key{K: "<left>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveAllLeft(1)
-	}),
-	Key{K: "<left>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveToPreviousWord()
-	}),
-
-	Key{K: "b", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveAllLeft(1)
-	}),
-	Key{K: "<home>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.MoveToBeginningOfTheLine()
-	}),
-	Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.ScrollDown(1)
-	}),
-	Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.ScrollUp(1)
-	}),
-
-	//insertion
-	Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
-		return insertChar(e, '\n')
-	}),
-	Key{K: "<backspace>", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		e.DeleteWordBackward()
-		return nil
-	}),
-	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharBackward()
-	}),
-	Key{K: "<backspace>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharBackward()
-	}),
-
-	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharForward()
-	}),
-	Key{K: "<delete>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharForward()
-	}),
-
-	Key{K: "<tab>"}: MakeCommand(func(e *TextBuffer) error { return e.Indent() }),
-}
+var EditorKeymap Keymap
+var PromptKeymap Keymap
 
 func insertChar(editor *TextBuffer, char byte) error {
 	return editor.InsertCharAtCursor(char)
@@ -1782,12 +1511,6 @@ func getClipboardContent() []byte {
 
 func writeToClipboard(bs []byte) {
 	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
-}
-
-func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
-	editor.GotoLine.GotoLineUserInput = append(editor.GotoLine.GotoLineUserInput, char)
-
-	return nil
 }
 
 func (e *TextBuffer) readFileFromDisk() error {
@@ -1813,15 +1536,6 @@ func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
 	s = s[:len(s)-1]
 
 	e.ISearch.SearchString = string(s)
-
-	return nil
-}
-
-func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
-	if len(e.GotoLine.GotoLineUserInput) < 1 {
-		return nil
-	}
-	e.GotoLine.GotoLineUserInput = e.GotoLine.GotoLineUserInput[:len(e.GotoLine.GotoLineUserInput)-1]
 
 	return nil
 }
@@ -1905,74 +1619,314 @@ var SearchTextBufferKeymap = Keymap{
 	}),
 }
 
-var GotoLineKeymap = Keymap{
-	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
-		if len(e.GotoLine.GotoLineUserInput) < 1 {
-			return nil
-		}
-		e.GotoLine.GotoLineUserInput = e.GotoLine.GotoLineUserInput[:len(e.GotoLine.GotoLineUserInput)-1]
-
-		return nil
-	}),
-	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
-		number, err := strconv.Atoi(string(editor.GotoLine.GotoLineUserInput))
-		if err != nil {
-			return nil
-		}
-
-		for _, line := range editor.View.Lines {
-			if line.Index == number {
-				editor.GotoLine.IsGotoLine = false
-				editor.GotoLine.GotoLineUserInput = nil
-				editor.Cursors[0].SetBoth(line.startIndex)
-				editor.ScrollIfNeeded()
-			}
-		}
-
-		return nil
-	}),
-
-	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
-		editor.GotoLine.IsGotoLine = false
-		editor.GotoLine.GotoLineUserInput = nil
-		return nil
-	}),
-
-	Key{K: "0"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '0') }),
-	Key{K: "1"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '1') }),
-	Key{K: "2"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '2') }),
-	Key{K: "3"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '3') }),
-	Key{K: "4"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '4') }),
-	Key{K: "5"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '5') }),
-	Key{K: "6"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '6') }),
-	Key{K: "7"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '7') }),
-	Key{K: "8"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
-	Key{K: "9"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
-}
-
-var CompilationKeymap Keymap
-
 func init() {
-	CompilationKeymap = Keymap{
+	PromptKeymap = Keymap{
 		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Compilation.IsActive = false
-			e.parent.openCompilationBufferInAVSplit(string(e.Compilation.CompilationCommand))
+			e.Prompt.IsActive = false
 			e.keymaps = e.keymaps[:len(e.keymaps)-2]
+			userInput := e.Prompt.UserInput
+			e.Prompt.UserInput = ""
+			e.Prompt.DoneHook(userInput, e.parent)
+			e.Prompt.DoneHook = nil
+			e.Prompt.ChangeHook = nil
 			return nil
 		}),
 
 		Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Compilation.CompilationCommand = e.Compilation.CompilationCommand[:len(e.Compilation.CompilationCommand)-1]
+			e.Prompt.UserInput = e.Prompt.UserInput[:len(e.Prompt.UserInput)-1]
 
 			return nil
 		}),
 		Key{K: "<esc>"}: MakeCommand(func(e *TextBuffer) error {
-			e.Compilation.IsActive = false
+			e.Prompt.IsActive = false
 			e.keymaps = e.keymaps[:len(e.keymaps)-2]
+			e.Prompt.UserInput = ""
+			e.Prompt.DoneHook = nil
+			e.Prompt.ChangeHook = nil
 
 			return nil
 		}),
 	}
+	EditorKeymap = Keymap{
 
+		Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.AnotherSelectionOnMatch()
+		}),
+		Key{K: ",", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.ScrollToTop()
+
+			return nil
+		}),
+		Key{K: "l", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.CenteralizeCursor()
+
+			return nil
+		}),
+
+		Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.ScrollToBottom()
+
+			return nil
+		}),
+		Key{K: "<right>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsToRight(e, 1)
+
+			return nil
+		}),
+		Key{K: "<right>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionNextWord(e)
+
+			return nil
+		}),
+		Key{K: "<left>", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionPreviousWord(e)
+
+			return nil
+		}),
+		Key{K: "<left>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsToLeft(e, 1)
+
+			return nil
+		}),
+		Key{K: "<up>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsUp(e, 1)
+
+			return nil
+		}),
+		Key{K: "<down>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsDown(e, 1)
+
+			return nil
+		}),
+		Key{K: "a", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.SelectionBeginningOfLine()
+
+			return nil
+		}),
+		Key{K: "e", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.SelectionEndOfLine()
+
+			return nil
+		}),
+		Key{K: "n", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsDown(e, 1)
+
+			return nil
+		}),
+		Key{K: "p", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsUp(e, 1)
+
+			return nil
+		}),
+		Key{K: "f", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsToRight(e, 1)
+
+			return nil
+		}),
+		Key{K: "b", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+			SelectionsToLeft(e, 1)
+
+			return nil
+		}),
+		Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return AnotherSelectionHere(e, rl.GetMousePosition())
+		}),
+		Key{K: "<lmouse>-hold", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return AnotherSelectionHere(e, rl.GetMousePosition())
+		}),
+		Key{K: "<up>", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return PlaceAnotherCursorPreviousLine(e)
+		}),
+
+		Key{K: "<down>", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return PlaceAnotherCursorNextLine(e)
+		}),
+		Key{K: "r", Alt: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.readFileFromDisk()
+		}),
+		Key{K: "/", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.PopAndReverseLastAction()
+			return nil
+		}),
+		Key{K: "z", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.PopAndReverseLastAction()
+			return nil
+		}),
+		Key{K: "f", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveAllRight(1)
+		}),
+		Key{K: "x", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.Cut()
+		}),
+		Key{K: "v", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.Paste()
+		}),
+		Key{K: "k", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.KillLine()
+		}),
+		Key{K: "g", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.Prompt.IsActive = true
+			e.Prompt.Text = "Goto"
+			e.Prompt.UserInput = ""
+			e.Prompt.DoneHook = func(userInput string, c *Context) error {
+				number, err := strconv.Atoi(userInput)
+				if err != nil {
+					return nil
+				}
+
+				for _, line := range e.View.Lines {
+					if line.Index == number {
+						e.Prompt.IsActive = false
+						e.Prompt.UserInput = ""
+
+						e.Cursors[0].SetBoth(line.startIndex)
+						e.ScrollIfNeeded()
+					}
+				}
+
+				return nil
+			}
+			e.Prompt.ChangeHook = func(userInput string, c *Context) error {
+				return nil
+			}
+
+			e.keymaps = append(e.keymaps, PromptKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+				e.Prompt.UserInput += string(b)
+
+				return nil
+			}))
+
+			return nil
+		}),
+		Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.Copy()
+		}),
+
+		Key{K: "c", Alt: true}: MakeCommand(func(a *TextBuffer) error {
+			a.Prompt.IsActive = true
+			a.Prompt.Text = "Compile"
+			a.keymaps = append(a.keymaps, PromptKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+				a.Prompt.UserInput += string(b)
+				return nil
+			}))
+
+			a.Prompt.ChangeHook = func(userInput string, c *Context) error {
+				return nil
+			}
+			a.Prompt.DoneHook = func(userInput string, c *Context) error {
+				a.parent.openCompilationBufferInAVSplit(userInput)
+
+				return nil
+			}
+			return nil
+		}),
+
+		Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
+			a.ISearch.IsSearching = true
+			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
+				a.ISearch.SearchString += string(b)
+
+				return nil
+			}))
+			return nil
+		}),
+		Key{K: "w", Control: true}: MakeCommand(func(a *TextBuffer) error {
+			return a.Write()
+		}),
+
+		Key{K: "<esc>"}: MakeCommand(func(p *TextBuffer) error {
+			p.Cursors = p.Cursors[:1]
+			p.Cursors[0].Point = p.Cursors[0].Mark
+
+			return nil
+		}),
+
+		// navigation
+		Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveCursorTo(rl.GetMousePosition())
+		}),
+
+		Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.ScrollDown(5)
+		}),
+
+		Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.ScrollUp(5)
+		}),
+
+		Key{K: "<lmouse>-hold"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveCursorTo(rl.GetMousePosition())
+		}),
+
+		Key{K: "a", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveToBeginningOfTheLine()
+		}),
+		Key{K: "e", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveToEndOfTheLine()
+		}),
+
+		Key{K: "p", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveUp()
+		}),
+
+		Key{K: "n", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveDown()
+		}),
+
+		Key{K: "<up>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveUp()
+		}),
+		Key{K: "<down>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveDown()
+		}),
+		Key{K: "<right>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveAllRight(1)
+		}),
+		Key{K: "<right>", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveToNextWord()
+		}),
+		Key{K: "<left>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveAllLeft(1)
+		}),
+		Key{K: "<left>", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveToPreviousWord()
+		}),
+
+		Key{K: "b", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveAllLeft(1)
+		}),
+		Key{K: "<home>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.MoveToBeginningOfTheLine()
+		}),
+		Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.ScrollDown(1)
+		}),
+		Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.ScrollUp(1)
+		}),
+
+		//insertion
+		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
+			return insertChar(e, '\n')
+		}),
+		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			e.DeleteWordBackward()
+			return nil
+		}),
+		Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.DeleteCharBackward()
+		}),
+		Key{K: "<backspace>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.DeleteCharBackward()
+		}),
+
+		Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
+			return e.DeleteCharForward()
+		}),
+		Key{K: "<delete>"}: MakeCommand(func(e *TextBuffer) error {
+			return e.DeleteCharForward()
+		}),
+
+		Key{K: "<tab>"}: MakeCommand(func(e *TextBuffer) error { return e.Indent() }),
+	}
 }
