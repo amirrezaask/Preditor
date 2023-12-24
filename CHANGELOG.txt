@@ -1,6 +1,7 @@
 v0.5
 =====================
 - New command to run grep and output in a buffer
+- Open locations outputed by compilers and grep programs
 - Treesitter syntax highlighting
 - Fix line numbers bug where Goto line jumped to wrong line
 - Fix line numbers bug where line in statusbar was wrong
