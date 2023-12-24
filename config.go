@@ -1,6 +1,7 @@
 package preditor
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"reflect"
@@ -10,6 +11,12 @@ import (
 	"strconv"
 	"strings"
 )
+
+//go:embed fonts/liberationmono-regular.ttf
+var liberationMonoRegularTTF []byte
+
+//go:embed fonts/jetbrainsmono.ttf
+var jetbrainsMonoTTF []byte
 
 type CursorShape int
 
@@ -150,6 +157,25 @@ var defaultConfig = Config{
 				SyntaxStrings:         mustParseHexColor("#2ec09c"),
 			},
 		},
+		{
+			Name: "4coder_fleury",
+			Colors: Colors{
+				Background:            mustParseHexColor("#020202"),
+				Foreground:            mustParseHexColor("#b99468"),
+				Selection:             mustParseHexColor("#FF44DD"),
+				Prompts:               mustParseHexColor("#333333"),
+				StatusBarBackground:   mustParseHexColor("#696969"),
+				StatusBarForeground:   mustParseHexColor("#000000"),
+				LineNumbersForeground: mustParseHexColor("#010101"),
+				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
+				Cursor:                mustParseHexColor("#00ff00"),
+				CursorLineBackground:  mustParseHexColor("#52534E"),
+				SyntaxKeywords:        mustParseHexColor("#d4d4d4"),
+				SyntaxTypes:           mustParseHexColor("#8cde94"),
+				SyntaxComments:        mustParseHexColor("#118a1a"),
+				SyntaxStrings:         mustParseHexColor("#2ec09c"),
+			},
+		},
 	},
 	CursorLineHighlight:      true,
 	TabSize:                  4,
@@ -157,7 +183,7 @@ var defaultConfig = Config{
 	EnableSyntaxHighlighting: true,
 	CursorShape:              CURSOR_SHAPE_BLOCK,
 	CursorBlinking:           false,
-	FontName:                 "Consolas",
+	FontName:                 "LiberationMono-Regular",
 	FontSize:                 30,
 	BottomOverlayHeight:      0.3,
 }
