@@ -529,7 +529,7 @@ func setupRaylib(cfg *Config) {
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(120)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
 }
