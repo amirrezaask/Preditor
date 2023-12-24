@@ -37,7 +37,8 @@ type SyntaxColors map[string]RGBA
 type Colors struct {
 	Background            RGBA
 	Foreground            RGBA
-	Selection             RGBA
+	SelectionBackground   RGBA
+	SelectionForeground   RGBA
 	Prompts               RGBA
 	StatusBarBackground   RGBA
 	StatusBarForeground   RGBA
