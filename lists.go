@@ -248,8 +248,8 @@ func NewList[T any](
 		ifb.Items = iList
 	}
 
-	ifb.keymaps = append(ifb.keymaps, MakeInsertionKeys(func(c *Context, b byte) error {
-		return ifb.InsertCharAtBuffer(b)
+	ifb.keymaps = append(ifb.keymaps, MakeInsertionKeys(func(c *Context, b byte) {
+		ifb.InsertCharAtBuffer(b)
 	}))
 	return ifb
 }
@@ -293,75 +293,69 @@ func (l *List[T]) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 func makeKeymap[T any]() Keymap {
 	return Keymap{
 
-		Key{K: "f", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.CursorRight(1)
+		Key{K: "f", Control: true}: MakeCommand(func(e *List[T]) {
+			e.CursorRight(1)
 		}),
-		Key{K: "v", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.Paste()
+		Key{K: "v", Control: true}: MakeCommand(func(e *List[T]) {
+			e.Paste()
 		}),
-		Key{K: "c", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.Copy()
+		Key{K: "c", Control: true}: MakeCommand(func(e *List[T]) {
+			e.Copy()
 		}),
-		Key{K: "a", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.BeginningOfTheLine()
+		Key{K: "a", Control: true}: MakeCommand(func(e *List[T]) {
+			e.BeginningOfTheLine()
 		}),
-		Key{K: "e", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.EndOfTheLine()
+		Key{K: "e", Control: true}: MakeCommand(func(e *List[T]) {
+			e.EndOfTheLine()
 		}),
-		Key{K: "g", Control: true}: MakeCommand(func(e *List[T]) error {
+		Key{K: "g", Control: true}: MakeCommand(func(e *List[T]) {
 			e.parent.KillDrawable(e.ID)
-			return nil
 		}),
 
-		Key{K: "<right>"}: MakeCommand(func(e *List[T]) error {
-			return e.CursorRight(1)
+		Key{K: "<right>"}: MakeCommand(func(e *List[T]) {
+			e.CursorRight(1)
 		}),
-		Key{K: "<right>", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.NextWordStart()
+		Key{K: "<right>", Control: true}: MakeCommand(func(e *List[T]) {
+			e.NextWordStart()
 		}),
-		Key{K: "<left>"}: MakeCommand(func(e *List[T]) error {
-			return e.CursorLeft(1)
+		Key{K: "<left>"}: MakeCommand(func(e *List[T]) {
+			e.CursorLeft(1)
 		}),
-		Key{K: "<left>", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.PreviousWord()
+		Key{K: "<left>", Control: true}: MakeCommand(func(e *List[T]) {
+			e.PreviousWord()
 		}),
 
-		Key{K: "p", Control: true}: MakeCommand(func(e *List[T]) error {
+		Key{K: "p", Control: true}: MakeCommand(func(e *List[T]) {
 			e.PrevItem()
-			return nil
 		}),
-		Key{K: "n", Control: true}: MakeCommand(func(e *List[T]) error {
+		Key{K: "n", Control: true}: MakeCommand(func(e *List[T]) {
 			e.NextItem()
-			return nil
 		}),
-		Key{K: "<up>"}: MakeCommand(func(e *List[T]) error {
+		Key{K: "<up>"}: MakeCommand(func(e *List[T]) {
 			e.PrevItem()
 
-			return nil
 		}),
-		Key{K: "<down>"}: MakeCommand(func(e *List[T]) error {
+		Key{K: "<down>"}: MakeCommand(func(e *List[T]) {
 			e.NextItem()
-			return nil
 		}),
-		Key{K: "b", Control: true}: MakeCommand(func(e *List[T]) error {
-			return e.CursorLeft(1)
+		Key{K: "b", Control: true}: MakeCommand(func(e *List[T]) {
+			e.CursorLeft(1)
 		}),
-		Key{K: "<home>"}: MakeCommand(func(e *List[T]) error {
-			return e.BeginningOfTheLine()
+		Key{K: "<home>"}: MakeCommand(func(e *List[T]) {
+			e.BeginningOfTheLine()
 		}),
 
-		Key{K: "<enter>"}: MakeCommand(func(e *List[T]) error {
+		Key{K: "<enter>"}: MakeCommand(func(e *List[T]) {
 			if len(e.Items) > 0 && len(e.Items) > e.Selection {
-				return e.OpenSelection(e.parent, e.Items[e.Selection])
+				e.OpenSelection(e.parent, e.Items[e.Selection])
 			}
 
-			return nil
 		}),
-		Key{K: "<backspace>"}:                MakeCommand(func(e *List[T]) error { return e.DeleteCharBackward() }),
-		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *List[T]) error { return e.DeleteWordBackward() }),
-		Key{K: "d", Control: true}:           MakeCommand(func(e *List[T]) error { return e.DeleteCharForward() }),
-		Key{K: "d", Alt: true}:               MakeCommand(func(e *List[T]) error { return e.DeleteWordForward() }),
-		Key{K: "<delete>"}:                   MakeCommand(func(e *List[T]) error { return e.DeleteCharForward() }),
+		Key{K: "<backspace>"}:                MakeCommand(func(e *List[T]) { e.DeleteCharBackward() }),
+		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *List[T]) { e.DeleteWordBackward() }),
+		Key{K: "d", Control: true}:           MakeCommand(func(e *List[T]) { e.DeleteCharForward() }),
+		Key{K: "d", Alt: true}:               MakeCommand(func(e *List[T]) { e.DeleteWordForward() }),
+		Key{K: "<delete>"}:                   MakeCommand(func(e *List[T]) { e.DeleteCharForward() }),
 	}
 }
 
@@ -550,12 +544,12 @@ func NewFileList(parent *Context, cfg *Config, initialInput string) *List[Locati
 		return fmt.Sprintf("%s", g.Filename)
 	}
 
-	tryComplete := func(f *List[LocationItem]) error {
+	tryComplete := func(f *List[LocationItem]) {
 		input := f.UserInput
 
 		matches, err := filepath.Glob(string(input) + "*")
 		if err != nil {
-			return nil
+			return
 		}
 
 		if f.Selection < len(f.Items) {
@@ -568,7 +562,7 @@ func NewFileList(parent *Context, cfg *Config, initialInput string) *List[Locati
 			f.UserInput = []byte(matches[f.Selection])
 			f.CursorRight(len(f.UserInput) - len(input))
 		}
-		return nil
+		return
 	}
 
 	ifb := NewList[LocationItem](
@@ -580,10 +574,9 @@ func NewFileList(parent *Context, cfg *Config, initialInput string) *List[Locati
 		nil,
 	)
 
-	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Context) error {
+	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Context) {
 		input := preditor.ActiveDrawable().(*List[LocationItem]).UserInput
 		openUserInput(preditor, string(input))
-		return nil
 	}
 	ifb.keymaps[0][Key{K: "<tab>"}] = MakeCommand(tryComplete)
 	var absRoot string

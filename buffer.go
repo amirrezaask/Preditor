@@ -25,23 +25,24 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-var EditorKeymap Keymap
-var SearchTextBufferKeymap Keymap
+var BufferKeymap = Keymap{}
+var ISearchKeymap = Keymap{}
+var CompileKeymap = Keymap{}
 
-func BufferOpenLocationInCurrentLine(c *Context) error {
+func BufferOpenLocationInCurrentLine(c *Context) {
 	b, ok := c.ActiveDrawable().(*BufferView)
 	if !ok {
-		return nil
+		return
 	}
 
 	line := BufferGetCurrentLine(b)
 	if line == nil || len(line) < 1 {
-		return nil
+		return
 	}
 
 	segs := bytes.SplitN(line, []byte(":"), 4)
 	if len(segs) < 2 {
-		return nil
+		return
 
 	}
 
@@ -78,7 +79,7 @@ func BufferOpenLocationInCurrentLine(c *Context) error {
 	_ = SwitchOrOpenFileInWindow(c, c.Cfg, string(filename), &Position{Line: lineNum, Column: col}, targetWindow)
 
 	c.ActiveWindowIndex = targetWindow.ID
-	return nil
+	return
 }
 
 func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
@@ -112,12 +113,12 @@ func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command
 
 	}
 
-	bufferView.keymaps[1].BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) error {
+	thisKeymap := CompileKeymap.Clone()
+	thisKeymap.BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) {
 		runCompileCommand()
-
-		return nil
 	}))
-	bufferView.keymaps[1].BindKey(Key{K: "<enter>"}, BufferOpenLocationInCurrentLine)
+
+	bufferView.keymaps.Push(thisKeymap)
 
 	runCompileCommand()
 	return bufferView, nil
@@ -212,9 +213,8 @@ func NewBufferView(parent *Context, cfg *Config, buffer *Buffer) *BufferView {
 	t.parent = parent
 	t.Buffer = buffer
 	t.LastCompileCommand = buffer.fileType.DefaultCompileCommand
-	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
-		return BufferInsertChar(&t, b)
-	}))
+	t.keymaps = NewStack[Keymap](5)
+	t.keymaps.Push(BufferKeymap)
 	t.ActionStack = NewStack[BufferAction](1000)
 	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
 	t.replaceTabsWithSpaces()
@@ -305,8 +305,9 @@ type BufferView struct {
 	bufferLines                []BufferLine
 	VisibleStart               int32
 	MoveToPositionInNextRender *Position
+	OldBufferContentLen        int
 
-	keymaps []Keymap
+	keymaps *Stack[Keymap]
 
 	// Cursor
 	Cursors []Cursor
@@ -316,7 +317,7 @@ type BufferView struct {
 
 	LastCompileCommand string
 
-	ActionStack Stack[BufferAction]
+	ActionStack *Stack[BufferAction]
 }
 
 const (
@@ -335,7 +336,7 @@ func (e *BufferView) String() string {
 }
 
 func (e *BufferView) Keymaps() []Keymap {
-	return e.keymaps
+	return e.keymaps.data
 }
 
 func (e *BufferView) IsSpecial() bool {
@@ -876,9 +877,25 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 	return highlights, tree, nil
 }
 
+func safeSlice[T any](s []T, start int, end int) []T {
+	if len(s) == 0 {
+		return nil
+	}
+	if start < 0 {
+		start = 0
+	}
+	if end >= len(s) {
+		end = len(s) - 1
+	}
+
+	return s[start:end]
+
+}
+
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	oldMaxLine := e.maxLine
 	oldMaxColumn := e.maxColumn
+	oldBufferContentLen := e.OldBufferContentLen
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	e.maxColumn = int32(maxW / float64(charSize.X))
 	e.maxLine = int32(maxH / float64(charSize.Y))
@@ -889,7 +906,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.Buffer.tokens = e.generateWordTokens()
 	}
 
-	if e.Buffer.needParsing || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
+	if e.Buffer.needParsing || len(e.Buffer.Content) != oldBufferContentLen || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
 		e.bufferLines = []BufferLine{}
 		totalVisualLines := 0
 		lineCharCounter := 0
@@ -941,6 +958,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			}
 		}
 	}
+	e.OldBufferContentLen = len(e.Buffer.Content)
 	if !e.NoStatusbar {
 		var sections []string
 
@@ -1045,7 +1063,14 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	if e.cfg.EnableSyntaxHighlighting {
 		if len(e.bufferLines) > 0 {
 			visibleStartChar := e.bufferLines[e.VisibleStart].startIndex
-			visibleEndChar := e.bufferLines[e.VisibleEnd()].endIndex
+
+			var visibleEndChar int
+			if len(e.bufferLines) > int(e.VisibleEnd()) {
+				visibleEndChar = e.bufferLines[e.VisibleEnd()].endIndex
+			} else {
+				visibleEndChar = len(e.Buffer.Content)
+			}
+
 			for _, h := range e.Buffer.highlights {
 				if visibleStartChar <= h.start && visibleEndChar >= h.end {
 					e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
@@ -1295,14 +1320,14 @@ func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
 	e.removeDuplicateSelectionsAndSort()
 	return nil
 }
-func (e *BufferView) AnotherSelectionOnMatch() error {
+func AnotherSelectionOnMatch(e *BufferView) {
 	lastSel := e.Cursors[len(e.Cursors)-1]
 	var thingToSearch []byte
 	if lastSel.Point != lastSel.Mark {
 		thingToSearch = e.Buffer.Content[lastSel.Start():lastSel.End()]
 		next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
 		if len(next) == 0 {
-			return nil
+			return
 		}
 		e.Cursors = append(e.Cursors, Cursor{
 			Point: next[0],
@@ -1316,7 +1341,7 @@ func (e *BufferView) AnotherSelectionOnMatch() error {
 			thingToSearch = e.Buffer.Content[token.Start:token.End]
 			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
 			if len(next) == 0 {
-				return nil
+				return
 			}
 			e.Cursors = append(e.Cursors, Cursor{
 				Point: next[0],
@@ -1326,7 +1351,7 @@ func (e *BufferView) AnotherSelectionOnMatch() error {
 
 	}
 
-	return nil
+	return
 }
 func (e *BufferView) ScrollIfNeeded() {
 	pos := e.BufferIndexToPosition(e.Cursors[0].End())
@@ -1362,9 +1387,9 @@ func (e *BufferView) readFileFromDisk() error {
 
 // Things that change buffer content
 
-func BufferInsertChar(e *BufferView, char byte) error {
+func BufferInsertChar(e *BufferView, char byte) {
 	if e.Buffer.Readonly {
-		return nil
+		return
 	}
 	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
@@ -1375,7 +1400,7 @@ func BufferInsertChar(e *BufferView, char byte) error {
 	}
 	e.SetStateDirty()
 	e.ScrollIfNeeded()
-	return nil
+	return
 }
 
 func DeleteCharBackward(e *BufferView) error {
@@ -1496,11 +1521,11 @@ func Paste(e *BufferView) error {
 	return nil
 }
 
-func InteractiveGotoLine(e *BufferView) error {
-	doneHook := func(userInput string, c *Context) error {
+func InteractiveGotoLine(e *BufferView) {
+	doneHook := func(userInput string, c *Context) {
 		number, err := strconv.Atoi(userInput)
 		if err != nil {
-			return nil
+			return
 		}
 
 		for _, line := range e.bufferLines {
@@ -1510,18 +1535,18 @@ func InteractiveGotoLine(e *BufferView) error {
 			}
 		}
 
-		return nil
+		return
 	}
 	e.parent.SetPrompt("Goto", nil, doneHook, nil, "")
 
-	return nil
+	return
 }
 
 // @Scroll
 
-func ScrollUp(e *BufferView, n int) error {
+func ScrollUp(e *BufferView, n int) {
 	if e.VisibleStart <= 0 {
-		return nil
+		return
 	}
 	e.VisibleStart += int32(-1 * n)
 
@@ -1529,22 +1554,22 @@ func ScrollUp(e *BufferView, n int) error {
 		e.VisibleStart = 0
 	}
 
-	return nil
+	return
 
 }
 
-func ScrollToTop(e *BufferView) error {
+func ScrollToTop(e *BufferView) {
 	e.VisibleStart = 0
 	e.Cursors[0].SetBoth(0)
 
-	return nil
+	return
 }
 
-func ScrollToBottom(e *BufferView) error {
+func ScrollToBottom(e *BufferView) {
 	e.VisibleStart = int32(len(e.bufferLines) - 1 - int(e.maxLine))
 	e.Cursors[0].SetBoth(e.bufferLines[len(e.bufferLines)-1].startIndex)
 
-	return nil
+	return
 }
 
 func ScrollDown(e *BufferView, n int) error {
@@ -1627,14 +1652,14 @@ func PointDown(e *BufferView) error {
 	return nil
 }
 
-func CentralizePoint(e *BufferView) error {
+func CentralizePoint(e *BufferView) {
 	cur := e.Cursors[0]
 	pos := e.convertBufferIndexToLineAndColumn(cur.Start())
 	e.VisibleStart = int32(pos.Line) - (e.maxLine / 2)
 	if e.VisibleStart < 0 {
 		e.VisibleStart = 0
 	}
-	return nil
+	return
 }
 
 func PointToBeginningOfLine(e *BufferView) error {
@@ -1673,7 +1698,7 @@ func PointToMatchingChar(e *BufferView) error {
 
 // @Mark
 
-func MarkRight(e *BufferView, n int) error {
+func MarkRight(e *BufferView, n int) {
 	for i := range e.Cursors {
 		sel := &e.Cursors[i]
 		sel.Mark += n
@@ -1684,10 +1709,10 @@ func MarkRight(e *BufferView, n int) error {
 
 	}
 
-	return nil
+	return
 }
 
-func MarkLeft(e *BufferView, n int) error {
+func MarkLeft(e *BufferView, n int) {
 	for i := range e.Cursors {
 		sel := &e.Cursors[i]
 		sel.Mark -= n
@@ -1698,15 +1723,15 @@ func MarkLeft(e *BufferView, n int) error {
 
 	}
 
-	return nil
+	return
 }
 
-func MarkUp(e *BufferView, n int) error {
+func MarkUp(e *BufferView, n int) {
 	for i := range e.Cursors {
 		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index - n
 		if nextLineIndex >= len(e.bufferLines) || nextLineIndex < 0 {
-			return nil
+			return
 		}
 
 		nextLine := e.bufferLines[nextLineIndex]
@@ -1715,15 +1740,15 @@ func MarkUp(e *BufferView, n int) error {
 		e.ScrollIfNeeded()
 	}
 
-	return nil
+	return
 }
 
-func MarkDown(e *BufferView, n int) error {
+func MarkDown(e *BufferView, n int) {
 	for i := range e.Cursors {
 		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
 		nextLineIndex := currentLine.Index + n
 		if nextLineIndex >= len(e.bufferLines) {
-			return nil
+			return
 		}
 
 		nextLine := e.bufferLines[nextLineIndex]
@@ -1732,10 +1757,10 @@ func MarkDown(e *BufferView, n int) error {
 		e.ScrollIfNeeded()
 	}
 
-	return nil
+	return
 }
 
-func MarkPreviousWord(e *BufferView) error {
+func MarkPreviousWord(e *BufferView) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		tokenPos := e.findIndexPositionInTokens(cur.Mark)
@@ -1745,10 +1770,10 @@ func MarkPreviousWord(e *BufferView) error {
 		e.ScrollIfNeeded()
 	}
 
-	return nil
+	return
 }
 
-func MarkNextWord(e *BufferView) error {
+func MarkNextWord(e *BufferView) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		tokenPos := e.findIndexPositionInTokens(cur.Mark)
@@ -1759,29 +1784,29 @@ func MarkNextWord(e *BufferView) error {
 
 	}
 
-	return nil
+	return
 }
 
-func MarkToEndOfLine(e *BufferView) error {
+func MarkToEndOfLine(e *BufferView) {
 	for i := range e.Cursors {
 		line := e.getBufferLineForIndex(e.Cursors[i].End())
 		e.Cursors[i].Mark = line.endIndex
 	}
 	e.removeDuplicateSelectionsAndSort()
 
-	return nil
+	return
 }
 
-func MarkToBeginningOfLine(e *BufferView) error {
+func MarkToBeginningOfLine(e *BufferView) {
 	for i := range e.Cursors {
 		line := e.getBufferLineForIndex(e.Cursors[i].End())
 		e.Cursors[i].Mark = line.startIndex
 	}
 	e.removeDuplicateSelectionsAndSort()
 
-	return nil
+	return
 }
-func MarkToMatchingChar(e *BufferView) error {
+func MarkToMatchingChar(e *BufferView) {
 	for i := range e.Cursors {
 		matching := byteutils.FindMatching(e.Buffer.Content, e.Cursors[i].Point)
 		if matching != -1 {
@@ -1790,20 +1815,20 @@ func MarkToMatchingChar(e *BufferView) error {
 	}
 
 	e.removeDuplicateSelectionsAndSort()
-	return nil
+	return
 
 }
 
 // @Cursors
 
-func RemoveAllCursorsButOne(p *BufferView) error {
+func RemoveAllCursorsButOne(p *BufferView) {
 	p.Cursors = p.Cursors[:1]
 	p.Cursors[0].Point = p.Cursors[0].Mark
 
-	return nil
+	return
 }
 
-func AddCursorNextLine(e *BufferView) error {
+func AddCursorNextLine(e *BufferView) {
 	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
 	pos.Line++
 	if e.isValidCursorPosition(pos) {
@@ -1812,10 +1837,10 @@ func AddCursorNextLine(e *BufferView) error {
 	}
 	e.removeDuplicateSelectionsAndSort()
 
-	return nil
+	return
 }
 
-func AddCursorPreviousLine(e *BufferView) error {
+func AddCursorPreviousLine(e *BufferView) {
 	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
 	pos.Line--
 	if e.isValidCursorPosition(pos) {
@@ -1824,10 +1849,10 @@ func AddCursorPreviousLine(e *BufferView) error {
 	}
 	e.removeDuplicateSelectionsAndSort()
 
-	return nil
+	return
 }
 
-func PointForwardWord(e *BufferView, n int) error {
+func PointForwardWord(e *BufferView, n int) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
@@ -1839,10 +1864,10 @@ func PointForwardWord(e *BufferView, n int) error {
 
 	}
 
-	return nil
+	return
 }
 
-func PointBackwardWord(e *BufferView, n int) error {
+func PointBackwardWord(e *BufferView, n int) {
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
 		cur.SetBoth(cur.Point)
@@ -1854,12 +1879,12 @@ func PointBackwardWord(e *BufferView, n int) error {
 
 	}
 
-	return nil
+	return
 }
 
-func Write(e *BufferView) error {
+func Write(e *BufferView) {
 	if e.Buffer.Readonly && e.IsSpecial() {
-		return nil
+		return
 	}
 
 	if e.Buffer.fileType.TabSize != 0 {
@@ -1875,7 +1900,7 @@ func Write(e *BufferView) error {
 	}
 
 	if err := os.WriteFile(e.Buffer.File, e.Buffer.Content, 0644); err != nil {
-		return err
+		return
 	}
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
@@ -1887,7 +1912,7 @@ func Write(e *BufferView) error {
 
 	}
 
-	return nil
+	return
 }
 
 func Copy(e *BufferView) error {
@@ -1910,41 +1935,41 @@ func Copy(e *BufferView) error {
 	return nil
 }
 
-func CompileAskForCommand(a *BufferView) error {
-	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+func CompileAskForCommand(a *BufferView) {
+	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) {
 		a.LastCompileCommand = userInput
 		if err := a.parent.OpenCompilationBufferInBuildWindow(userInput); err != nil {
-			return err
+			return
 		}
 
-		return nil
+		return
 	}, nil, a.LastCompileCommand)
 
-	return nil
+	return
 }
 
-func CompileNoAsk(a *BufferView) error {
+func CompileNoAsk(a *BufferView) {
 	if a.LastCompileCommand == "" {
-		return CompileAskForCommand(a)
+		CompileAskForCommand(a)
 	}
 
 	if err := a.parent.OpenCompilationBufferInBuildWindow(a.LastCompileCommand); err != nil {
-		return err
+		return
 	}
 
-	return nil
+	return
 }
 
-func GrepAsk(a *BufferView) error {
-	a.parent.SetPrompt("Grep", nil, func(userInput string, c *Context) error {
+func GrepAsk(a *BufferView) {
+	a.parent.SetPrompt("Grep", nil, func(userInput string, c *Context) {
 		if err := a.parent.OpenGrepBufferInSensibleSplit(fmt.Sprintf("rg --vimgrep %s", userInput)); err != nil {
-			return err
+			return
 		}
 
-		return nil
+		return
 	}, nil, "")
 
-	return nil
+	return
 }
 
 func ISearchDeleteBackward(e *BufferView) error {
@@ -1965,15 +1990,12 @@ func ISearchDeleteBackward(e *BufferView) error {
 func ISearchActivate(e *BufferView) error {
 	e.ISearch.IsSearching = true
 	e.ISearch.SearchString = ""
-	e.keymaps = append(e.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
-		e.ISearch.SearchString += string(b)
-		return nil
-	}))
+	e.keymaps.Push(ISearchKeymap)
 	return nil
 }
 
 func ISearchExit(editor *BufferView) error {
-	editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
+	editor.keymaps.Pop()
 	editor.ISearch.IsSearching = false
 	editor.ISearch.SearchMatches = nil
 	editor.ISearch.CurrentMatch = 0
