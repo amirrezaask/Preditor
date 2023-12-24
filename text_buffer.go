@@ -132,7 +132,7 @@ const (
 	CURSOR_SHAPE_LINE    = 3
 )
 
-func NewEditor(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
+func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
 	t.File = filename
@@ -142,9 +142,11 @@ func NewEditor(parent *Preditor, cfg *Config, filename string, maxH int32, maxW 
 	t.keymaps = append([]Keymap{}, editorKeymap)
 	var err error
 	if t.File != "" {
-		t.Content, err = os.ReadFile(t.File)
-		if err != nil {
-			return nil, err
+		if _, err = os.Stat(t.File); err == nil {
+			t.Content, err = os.ReadFile(t.File)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		fileType, exists := fileTypeMappings[path.Ext(t.File)]
@@ -1222,6 +1224,7 @@ var editorKeymap = Keymap{
 	Key{K: "k", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.killLine()
 	}),
+
 	Key{K: "w", Alt: true}: makeCommand(func(e *TextBuffer) error {
 		return e.copy()
 	}),
