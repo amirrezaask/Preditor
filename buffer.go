@@ -387,7 +387,6 @@ func (e *Buffer) calculateVisualLines() {
 
 func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
-	//TODO:
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	for _, sel := range e.Cursors {
 		if sel.Start() == sel.End() {
@@ -414,6 +413,10 @@ func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float
 				rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			case CURSOR_SHAPE_BLOCK:
 				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				if len(e.Content)-1 >= sel.Point {
+					rl.DrawTextEx(e.parent.Font, string(e.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
+				}
+
 			case CURSOR_SHAPE_LINE:
 				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 			}
