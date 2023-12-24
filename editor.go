@@ -73,7 +73,6 @@ func (t *Editor) Keymaps() []Keymap {
 	return t.keymaps
 }
 func (t *Editor) AddUndoAction(a EditorAction) {
-	fmt.Printf("undo stack: %+v\n", t.UndoStack)
 	t.UndoStack.Push(a)
 }
 
@@ -1189,27 +1188,23 @@ func makeCommand(f func(e *Editor) error) Command {
 }
 
 var editorKeymap = Keymap{
-	// Key{K: "z", Control: true}: makeCommand(func(e *Editor) error {
-	// 	e.PopAndReverseLastAction()
-
-	// 	return nil
-	// }),
 	Key{K: "f", Control: true}: makeCommand(func(e *Editor) error {
 		return e.CursorRight(1)
 	}),
-	Key{K: "s", Control: true}: makeCommand(func(e *Editor) error {
-		return e.Write()
-	}),
-	Key{K: "c", Control: true}: makeCommand(func(e *Editor) error {
-		return e.copy()
-	}),
-	Key{K: "v", Control: true}: makeCommand(func(e *Editor) error {
-		return e.paste()
-	}),
-	Key{K: "x", Control: true}: makeCommand(func(e *Editor) error {
+	Key{K: "w", Control: true}: makeCommand(func(e *Editor) error {
 		return e.cut()
 	}),
-	Key{K: "f", Alt: true}: makeCommand(func(a *Editor) error {
+	Key{K: "y", Control: true}: makeCommand(func(e *Editor) error {
+		return e.paste()
+	}),
+	Key{K: "w", Alt: true}: makeCommand(func(e *Editor) error {
+		return e.copy()
+	}),
+	Key{K: "s", Control: true}: makeCommand(func(a *Editor) error {
+		a.keymaps = append(a.keymaps, searchModeKeymap)
+		return nil
+	}),
+	Key{K: "x", Control: true}: makeCommand(func(a *Editor) error{
 		a.keymaps = append(a.keymaps, searchModeKeymap)
 		return nil
 	}),
@@ -1243,6 +1238,10 @@ var editorKeymap = Keymap{
 	Key{K: "<lmouse>-click"}: makeCommand(func(e *Editor) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
+	Key{K: "<lmouse>-hold"}: makeCommand(func(e *Editor) error {
+		return e.MoveCursorTo(rl.GetMousePosition())
+	}),
+
 	Key{K: "<mouse-wheel-up>"}: makeCommand(func(e *Editor) error {
 		return e.ScrollUp(20)
 
