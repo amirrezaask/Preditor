@@ -59,6 +59,7 @@ type Config struct {
 	CursorBlinking           bool
 	EnableSyntaxHighlighting bool
 	CursorLineHighlight      bool
+	BottomOverlayHeight      float64
 }
 
 func (c *Config) String() string {
@@ -139,6 +140,7 @@ var defaultConfig = Config{
 	CursorBlinking:           false,
 	FontName:                 "Consolas",
 	FontSize:                 30,
+	BottomOverlayHeight:      0.3,
 }
 
 func (c *Config) CurrentThemeColors() *Colors {
