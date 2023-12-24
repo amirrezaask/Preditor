@@ -11,6 +11,7 @@ import (
 type FileType struct {
 	TabSize                  int
 	BeforeSave               func(*Buffer) error
+	AfterSave                func(*Buffer) error
 	CommentLineBeginingChars []byte
 	SyntaxHighlights         SyntaxHighlights
 }
@@ -41,6 +42,9 @@ func initFileTypes(cfg Colors) {
 
 				e.Content = newBytes
 				return nil
+			},
+			AfterSave: func(buffer *Buffer) error {
+				return buffer.CompileNoAsk()
 			},
 			SyntaxHighlights: SyntaxHighlights{
 				regexp.MustCompile(keywordsPat("break", "case", "const",

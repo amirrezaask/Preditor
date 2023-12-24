@@ -249,6 +249,7 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 		fileType, exists := fileTypeMappings[path.Ext(t.File)]
 		if exists {
 			t.BeforeSaveHook = append(t.BeforeSaveHook, fileType.BeforeSave)
+			t.AfterSaveHook = append(t.AfterSaveHook, fileType.AfterSave)
 			t.SyntaxHighlights = fileType.SyntaxHighlights
 			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
 			t.TabSize = fileType.TabSize
@@ -1343,6 +1344,11 @@ func (e *Buffer) Write() error {
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
 	e.calculateVisualLines()
+	for _, hook := range e.AfterSaveHook {
+		if err := hook(e); err != nil {
+			continue
+		}
+	}
 	return nil
 }
 
@@ -1521,6 +1527,32 @@ func getClipboardContent() []byte {
 
 func writeToClipboard(bs []byte) {
 	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
+}
+
+func (a *Buffer) CompileAskForCommand() error {
+	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
+		a.LastCompileCommand = userInput
+		if err := a.parent.OpenCompilationBufferInSensibleSplit(userInput); err != nil {
+
+			return err
+		}
+
+		return nil
+	}, nil, a.LastCompileCommand)
+
+	return nil
+}
+
+func (a *Buffer) CompileNoAsk() error {
+	if a.LastCompileCommand == "" {
+		return a.CompileAskForCommand()
+	}
+
+	if err := a.parent.OpenCompilationBufferInSensibleSplit(a.LastCompileCommand); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *Buffer) readFileFromDisk() error {
@@ -1768,17 +1800,7 @@ func init() {
 		}),
 
 		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
-			a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
-				a.LastCompileCommand = userInput
-				if err := a.parent.OpenCompilationBufferInSensibleSplit(userInput); err != nil {
-
-					return err
-				}
-
-				return nil
-			}, nil, a.LastCompileCommand)
-
-			return nil
+			return a.CompileAskForCommand()
 		}),
 
 		Key{K: "s", Control: true}: MakeCommand(func(a *Buffer) error {
