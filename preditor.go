@@ -128,6 +128,10 @@ type Context struct {
 	ActiveWindowIndex int
 }
 
+func (c *Context) BuildWindowIsVisible() bool {
+	return c.BuildWindow.State != BuildWindowState_Hide && c.GetDrawable(c.BuildWindow.DrawableID) != nil
+}
+
 func (c *Context) BuildWindowMaximized() {
 	c.BuildWindow.State = BuildWindowState_Maximized
 }
@@ -440,7 +444,7 @@ func (c *Context) Render() {
 	if c.Prompt.IsActive {
 		height -= float64(charsize.Y)
 	}
-	if buf := c.GetDrawable(c.BuildWindow.DrawableID); buf != nil {
+	if c.BuildWindowIsVisible() {
 		height -= float64(buildWindowHeightRatio * c.OSWindowHeight)
 	}
 	for i, column := range c.Windows {
@@ -471,7 +475,8 @@ func (c *Context) Render() {
 	c.BuildWindow.ZeroLocationY = c.OSWindowHeight - (c.OSWindowHeight * buildWindowHeightRatio)
 	c.BuildWindow.Height = c.OSWindowHeight * buildWindowHeightRatio
 
-	if buf := c.GetDrawable(c.BuildWindow.DrawableID); buf != nil {
+	if c.BuildWindowIsVisible() {
+		buf := c.GetDrawable(c.BuildWindow.DrawableID)
 		buf.Render(rl.Vector2{X: float32(c.BuildWindow.ZeroLocationX), Y: float32(c.BuildWindow.ZeroLocationY)}, c.BuildWindow.Height, c.BuildWindow.Width)
 	}
 
@@ -519,7 +524,7 @@ func (c *Context) HandleMouseEvents() {
 			}
 		}
 		// handle build window
-		if float64(pos.Y) >= c.BuildWindow.ZeroLocationY {
+		if c.BuildWindowIsVisible() && float64(pos.Y) >= c.BuildWindow.ZeroLocationY {
 			c.ActiveWindowIndex = c.BuildWindow.ID
 		}
 

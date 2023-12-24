@@ -489,7 +489,7 @@ func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW flo
 
 }
 
-func (e *Buffer) renderTextSliceWithColor(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
+func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	var start Position
 	var end Position
@@ -618,30 +618,21 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
-			var lineNumberWidth int
 			if e.cfg.LineNumbers {
-				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
 				rl.DrawTextEx(e.parent.Font,
 					fmt.Sprintf("%d", line.ActualLine),
 					rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
 					float32(e.parent.FontSize),
 					0,
 					e.cfg.CurrentThemeColors().LineNumbersForeground.ToColorRGBA())
-
 			}
-			rl.DrawTextEx(e.parent.Font,
-				string(e.Content[line.startIndex:line.endIndex]),
-				rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: zeroLocation.Y + float32(idx)*charSize.Y},
-				float32(e.parent.FontSize),
-				0,
-				e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
-
+			e.renderTextRange(zeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
 		}
 	}
 
 	if e.cfg.EnableSyntaxHighlighting {
 		for _, h := range e.highlights {
-			e.renderTextSliceWithColor(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
+			e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
 		}
 	}
 }
