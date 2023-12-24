@@ -1532,7 +1532,7 @@ func writeToClipboard(bs []byte) {
 func (a *Buffer) CompileAskForCommand() error {
 	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
 		a.LastCompileCommand = userInput
-		if err := a.parent.OpenCompilationBufferInSensibleSplit(userInput); err != nil {
+		if err := a.parent.OpenCompilationBufferInBuildWindow(userInput); err != nil {
 
 			return err
 		}
@@ -1548,7 +1548,7 @@ func (a *Buffer) CompileNoAsk() error {
 		return a.CompileAskForCommand()
 	}
 
-	if err := a.parent.OpenCompilationBufferInSensibleSplit(a.LastCompileCommand); err != nil {
+	if err := a.parent.OpenCompilationBufferInBuildWindow(a.LastCompileCommand); err != nil {
 		return err
 	}
 

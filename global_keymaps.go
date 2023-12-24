@@ -25,6 +25,11 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: "1", Alt: true}: func(preditor *Context) error {
+		preditor.BuildWindowToggleState()
+
+		return nil
+	},
 	Key{K: "k", Alt: true}: func(preditor *Context) error {
 		preditor.KillBuffer(preditor.ActiveBufferID())
 

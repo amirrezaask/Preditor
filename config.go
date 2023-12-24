@@ -56,17 +56,18 @@ func (t Theme) String() string {
 }
 
 type Config struct {
-	Themes                   []Theme
-	CurrentTheme             string
-	TabSize                  int
-	LineNumbers              bool
-	FontName                 string
-	FontSize                 int
-	CursorShape              CursorShape
-	CursorBlinking           bool
-	EnableSyntaxHighlighting bool
-	CursorLineHighlight      bool
-	BottomOverlayHeight      float64
+	Themes                     []Theme
+	CurrentTheme               string
+	TabSize                    int
+	LineNumbers                bool
+	FontName                   string
+	FontSize                   int
+	CursorShape                CursorShape
+	CursorBlinking             bool
+	EnableSyntaxHighlighting   bool
+	CursorLineHighlight        bool
+	BuildWindowNormalHeight    float64
+	BuildWindowMaximizedHeight float64
 }
 
 func (c *Config) String() string {
@@ -177,15 +178,16 @@ var defaultConfig = Config{
 			},
 		},
 	},
-	CursorLineHighlight:      true,
-	TabSize:                  4,
-	LineNumbers:              false,
-	EnableSyntaxHighlighting: true,
-	CursorShape:              CURSOR_SHAPE_BLOCK,
-	CursorBlinking:           false,
-	FontName:                 "LiberationMono-Regular",
-	FontSize:                 30,
-	BottomOverlayHeight:      0.3,
+	CursorLineHighlight:        true,
+	TabSize:                    4,
+	LineNumbers:                false,
+	EnableSyntaxHighlighting:   true,
+	CursorShape:                CURSOR_SHAPE_BLOCK,
+	CursorBlinking:             false,
+	FontName:                   "LiberationMono-Regular",
+	FontSize:                   30,
+	BuildWindowNormalHeight:    0.1,
+	BuildWindowMaximizedHeight: 0.5,
 }
 
 func (c *Config) CurrentThemeColors() *Colors {

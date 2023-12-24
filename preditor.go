@@ -95,6 +95,16 @@ type Prompt struct {
 	DoneHook   func(userInput string, c *Context) error
 }
 
+const (
+	BuildWindowState_Normal    = 0
+	BuildWindowState_Maximized = 1
+)
+
+type BuildWindow struct {
+	Window
+	State int
+}
+
 type Context struct {
 	CWD               string
 	Cfg               *Config
@@ -110,8 +120,25 @@ type Context struct {
 	OSWindowHeight    float64
 	OSWindowWidth     float64
 	Windows           [][]*Window
+	BuildWindow       BuildWindow
 	Prompt            Prompt
 	ActiveWindowIndex int
+}
+
+func (c *Context) BuildWindowMaximized() {
+	c.BuildWindow.State = BuildWindowState_Maximized
+}
+
+func (c *Context) BuildWindowNormal() {
+	c.BuildWindow.State = BuildWindowState_Normal
+}
+
+func (c *Context) BuildWindowToggleState() {
+	if c.BuildWindow.State == BuildWindowState_Normal {
+		c.BuildWindow.State = BuildWindowState_Maximized
+	} else {
+		c.BuildWindow.State = BuildWindowState_Normal
+	}
 }
 
 func (c *Context) SetPrompt(text string,
@@ -372,6 +399,9 @@ func (c *Context) HandleKeyEvents() {
 }
 
 func (c *Context) GetWindow(id int) *Window {
+	if id == -10 {
+		return &c.BuildWindow.Window
+	}
 	for _, col := range c.Windows {
 		for _, win := range col {
 			if win.ID == id {
@@ -394,9 +424,18 @@ func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
 	height := c.OSWindowHeight
+	var buildWindowHeightRatio float64
+	if c.BuildWindow.State == BuildWindowState_Normal {
+		buildWindowHeightRatio = c.Cfg.BuildWindowNormalHeight
+	} else if c.BuildWindow.State == BuildWindowState_Maximized {
+		buildWindowHeightRatio = c.Cfg.BuildWindowMaximizedHeight
+	}
 	charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
 	if c.Prompt.IsActive {
 		height -= float64(charsize.Y)
+	}
+	if buf := c.GetBuffer(c.BuildWindow.BufferID); buf != nil {
+		height -= float64(buildWindowHeightRatio * c.OSWindowHeight)
 	}
 	for i, column := range c.Windows {
 		columnWidth := c.OSWindowWidth / float64(len(c.Windows))
@@ -418,7 +457,16 @@ func (c *Context) Render() {
 			}
 
 		}
+	}
 
+	c.BuildWindow.ZeroLocationX = 0
+	c.BuildWindow.Width = c.OSWindowWidth
+
+	c.BuildWindow.ZeroLocationY = c.OSWindowHeight - (c.OSWindowHeight * buildWindowHeightRatio)
+	c.BuildWindow.Height = c.OSWindowHeight * buildWindowHeightRatio
+
+	if buf := c.GetBuffer(c.BuildWindow.BufferID); buf != nil {
+		buf.Render(rl.Vector2{X: float32(c.BuildWindow.ZeroLocationX), Y: float32(c.BuildWindow.ZeroLocationY)}, c.BuildWindow.Height, c.BuildWindow.Width)
 	}
 
 	if c.Prompt.IsActive {
@@ -463,6 +511,10 @@ func (c *Context) HandleMouseEvents() {
 					}
 				}
 			}
+		}
+		// handle build window
+		if float64(pos.Y) >= c.BuildWindow.ZeroLocationY {
+			c.ActiveWindowIndex = c.BuildWindow.ID
 		}
 
 		keymaps := []Keymap{c.GlobalKeymap}
@@ -846,6 +898,10 @@ func New() (*Context, error) {
 
 	p.GlobalKeymap = GlobalKeymap
 
+	p.BuildWindow = BuildWindow{
+		Window: Window{ID: -10},
+		State:  BuildWindowState_Normal,
+	}
 	// handle command line argument
 	filename := ""
 	if len(flag.Args()) > 0 {
@@ -1010,6 +1066,19 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 		return err
 	}
 	c.Buffers[window.BufferID] = cb
+
+	return nil
+}
+
+func (c *Context) OpenCompilationBufferInBuildWindow(command string) error {
+	cb, err := NewCompilationBuffer(c, c.Cfg, command)
+	if err != nil {
+		return err
+	}
+
+	c.AddBuffer(cb)
+
+	c.BuildWindow.BufferID = cb.ID
 
 	return nil
 }
