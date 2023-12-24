@@ -18,6 +18,7 @@ type SyntaxHighlights struct {
 	Keywords SyntaxHighlight
 	Types    SyntaxHighlight
 	Comments SyntaxHighlight
+	Strings  SyntaxHighlight
 }
 
 type SyntaxHighlight struct {
@@ -66,8 +67,12 @@ func initFileTypes(cfg Colors) {
 					Color: cfg.SyntaxTypes,
 				},
 				Comments: SyntaxHighlight{
-					Regex: regexp.MustCompile(`\/\/.*\n`),
+					Regex: regexp.MustCompile(`//.*`),
 					Color: cfg.SyntaxComments,
+				},
+				Strings: SyntaxHighlight{
+					Regex: regexp.MustCompile("([`\"]).*([`\"])"),
+					Color: cfg.SyntaxStrings,
 				},
 			},
 		},

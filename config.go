@@ -2,13 +2,14 @@ package preditor
 
 import (
 	"errors"
-	rl "github.com/gen2brain/raylib-go/raylib"
+
 	"image/color"
 	"os"
 	"strconv"
 	"strings"
 )
 
+// this
 type Config struct {
 	Colors                   Colors
 	TabSize                  int
@@ -43,7 +44,8 @@ var defaultConfig = Config{
 		CursorLineBackground:  mustParseHexColor("#52534E"),
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
-		SyntaxComments:        rl.Red,
+		SyntaxComments:        mustParseHexColor("#118a1a"),
+		SyntaxStrings:         mustParseHexColor("#118a1a"),
 	},
 	CursorLineHighlight:      true,
 	TabSize:                  4,

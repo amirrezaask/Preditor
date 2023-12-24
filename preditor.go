@@ -33,6 +33,7 @@ type Colors struct {
 	SyntaxKeywords        color.RGBA
 	SyntaxTypes           color.RGBA
 	SyntaxComments        color.RGBA
+	SyntaxStrings         color.RGBA
 }
 
 type Buffer interface {
