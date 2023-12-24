@@ -25,13 +25,13 @@ func main() {
 
 	// create editor
 	editor := Application{
-		LineNumbers: true,
+		LineNumbers:  true,
 		LineWrapping: true,
 		Colors: Colors{
-			Background:		  editorBackground,
-			Foreground:		  editorForeground,
-			StatusBarBackground: editorStatusbarBackground,
-			StatusBarForeground: editorStatusbarForeground,
+			Background:            editorBackground,
+			Foreground:            editorForeground,
+			StatusBarBackground:   editorStatusbarBackground,
+			StatusBarForeground:   editorStatusbarForeground,
 			LineNumbersForeground: rl.White,
 		},
 	}
@@ -41,7 +41,7 @@ func main() {
 		panic(err)
 	}
 
-	fontSize = 20
+	fontSize = 25
 	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	filename := ""
 	if len(flag.Args()) > 0 {
@@ -49,15 +49,14 @@ func main() {
 	}
 	rl.SetTextLineSpacing(int(fontSize))
 
-
 	// initialize first editor
 	textEditorBuffer, err := NewTextEditor(TextEditorOptions{
-		Filename:	filename,
+		Filename:    filename,
 		LineNumbers: true,
-		TabSize: 4,
-		MaxHeight:	int32(rl.GetRenderHeight()),
-		MaxWidth:	 int32(rl.GetRenderWidth()),
-		Colors:	   editor.Colors,
+		TabSize:     4,
+		MaxHeight:   int32(rl.GetRenderHeight()),
+		MaxWidth:    int32(rl.GetRenderWidth()),
+		Colors:      editor.Colors,
 	})
 	if err != nil {
 		panic(err)

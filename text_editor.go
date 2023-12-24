@@ -14,10 +14,10 @@ const (
 	State_Dirty = 2
 )
 
-type TextEditor struct {
+type EditorBuffer struct {
 	File              string
 	Content           []byte
-	Keymaps           []Keymap
+	Keymap           Keymap
 	Variables         Variables
 	Commands          Commands
 	MaxHeight         int32
@@ -35,19 +35,19 @@ type TextEditor struct {
 	RenderLineNumbers bool
 }
 
-func (t *TextEditor) replaceTabsWithSpaces() {
+func (t *EditorBuffer) replaceTabsWithSpaces() {
 	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
 }
 
-func (t *TextEditor) SetMaxWidth(w int32) {
+func (t *EditorBuffer) SetMaxWidth(w int32) {
 	t.MaxWidth = w
 	t.updateMaxLineAndColumn()
 }
-func (t *TextEditor) SetMaxHeight(h int32) {
+func (t *EditorBuffer) SetMaxHeight(h int32) {
 	t.MaxHeight = h
 	t.updateMaxLineAndColumn()
 }
-func (t *TextEditor) updateMaxLineAndColumn() {
+func (t *EditorBuffer) updateMaxLineAndColumn() {
 	oldMaxLine := t.maxLine
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	t.maxColumn = t.MaxWidth / int32(charSize.X)
@@ -59,7 +59,7 @@ func (t *TextEditor) updateMaxLineAndColumn() {
 	diff := t.maxLine - oldMaxLine
 	t.VisibleEnd += diff
 }
-func (t *TextEditor) Type() string {
+func (t *EditorBuffer) Type() string {
 	return "text_editor_buffer"
 }
 
@@ -74,8 +74,8 @@ type TextEditorOptions struct {
 }
 
 
-func NewTextEditor(opts TextEditorOptions) (*TextEditor, error) {
-	t:= TextEditor{}
+func NewTextEditor(opts TextEditorOptions) (*EditorBuffer, error) {
+	t:= EditorBuffer{}
 	t.File = opts.Filename
 	t.RenderLineNumbers = opts.LineNumbers
 	t.TabSize = opts.TabSize
@@ -83,6 +83,7 @@ func NewTextEditor(opts TextEditorOptions) (*TextEditor, error) {
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
+	t.Keymap = editorBufferKeymap
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -97,7 +98,7 @@ func NewTextEditor(opts TextEditorOptions) (*TextEditor, error) {
 }
 
 
-func (t *TextEditor) Destroy() error {
+func (t *EditorBuffer) Destroy() error {
 	return nil
 }
 
@@ -109,7 +110,7 @@ type visualLine struct {
 	Length     int
 }
 
-func (t *TextEditor) calculateVisualLines() {
+func (t *EditorBuffer) calculateVisualLines() {
 	t.visualLines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -172,7 +173,7 @@ func (t *TextEditor) calculateVisualLines() {
 
 }
 
-func (t *TextEditor) renderCursor() {
+func (t *EditorBuffer) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	// render cursor
@@ -188,7 +189,7 @@ func (t *TextEditor) renderCursor() {
 	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
-func (t *TextEditor) Render() {
+func (t *EditorBuffer) Render() {
 
 	t.calculateVisualLines()
 
@@ -210,7 +211,7 @@ func (t *TextEditor) Render() {
 
 }
 
-func (t *TextEditor) visualLineShouldBeRendered(line visualLine) bool {
+func (t *EditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
 	if t.VisibleStart <= int32(line.Index) && line.Index <= int(t.VisibleEnd) {
 		return true
 	}
@@ -218,7 +219,7 @@ func (t *TextEditor) visualLineShouldBeRendered(line visualLine) bool {
 	return false
 }
 
-func (t *TextEditor) renderVisualLine(line visualLine, index int) {
+func (t *EditorBuffer) renderVisualLine(line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	var lineNumberWidth int
 	if t.RenderLineNumbers {
@@ -241,14 +242,14 @@ func (t *TextEditor) renderVisualLine(line visualLine, index int) {
 
 }
 
-func (t *TextEditor) cursorToBufferIndex() int {
+func (t *EditorBuffer) cursorToBufferIndex() int {
 	if t.Cursor.Line >= len(t.visualLines) {
 		return 0
 	}
 	return t.visualLines[t.Cursor.Line].startIndex + t.Cursor.Column
 }
 
-func (t *TextEditor) isValidCursorPosition(newPosition Position) bool {
+func (t *EditorBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
@@ -265,7 +266,7 @@ func (t *TextEditor) isValidCursorPosition(newPosition Position) bool {
 	return true
 }
 
-func (t *TextEditor) InsertCharAtCursor(char byte) error {
+func (t *EditorBuffer) InsertCharAtCursor(char byte) error {
 	idx := t.cursorToBufferIndex()
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, char)
@@ -286,7 +287,7 @@ func (t *TextEditor) InsertCharAtCursor(char byte) error {
 
 }
 
-func (t *TextEditor) DeleteCharBackward() error {
+func (t *EditorBuffer) DeleteCharBackward() error {
 	idx := t.cursorToBufferIndex()
 	if idx <= 0 {
 		return nil
@@ -304,7 +305,7 @@ func (t *TextEditor) DeleteCharBackward() error {
 
 }
 
-func (t *TextEditor) DeleteCharForward() error {
+func (t *EditorBuffer) DeleteCharForward() error {
 	idx := t.cursorToBufferIndex()
 	if idx < 0 || t.Cursor.Column < 0 {
 		return nil
@@ -316,7 +317,7 @@ func (t *TextEditor) DeleteCharForward() error {
 	return nil
 }
 
-func (t *TextEditor) ScrollUp(n int) error {
+func (t *EditorBuffer) ScrollUp(n int) error {
 	if t.VisibleStart <= 0 {
 		return nil
 	}
@@ -334,7 +335,7 @@ func (t *TextEditor) ScrollUp(n int) error {
 
 }
 
-func (t *TextEditor) ScrollDown(n int) error {
+func (t *EditorBuffer) ScrollDown(n int) error {
 	if int(t.VisibleEnd) >= len(t.visualLines) {
 		return nil
 	}
@@ -350,7 +351,7 @@ func (t *TextEditor) ScrollDown(n int) error {
 
 }
 
-func (t *TextEditor) CursorLeft() error {
+func (t *EditorBuffer) CursorLeft() error {
 	newPosition := t.Cursor
 	newPosition.Column--
 	if t.Cursor.Column <= 0 {
@@ -373,7 +374,7 @@ func (t *TextEditor) CursorLeft() error {
 
 }
 
-func (t *TextEditor) CursorRight(n int) error {
+func (t *EditorBuffer) CursorRight(n int) error {
 	newPosition := t.Cursor
 	newPosition.Column+=n
 	if t.Cursor.Line == len(t.visualLines) {
@@ -393,7 +394,7 @@ func (t *TextEditor) CursorRight(n int) error {
 
 }
 
-func (t *TextEditor) CursorUp() error {
+func (t *EditorBuffer) CursorUp() error {
 	newPosition := t.Cursor
 	newPosition.Line--
 
@@ -413,7 +414,7 @@ func (t *TextEditor) CursorUp() error {
 
 }
 
-func (t *TextEditor) CursorDown() error {
+func (t *EditorBuffer) CursorDown() error {
 	newPosition := t.Cursor
 	newPosition.Line++
 
@@ -434,7 +435,7 @@ func (t *TextEditor) CursorDown() error {
 
 }
 
-func (t *TextEditor) BeginingOfTheLine() error {
+func (t *EditorBuffer) BeginingOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = 0
 	if t.isValidCursorPosition(newPosition) {
@@ -444,7 +445,7 @@ func (t *TextEditor) BeginingOfTheLine() error {
 
 }
 
-func (t *TextEditor) EndOfTheLine() error {
+func (t *EditorBuffer) EndOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = t.visualLines[t.Cursor.Line].Length
 	if t.isValidCursorPosition(newPosition) {
@@ -454,15 +455,15 @@ func (t *TextEditor) EndOfTheLine() error {
 
 }
 
-func (t *TextEditor) PreviousLine() error {
+func (t *EditorBuffer) PreviousLine() error {
 	return t.CursorUp()
 }
 
-func (t *TextEditor) NextLine() error {
+func (t *EditorBuffer) NextLine() error {
 	return t.CursorDown()
 }
 
-func (t *TextEditor) MoveCursorTo(pos rl.Vector2) error {
+func (t *EditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	apprLine := pos.Y / charSize.Y
@@ -493,7 +494,7 @@ func (t *TextEditor) MoveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 
-func (t *TextEditor) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
+func (t *EditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
 	t.Cursor = pos
 
 	if t.Cursor.Line == int(t.VisibleStart-1) {
@@ -509,7 +510,7 @@ func (t *TextEditor) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
 	return nil
 }
 
-func (t *TextEditor) Write() error {
+func (t *EditorBuffer) Write() error {
 	if t.File == "" {
 		return nil
 	}
@@ -522,9 +523,9 @@ func (t *TextEditor) Write() error {
 	return nil
 }
 
-func (t *TextEditor) GetMaxHeight() int32 { return t.MaxHeight }
-func (t *TextEditor) GetMaxWidth() int32  { return t.MaxWidth }
-func (t *TextEditor) Indent() error {
+func (t *EditorBuffer) GetMaxHeight() int32 { return t.MaxHeight }
+func (t *EditorBuffer) GetMaxWidth() int32  { return t.MaxWidth }
+func (t *EditorBuffer) Indent() error {
 	idx := t.cursorToBufferIndex()
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, []byte(strings.Repeat(" ", t.TabSize))...)
@@ -538,4 +539,189 @@ func (t *TextEditor) Indent() error {
 
 	
 	return nil
+}
+
+
+
+var editorBufferKeymap = Keymap{
+
+	Key{K: "s", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().Write()
+	},
+	// navigation
+	Key{K: "<lmouse>"}: func(e *Application) error {
+		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
+	},
+	Key{K: "<mouse-wheel-up>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollUp(10)
+
+	},
+	Key{K: "<mouse-wheel-down>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollDown(10)
+	},
+
+	Key{K: "<rmouse>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollDown(10)
+	},
+	Key{K: "<mmouse>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollUp(10)
+	},
+
+	Key{K: "a", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().BeginingOfTheLine()
+	},
+	Key{K: "e", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().EndOfTheLine()
+	},
+
+	Key{K: "p", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().PreviousLine()
+	},
+
+	Key{K: "n", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().NextLine()
+	},
+
+	Key{K: "<up>"}: func(e *Application) error {
+		return e.ActiveEditor().CursorUp()
+	},
+	Key{K: "<down>"}: func(e *Application) error {
+		return e.ActiveEditor().CursorDown()
+	},
+	Key{K: "<right>"}: func(e *Application) error {
+		return e.ActiveEditor().CursorRight(1)
+	},
+	Key{K: "f", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().CursorRight(1)
+	},
+	Key{K: "<left>"}: func(e *Application) error {
+		return e.ActiveEditor().CursorLeft()
+	},
+
+	Key{K: "b", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().CursorLeft()
+	},
+	Key{K: "<home>"}: func(e *Application) error {
+		return e.ActiveEditor().BeginingOfTheLine()
+	},
+	Key{K: "<pagedown>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollDown(1)
+	},
+	Key{K: "<pageup>"}: func(e *Application) error {
+		return e.ActiveEditor().ScrollUp(1)
+	},
+
+	//insertion
+	Key{K: "<enter>"}: func(e *Application) error { return insertCharAtCursor(e, '\n') },
+	Key{K: "<space>"}: func(e *Application) error { return insertCharAtCursor(e, ' ') },
+	Key{K: "<backspace>"}: func(e *Application) error {
+		return e.ActiveEditor().DeleteCharBackward()
+	},
+	Key{K: "d", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().DeleteCharForward()
+	},
+	Key{K: "d", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().DeleteCharForward()
+	},
+	Key{K: "<delete>"}: func(e *Application) error {
+		return e.ActiveEditor().DeleteCharForward()
+	},
+	Key{K: "a"}:               func(e *Application) error { return insertCharAtCursor(e, 'a') },
+	Key{K: "b"}:               func(e *Application) error { return insertCharAtCursor(e, 'b') },
+	Key{K: "c"}:               func(e *Application) error { return insertCharAtCursor(e, 'c') },
+	Key{K: "d"}:               func(e *Application) error { return insertCharAtCursor(e, 'd') },
+	Key{K: "e"}:               func(e *Application) error { return insertCharAtCursor(e, 'e') },
+	Key{K: "f"}:               func(e *Application) error { return insertCharAtCursor(e, 'f') },
+	Key{K: "g"}:               func(e *Application) error { return insertCharAtCursor(e, 'g') },
+	Key{K: "h"}:               func(e *Application) error { return insertCharAtCursor(e, 'h') },
+	Key{K: "i"}:               func(e *Application) error { return insertCharAtCursor(e, 'i') },
+	Key{K: "j"}:               func(e *Application) error { return insertCharAtCursor(e, 'j') },
+	Key{K: "k"}:               func(e *Application) error { return insertCharAtCursor(e, 'k') },
+	Key{K: "l"}:               func(e *Application) error { return insertCharAtCursor(e, 'l') },
+	Key{K: "m"}:               func(e *Application) error { return insertCharAtCursor(e, 'm') },
+	Key{K: "n"}:               func(e *Application) error { return insertCharAtCursor(e, 'n') },
+	Key{K: "o"}:               func(e *Application) error { return insertCharAtCursor(e, 'o') },
+	Key{K: "p"}:               func(e *Application) error { return insertCharAtCursor(e, 'p') },
+	Key{K: "q"}:               func(e *Application) error { return insertCharAtCursor(e, 'q') },
+	Key{K: "r"}:               func(e *Application) error { return insertCharAtCursor(e, 'r') },
+	Key{K: "s"}:               func(e *Application) error { return insertCharAtCursor(e, 's') },
+	Key{K: "t"}:               func(e *Application) error { return insertCharAtCursor(e, 't') },
+	Key{K: "u"}:               func(e *Application) error { return insertCharAtCursor(e, 'u') },
+	Key{K: "v"}:               func(e *Application) error { return insertCharAtCursor(e, 'v') },
+	Key{K: "w"}:               func(e *Application) error { return insertCharAtCursor(e, 'w') },
+	Key{K: "x"}:               func(e *Application) error { return insertCharAtCursor(e, 'x') },
+	Key{K: "y"}:               func(e *Application) error { return insertCharAtCursor(e, 'y') },
+	Key{K: "z"}:               func(e *Application) error { return insertCharAtCursor(e, 'z') },
+	Key{K: "0"}:               func(e *Application) error { return insertCharAtCursor(e, '0') },
+	Key{K: "1"}:               func(e *Application) error { return insertCharAtCursor(e, '1') },
+	Key{K: "2"}:               func(e *Application) error { return insertCharAtCursor(e, '2') },
+	Key{K: "3"}:               func(e *Application) error { return insertCharAtCursor(e, '3') },
+	Key{K: "4"}:               func(e *Application) error { return insertCharAtCursor(e, '4') },
+	Key{K: "5"}:               func(e *Application) error { return insertCharAtCursor(e, '5') },
+	Key{K: "6"}:               func(e *Application) error { return insertCharAtCursor(e, '6') },
+	Key{K: "7"}:               func(e *Application) error { return insertCharAtCursor(e, '7') },
+	Key{K: "8"}:               func(e *Application) error { return insertCharAtCursor(e, '8') },
+	Key{K: "9"}:               func(e *Application) error { return insertCharAtCursor(e, '9') },
+	Key{K: "\\"}:              func(e *Application) error { return insertCharAtCursor(e, '\\') },
+	Key{K: "\\", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '|') },
+
+	Key{K: "0", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Z') },
+	Key{K: "["}:              func(e *Application) error { return insertCharAtCursor(e, '[') },
+	Key{K: "]"}:              func(e *Application) error { return insertCharAtCursor(e, ']') },
+	Key{K: "{", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '{') },
+	Key{K: "}", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '}') },
+	Key{K: ";"}:              func(e *Application) error { return insertCharAtCursor(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, ':') },
+	Key{K: "'"}:              func(e *Application) error { return insertCharAtCursor(e, '\'') },
+	Key{K: "\""}:             func(e *Application) error { return insertCharAtCursor(e, '"') },
+	Key{K: ","}:              func(e *Application) error { return insertCharAtCursor(e, ',') },
+	Key{K: "."}:              func(e *Application) error { return insertCharAtCursor(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '>') },
+	Key{K: "/"}:              func(e *Application) error { return insertCharAtCursor(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '?') },
+	Key{K: "-"}:              func(e *Application) error { return insertCharAtCursor(e, '-') },
+	Key{K: "="}:              func(e *Application) error { return insertCharAtCursor(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '+') },
+	Key{K: "<tab>" }:         func(e *Application) error { return e.ActiveEditor().Indent() },
+}
+
+func insertCharAtCursor(e *Application, char byte) error {
+	return e.ActiveEditor().InsertCharAtCursor(char)
 }

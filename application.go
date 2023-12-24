@@ -20,7 +20,7 @@ type Colors struct {
 }
 
 type Application struct {
-	Editors           []*TextEditor
+	Editors           []*EditorBuffer
 	ActiveEditorIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
@@ -30,7 +30,7 @@ type Application struct {
 	Colors            Colors
 }
 
-func (e *Application) ActiveEditor() *TextEditor {
+func (e *Application) ActiveEditor() *EditorBuffer {
 	return e.Editors[e.ActiveEditorIndex]
 }
 
@@ -88,7 +88,7 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 func (e *Application) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		cmd := defaultKeymap[key]
+		cmd := e.ActiveEditor().Keymap[key]
 		if cmd != nil {
 			cmd(e)
 		}
@@ -158,7 +158,7 @@ func (e *Application) HandleWindowResize() {
 func (e *Application) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		cmd := defaultKeymap[key]
+		cmd := e.ActiveEditor().Keymap[key]
 		if cmd != nil {
 			cmd(e)
 		}
