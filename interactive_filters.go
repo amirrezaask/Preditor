@@ -89,7 +89,7 @@ func (i *InteractiveFilter[T]) Render(zeroLocation rl.Vector2, maxH float64, max
 	}
 
 	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
-	maxLine := int(int32(maxH-float64(startOfListY)) / int32(charSize.Y))
+	maxLine := int(int32((maxH+float64(zeroLocation.Y))-float64(startOfListY)) / int32(charSize.Y))
 
 	//draw list of items
 	for idx, item := range i.List.VisibleView(maxLine) {

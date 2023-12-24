@@ -207,7 +207,6 @@ func (c *Context) AddWindowInANewColumnAndSwitchToIt(w *Window) {
 }
 
 func (c *Context) AddWindowInCurrentColumn(w *Window) {
-	return //TODO: fix this
 	currentColIndex := -1
 HERE:
 	for i, col := range c.Windows {
@@ -385,6 +384,13 @@ func (c *Context) GetWindow(id int) *Window {
 	return nil
 }
 
+func isVisibleInWindow(posX float64, posY float64, zeroLocation rl.Vector2, maxH float64, maxW float64) bool {
+	return float32(posX) >= zeroLocation.X &&
+		float64(posX) <= (float64(zeroLocation.X)+maxW) &&
+		float64(posY) >= float64(zeroLocation.Y) &&
+		float64(posY) <= float64(zeroLocation.Y)+maxH
+}
+
 func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.CurrentThemeColors().Background.ToColorRGBA())
@@ -403,12 +409,12 @@ func (c *Context) Render() {
 			winHeight := height / float64(len(column))
 			winZeroY := float64(j) * winHeight
 			zeroLocation := rl.Vector2{X: float32(columnZeroX), Y: float32(winZeroY)}
-			win.Render(c, zeroLocation, winHeight, columnWidth)
 			win.Width = columnWidth
 			win.Height = winHeight
 			win.ZeroLocationX = float64(zeroLocation.X)
 			win.ZeroLocationY = float64(zeroLocation.Y)
-			//rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
+			win.Render(c, zeroLocation, winHeight, columnWidth)
+			rl.DrawLine(int32(columnZeroX), int32(winZeroY), int32(columnZeroX), int32(winHeight), rl.Gray)
 		}
 
 	}
