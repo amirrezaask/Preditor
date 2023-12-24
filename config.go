@@ -18,6 +18,7 @@ type Config struct {
 	CursorShape              int
 	CursorBlinking           bool
 	EnableSyntaxHighlighting bool
+	CursorLineHighlight      bool
 }
 
 func mustParseHexColor(hex string) color.RGBA {
@@ -44,6 +45,7 @@ var defaultConfig = Config{
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
 		SyntaxComments:        rl.Red,
 	},
+	CursorLineHighlight:      true,
 	TabSize:                  4,
 	LineNumbers:              false,
 	EnableSyntaxHighlighting: true,
