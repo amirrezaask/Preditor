@@ -1146,6 +1146,25 @@ func SelectionNextWord(e *TextBuffer) error {
 	return nil
 }
 
+func (e *TextBuffer) SelectionEndOfLine() error {
+	for i := range e.Cursors {
+		line := e.getIndexVisualLine(e.Cursors[i].End())
+		e.Cursors[i].Mark = line.endIndex
+	}
+	e.removeDuplicateSelectionsAndSort()
+
+	return nil
+}
+func (e *TextBuffer) SelectionBeginningOfLine() error {
+	for i := range e.Cursors {
+		line := e.getIndexVisualLine(e.Cursors[i].End())
+		e.Cursors[i].Mark = line.startIndex
+	}
+	e.removeDuplicateSelectionsAndSort()
+
+	return nil
+}
+
 func (e *TextBuffer) MoveToBeginningOfTheLine() error {
 	for i := range e.Cursors {
 		line := e.getIndexVisualLine(e.Cursors[i].Start())
@@ -1515,7 +1534,16 @@ var EditorKeymap = Keymap{
 
 		return nil
 	}),
+	Key{K: "a", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		e.SelectionBeginningOfLine()
 
+		return nil
+	}),
+	Key{K: "e", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
+		e.SelectionEndOfLine()
+
+		return nil
+	}),
 	Key{K: "n", Shift: true, Control: true}: MakeCommand(func(e *TextBuffer) error {
 		SelectionsDown(e, 1)
 
@@ -1887,6 +1915,7 @@ func init() {
 		Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error {
 			e.Compilation.IsActive = false
 			e.parent.openCompilationBuffer(string(e.Compilation.CompilationCommand))
+			e.keymaps = e.keymaps[:len(e.keymaps)-2]
 			return nil
 		}),
 
@@ -1897,6 +1926,8 @@ func init() {
 		}),
 		Key{K: "<esc>"}: MakeCommand(func(e *TextBuffer) error {
 			e.Compilation.IsActive = false
+			e.keymaps = e.keymaps[:len(e.keymaps)-2]
+
 			return nil
 		}),
 	}
