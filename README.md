@@ -29,6 +29,7 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Grep Buffers using Ripgrep ( more backends are possible )
 - Fuzzy file finder
 - Zoom in/out (increase/decrease) font size
+- Multi Window ( Splits )
 
 # Design and Terminology
 
@@ -46,7 +47,3 @@ Mapping from a Key event to a function that handles it, specific to each buffer.
 # Screenshot
 ![Main.go](assets/screenshot.png)
 ![Open File Menu](assets/files.png)
-
-## TODO:
-- Command output buffer ( run a command and see it's result, similar to *Compile Mode* in Emacs)
-- Splits
