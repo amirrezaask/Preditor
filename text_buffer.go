@@ -469,7 +469,7 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW i
 		gotoLine = fmt.Sprintf("Goto Line: %s", e.gotoLineBuffer)
 	}
 
-	statusbar := fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
+	statusbar := fmt.Sprintf("%s %s Row:%d Col:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
 	rl.DrawTextEx(e.parent.Font,
 		statusbar,
 		rl.Vector2{X: zeroLocation.X, Y: float32(e.maxLine) * charSize.Y},
@@ -633,6 +633,9 @@ func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
 		return
 	}
 	e.findMatchesAndHighlight(*e.SearchString, zeroLocation)
+	if len(e.SearchMatches) > 0 {
+		e.bufferIndex = e.SearchMatches[e.CurrentMatch][0]
+	}
 }
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
@@ -1536,9 +1539,6 @@ var SearchTextBufferKeymap = Keymap{
 		editor.CurrentMatch++
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
-		}
-		if len(editor.SearchMatches) > 0 {
-			editor.bufferIndex = editor.SearchMatches[editor.CurrentMatch][0]
 		}
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
