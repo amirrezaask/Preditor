@@ -19,7 +19,7 @@ dead simple text editor written in Golang and using Raylib for rendering
 - file picker buffer
 - Search buffer: similar to file picker but using rg or ug.
 - command output buffer
-
+- Syntax parsers and syntax highlighting
 
 # Screenshot
 ![Main.go](assets/screenshot.png)
