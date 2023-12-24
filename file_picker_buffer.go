@@ -173,6 +173,7 @@ func (f *FilePickerBuffer) tryComplete() error {
 
 func makeFilePickerCommand(f func(e *FilePickerBuffer) error) Command {
 	return func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
 		return f(preditor.ActiveBuffer().(*FilePickerBuffer))
 	}
 }

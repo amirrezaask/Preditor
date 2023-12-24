@@ -142,6 +142,7 @@ func (e *GrepBuffer) OpenSelection() error {
 
 func makeGrepBufferCommand(f func(e *GrepBuffer) error) Command {
 	return func(preditor *Preditor) error {
+		defer handlePanicAndWriteMessage(preditor)
 		return f(preditor.ActiveBuffer().(*GrepBuffer))
 	}
 }

@@ -74,6 +74,9 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 	charSizeCache[s] = charSize
 	return charSize
 }
+func (p *Preditor) WriteMessage(msg string) {
+	p.GetBuffer(p.MessageBufferID).(*TextBuffer).Content = append(p.GetBuffer(p.MessageBufferID).(*TextBuffer).Content, []byte(fmt.Sprintln(msg))...)
+}
 func (p *Preditor) getCWD() string {
 	if tb, isTextBuffer := p.ActiveBuffer().(*TextBuffer); isTextBuffer && !tb.IsSpecial() {
 		return path.Dir(tb.File)
@@ -575,6 +578,9 @@ func New() (*Preditor, error) {
 	p.AddBuffer(scratch)
 	p.AddBuffer(message)
 
+	p.MessageBufferID = message.ID
+	p.ScratchBufferID = scratch.ID
+
 	p.MarkBufferAsActive(scratch.ID)
 	p.GlobalKeymap = GlobalKeymap
 
@@ -659,4 +665,13 @@ func (e *Preditor) openGrepBuffer() {
 	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD())
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
+}
+
+func handlePanicAndWriteMessage(p *Preditor) {
+	r := recover()
+	if r != nil {
+		msg := fmt.Sprintf("%v\n%s", r, string(debug.Stack()))
+		fmt.Println(msg)
+		p.WriteMessage(msg)
+	}
 }
