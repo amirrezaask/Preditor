@@ -22,40 +22,48 @@ const (
 	State_Dirty = 2
 )
 
-// TODO: add a flag to check if buffer is writable or readonly, then we can use this code to add compiler output stuff
 type TextBuffer struct {
 	BaseBuffer
-	cfg                       *Config
-	parent                    *Preditor
-	File                      string
-	Content                   []byte
-	keymaps                   []Keymap
-	HasSyntaxHighlights       bool
-	SyntaxHighlights          *SyntaxHighlights
-	Variables                 Variables
-	Commands                  Commands
-	TabSize                   int
-	VisibleStart              int32
-	VisibleEnd                int32
-	visualLines               []visualLine
-	maxLine                   int32
-	bufferIndex               int
-	maxColumn                 int32
-	State                     int
-	SelectionStart            int
+	cfg            *Config
+	parent         *Preditor
+	File           string
+	Content        []byte
+	State          int
+	BeforeSaveHook []func(*TextBuffer) error
+	Readonly       bool
+
+	keymaps []Keymap
+
+	HasSyntaxHighlights bool
+	SyntaxHighlights    *SyntaxHighlights
+
+	TabSize int
+
+	VisibleStart int32
+	VisibleEnd   int32
+	visualLines  []visualLine
+
+	maxLine   int32
+	maxColumn int32
+
+	// Cursor
+	bufferIndex     int
+	LastCursorBlink time.Time
+	SelectionStart  int
+
+	// Searching
 	IsSearching               bool
 	LastSearchString          string
 	SearchString              *string
 	SearchMatches             [][]int
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
-	LastCursorBlink           time.Time
-	BeforeSaveHook            []func(*TextBuffer) error
-	UndoStack                 Stack[EditorAction]
-	isGotoLine                bool
-	gotoLineBuffer            []byte
-	Readonly                  bool
-	SearchHighlights          [][]int
+
+	UndoStack Stack[EditorAction]
+
+	//Gotoline
+	isGotoLine        bool
+	GotoLineUserInput []byte
 }
 
 const (
@@ -466,7 +474,7 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW i
 
 	var gotoLine string
 	if e.isGotoLine {
-		gotoLine = fmt.Sprintf("Goto Line: %s", e.gotoLineBuffer)
+		gotoLine = fmt.Sprintf("Goto Line: %s", e.GotoLineUserInput)
 	}
 
 	statusbar := fmt.Sprintf("%s %s Row:%d Col:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
@@ -629,7 +637,6 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vec
 }
 func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
 	if e.SearchString == nil || len(*e.SearchString) < 1 {
-		e.SearchHighlights = nil
 		return
 	}
 	e.findMatchesAndHighlight(*e.SearchString, zeroLocation)
@@ -1489,7 +1496,7 @@ func insertCharAtSearchString(editor *TextBuffer, char byte) error {
 }
 
 func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
-	editor.gotoLineBuffer = append(editor.gotoLineBuffer, char)
+	editor.GotoLineUserInput = append(editor.GotoLineUserInput, char)
 
 	return nil
 }
@@ -1522,10 +1529,10 @@ func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
 }
 
 func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
-	if len(e.gotoLineBuffer) < 1 {
+	if len(e.GotoLineUserInput) < 1 {
 		return nil
 	}
-	e.gotoLineBuffer = e.gotoLineBuffer[:len(e.gotoLineBuffer)-1]
+	e.GotoLineUserInput = e.GotoLineUserInput[:len(e.GotoLineUserInput)-1]
 
 	return nil
 }
@@ -1714,7 +1721,7 @@ var GotoLineKeymap = Keymap{
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
 	Key{K: "<enter>"}: makeCommand(func(editor *TextBuffer) error {
-		number, err := strconv.Atoi(string(editor.gotoLineBuffer))
+		number, err := strconv.Atoi(string(editor.GotoLineUserInput))
 		if err != nil {
 			return nil
 		}
@@ -1733,7 +1740,7 @@ var GotoLineKeymap = Keymap{
 					}
 
 					editor.isGotoLine = false
-					editor.gotoLineBuffer = nil
+					editor.GotoLineUserInput = nil
 					editor.bufferIndex = line.startIndex
 				}
 			}
