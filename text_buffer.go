@@ -1049,6 +1049,7 @@ func (e *TextBuffer) Indent() error {
 	}
 
 	e.SetStateDirty()
+	e.CursorRight(e.TabSize)
 	return nil
 }
 
@@ -1205,6 +1206,27 @@ func (e *TextBuffer) openFileBuffer() {
 	e.parent.ActiveWindowIndex = len(e.parent.Windows) - 1
 }
 
+func (e *TextBuffer) deleteWordBackward() {
+	cursorIndex := e.positionToBufferIndex(e.Cursor)
+	previousWordEndIdx := previousWordInBuffer(e.Content, cursorIndex)
+	if len(e.Content) > cursorIndex+1 {
+		e.Content = (append(e.Content[:previousWordEndIdx+1], e.Content[cursorIndex+1:]...))
+	} else {
+		e.Content = (e.Content[:previousWordEndIdx+1])
+	}
+	e.SetStateDirty()
+}
+
+func (e *TextBuffer) deleteWordForward() {
+	cursorIndex := e.positionToBufferIndex(e.Cursor)
+	nextWordStartIdx := nextWordInBuffer(e.Content, cursorIndex)
+	if len(e.Content) > nextWordStartIdx+1 {
+		e.Content = (append(e.Content[:cursorIndex+1], e.Content[nextWordStartIdx+1:]...))
+	} else {
+		e.Content = (e.Content[:cursorIndex])
+	}
+}
+
 func makeCommand(f func(e *TextBuffer) error) Command {
 	return func(preditor *Preditor) error {
 		return f(preditor.ActiveWindow().(*TextBuffer))
@@ -1358,6 +1380,10 @@ var editorKeymap = Keymap{
 	//insertion
 	Key{K: "<enter>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '\n') }),
 	Key{K: "<space>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
+	Key{K: "<backspace>", Control: true}: makeCommand(func(e *TextBuffer) error {
+		e.deleteWordBackward()
+		return nil
+	}),
 	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackward()
 	}),
