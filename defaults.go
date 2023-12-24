@@ -321,6 +321,12 @@ func setupDefaults() {
 
 			return nil
 		}),
+		Key{K: "5", Control: true, Shift: true}: MakeCommand(func(e *BufferView) error {
+			return MarkToMatchingChar(e)
+		}),
+		Key{K: "m", Control: true, Shift: true}: MakeCommand(func(e *BufferView) error {
+			return MarkToMatchingChar(e)
+		}),
 		Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *BufferView) error {
 			return e.addAnotherCursorAt(rl.GetMousePosition())
 		}),
@@ -396,7 +402,12 @@ func setupDefaults() {
 		Key{K: "e", Control: true}: MakeCommand(func(e *BufferView) error {
 			return PointToEndOfLine(e)
 		}),
-
+		Key{K: "5", Control: true}: MakeCommand(func(e *BufferView) error {
+			return PointToMatchingChar(e)
+		}),
+		Key{K: "m", Control: true}: MakeCommand(func(e *BufferView) error {
+			return PointToMatchingChar(e)
+		}),
 		Key{K: "p", Control: true}: MakeCommand(func(e *BufferView) error {
 			return PointUp(e)
 		}),
