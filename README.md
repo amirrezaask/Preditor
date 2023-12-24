@@ -26,3 +26,4 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 
 # Screenshot
 ![Main.go](assets/screenshot.png)
+![Open File Menu](assets/files.png)
