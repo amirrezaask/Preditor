@@ -257,7 +257,7 @@ var defaultConfig = Config{
 			},
 		},
 	},
-	CursorLineHighlight:        true,
+	CursorLineHighlight:        false,
 	TabSize:                    4,
 	LineNumbers:                true,
 	EnableSyntaxHighlighting:   true,
