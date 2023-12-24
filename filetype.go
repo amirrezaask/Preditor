@@ -1,11 +1,7 @@
 package preditor
 
 import (
-	"fmt"
 	"go/format"
-	"image/color"
-	"regexp"
-	"strings"
 )
 
 type FileType struct {
@@ -14,26 +10,14 @@ type FileType struct {
 	AfterSave                func(*Buffer) error
 	DefaultCompileCommand    string
 	CommentLineBeginingChars []byte
-	SyntaxHighlights         SyntaxHighlights
 	FindRootOfProject        func(currentFilePath string) (string, error)
+	TSHighlightQuery         []byte
 }
 
-type SyntaxHighlights map[*regexp.Regexp]color.RGBA
+var FileTypes map[string]FileType
 
-func keywordPat(word string) string {
-	return fmt.Sprintf("\\b%s\\b", word)
-}
-func keywordsPat(words ...string) string {
-	var pats []string
-	for _, word := range words {
-		pats = append(pats, keywordPat(word))
-	}
-
-	return fmt.Sprintf("(%s)", strings.Join(pats, "|"))
-}
-
-func initFileTypes(cfg Colors) {
-	fileTypeMappings = map[string]FileType{
+func init() {
+	FileTypes = map[string]FileType{
 		".go": {
 			TabSize: 4,
 			BeforeSave: func(e *Buffer) error {
@@ -45,24 +29,44 @@ func initFileTypes(cfg Colors) {
 				e.Content = newBytes
 				return nil
 			},
+			TSHighlightQuery: []byte(`
+[
+  "break"
+  "case"
+  "chan"
+  "const"
+  "continue"
+  "default"
+  "defer"
+  "else"
+  "fallthrough"
+  "for"
+  "func"
+  "go"
+  "goto"
+  "if"
+  "import"
+  "interface"
+  "map"
+  "package"
+  "range"
+  "return"
+  "select"
+  "struct"
+  "switch"
+  "type"
+  "var"
+] @keyword
+
+(type_identifier) @type
+(comment) @comment
+[(interpreted_string_literal) (raw_string_literal)] @string
+(identifier) @ident
+`),
 			AfterSave: func(buffer *Buffer) error {
 				return buffer.CompileNoAsk()
 			},
 			DefaultCompileCommand: "go build -v ./...",
-			SyntaxHighlights: SyntaxHighlights{
-				regexp.MustCompile(keywordsPat("break", "case", "const",
-					"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
-					"import", "interface", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "iota", "append", "cap", "clear", "close", "complex",
-					"Copy", "delete", "imag", "len", "make",
-					"max", "min", "new", "panic", "print",
-					"println", "real", "recover")): cfg.SyntaxKeywords.ToColorRGBA(),
-				regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "true", "false", "chan", "byte", "map")): cfg.SyntaxTypes.ToColorRGBA(),
-				regexp.MustCompile("//.*"):    cfg.SyntaxComments.ToColorRGBA(),
-				regexp.MustCompile("`.*?`"):   cfg.SyntaxStrings.ToColorRGBA(),
-				regexp.MustCompile("\".*?\""): cfg.SyntaxStrings.ToColorRGBA(),
-			},
 		},
 	}
 }
-
-var fileTypeMappings map[string]FileType

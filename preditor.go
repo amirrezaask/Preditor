@@ -46,6 +46,7 @@ type Colors struct {
 	SyntaxTypes           RGBA
 	SyntaxComments        RGBA
 	SyntaxStrings         RGBA
+	SyntaxIdentifiers     RGBA
 }
 
 type Drawable interface {
@@ -849,7 +850,6 @@ func New() (*Context, error) {
 
 	// create editor
 	setupRaylib(cfg)
-	initFileTypes(*cfg.CurrentThemeColors())
 
 	if err := clipboard.Init(); err != nil {
 		panic(err)
@@ -953,7 +953,7 @@ func (c *Context) StartMainLoop() {
 				fmt.Println(err)
 			}
 
-			fmt.Printf("%v\n%s\n%s\n", r, string(debug.Stack()), spew.Sdump(c))
+			fmt.Printf("%v\n%s\n", r, string(debug.Stack()))
 		}
 	}()
 
