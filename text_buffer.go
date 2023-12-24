@@ -463,7 +463,13 @@ func (e *TextBuffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW
 	} else {
 		if e.Cursors[0].Start() == e.Cursors[0].End() {
 			selStart := e.getIndexPosition(e.Cursors[0].Start())
-			sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selStart.Line, selStart.Column))
+			if len(e.View.Lines) > selStart.Line {
+				selLine := e.View.Lines[selStart.Line]
+				sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selLine.ActualLine, selStart.Column))
+			} else {
+				sections = append(sections, fmt.Sprintf("Line#%d Col#%d", selStart.Line, selStart.Column))
+			}
+
 		} else {
 			selEnd := e.getIndexPosition(e.Cursors[0].End())
 			sections = append(sections, fmt.Sprintf("Line#%d Col#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
@@ -556,7 +562,6 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 in
 }
 
 func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	e.calculateVisualLines()
 	var visibleLines []visualLine
 	if e.View.EndLine > int32(len(e.View.Lines)) {
 		visibleLines = e.View.Lines[e.View.StartLine:]
@@ -693,6 +698,7 @@ func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, ma
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
+	e.calculateVisualLines()
 
 	e.renderStatusbar(zeroLocation, maxH, maxW)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y

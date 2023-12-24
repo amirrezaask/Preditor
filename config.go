@@ -66,7 +66,7 @@ var defaultConfig = Config{
 				Prompts:               mustParseHexColor("#333333"),
 				StatusBarBackground:   mustParseHexColor("#696969"),
 				StatusBarForeground:   mustParseHexColor("#000000"),
-				LineNumbersForeground: mustParseHexColor("#F2F2F2"),
+				LineNumbersForeground: mustParseHexColor("#010101"),
 				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
 				Cursor:                mustParseHexColor("#00ff00"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
