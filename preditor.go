@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/flopp/go-findfont"
 	"image/color"
 	"math/rand"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flopp/go-findfont"
 
 	"github.com/davecgh/go-spew/spew"
 	"golang.design/x/clipboard"
@@ -880,11 +881,13 @@ func setupRaylib(cfg *Config) {
 
 func New() (*Context, error) {
 	var configPath string
+	var startTheme string
 	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".preditor"), "path to config file, defaults to: ~/.preditor")
+	flag.StringVar(&startTheme, "theme", "", "Start theme to use overrides the config and editor defaults.")
 	flag.Parse()
 
 	// read config file
-	cfg, err := ReadConfig(configPath)
+	cfg, err := ReadConfig(configPath, startTheme)
 	if err != nil {
 		panic(err)
 	}
