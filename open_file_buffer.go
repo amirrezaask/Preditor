@@ -22,7 +22,6 @@ type OpenFileBuffer struct {
 	Idx          int
 	Items        []LocationItem
 	CursorShape  int
-	Selection    int
 	LastQuery    string
 }
 
@@ -121,7 +120,6 @@ func (f *OpenFileBuffer) Render() {
 		}, fontSize, 0, f.cfg.Colors.Foreground)
 
 	}
-	rl.DrawRectangle(int32(f.ZeroLocation.X), int32(startOfListY)+(int32(f.Selection)*int32(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(rl.Blue, 0.2))
 
 }
 
@@ -254,11 +252,6 @@ func (f *OpenFileBuffer) DeleteCharForward() error {
 	return nil
 }
 
-func (f *OpenFileBuffer) copySelectiontoUserInput() error {
-	f.setNewUserInput(append(f.UserInput, f.Items[f.Selection].Filename...))
-	return nil
-}
-
 func (f *OpenFileBuffer) openUserInput() error {
 	p := f.parent
 
@@ -267,23 +260,6 @@ func (f *OpenFileBuffer) openUserInput() error {
 		panic(err)
 	}
 	p.Windows[p.ActiveWindowIndex] = e
-	return nil
-}
-
-func (f *OpenFileBuffer) nextSelection() error {
-	f.Selection++
-	if f.Selection >= len(f.Items) {
-		f.Selection = len(f.Items) - 1
-	}
-
-	return nil
-}
-
-func (f *OpenFileBuffer) prevSelection() error {
-	f.Selection--
-	if f.Selection < 0 {
-		f.Selection = 0
-	}
 	return nil
 }
 
@@ -348,10 +324,6 @@ func init() {
 		Key{K: "<right>"}: makeFilePickerCommand(func(e *OpenFileBuffer) error {
 			return e.CursorRight(1)
 		}),
-		Key{K: "<up>"}:             makeFilePickerCommand(func(e *OpenFileBuffer) error { return e.prevSelection() }),
-		Key{K: "<down>"}:           makeFilePickerCommand(func(e *OpenFileBuffer) error { return e.nextSelection() }),
-		Key{K: "p", Control: true}: makeFilePickerCommand(func(e *OpenFileBuffer) error { return e.prevSelection() }),
-		Key{K: "n", Control: true}: makeFilePickerCommand(func(e *OpenFileBuffer) error { return e.nextSelection() }),
 		Key{K: "<right>", Control: true}: makeFilePickerCommand(func(e *OpenFileBuffer) error {
 			return e.NextWordStart()
 		}),
