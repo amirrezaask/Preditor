@@ -11,7 +11,7 @@ import (
 
 func main() {
 	var configPath string
-	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".core"), "path to config file, defaults to: ~/.core.cfg")
+	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".preditor"), "path to config file, defaults to: ~/.preditor")
 	flag.Parse()
 
 	// read config file
