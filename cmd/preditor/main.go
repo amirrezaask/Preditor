@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/amirrezaask/preditor"
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
 	"os"
@@ -14,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	// read config file
-	cfg, err := readConfig(configPath)
+	cfg, err := preditor.ReadConfig(configPath)
 	if err != nil {
 		panic(err)
 	}
@@ -25,7 +26,7 @@ func main() {
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
 
-	initFileTypes(cfg.Colors)
+	preditor.InitFileTypes(cfg.Colors)
 
 	if err := clipboard.Init(); err != nil {
 		panic(err)
@@ -33,15 +34,15 @@ func main() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
 	// create editor
-	editor := Preditor{
+	editor := preditor.Preditor{
 		LineNumbers:  true,
 		LineWrapping: true,
 		Colors:       cfg.Colors,
 	}
-	rl.SetTextLineSpacing(int(fontSize))
+	rl.SetTextLineSpacing(int(preditor.FontSize))
 	rl.SetExitKey(0)
 
-	err = loadFont(cfg.FontName, float32(cfg.FontSize))
+	err = preditor.LoadFont(cfg.FontName, float32(cfg.FontSize))
 	if err != nil {
 		panic(err)
 	}
@@ -62,9 +63,9 @@ func main() {
 	}
 
 	if stat.IsDir() {
-		editor.Buffers = append(editor.Buffers, NewFilePickerBuffer(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
+		editor.Buffers = append(editor.Buffers, preditor.NewFilePickerBuffer(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
 	} else {
-		e, err := NewTextBuffer(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{})
+		e, err := preditor.NewTextBuffer(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{})
 		if err != nil {
 			panic(err)
 		}

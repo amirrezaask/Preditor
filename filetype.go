@@ -1,4 +1,4 @@
-package main
+package preditor
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ func keywordsPat(words ...string) string {
 	return fmt.Sprintf("(%s)", strings.Join(pats, "|"))
 }
 
-func initFileTypes(cfg Colors) {
+func InitFileTypes(cfg Colors) {
 	fileTypeMappings = map[string]FileType{
 		".go": {
 			TabSize: 4,

@@ -1,4 +1,4 @@
-package main
+package preditor
 
 import (
 	"fmt"
@@ -34,13 +34,13 @@ func NewBufferSwitcherBuffer(parent *Preditor,
 }
 
 func (b *BufferSwitcherBuffer) Render() {
-	charSize := measureTextSize(font, ' ', fontSize, 0)
+	charSize := measureTextSize(font, ' ', FontSize, 0)
 
 	//draw list of items
 	for idx, item := range b.Items {
 		rl.DrawTextEx(font, item.String(), rl.Vector2{
 			X: b.ZeroLocation.X, Y: b.ZeroLocation.Y + float32(idx)*charSize.Y,
-		}, fontSize, 0, b.cfg.Colors.Foreground)
+		}, FontSize, 0, b.cfg.Colors.Foreground)
 	}
 	//draw selection
 	rl.DrawRectangle(int32(b.ZeroLocation.X), int32(b.ZeroLocation.Y+float32(float32(b.Selection)*charSize.Y)), b.maxWidth, int32(charSize.Y), rl.Fade(b.cfg.Colors.Selection, 0.3))
