@@ -1,3 +1,12 @@
+v0.5
+=====================
+- New command to run grep and output in a buffer
+- Treesitter syntax highlighting
+- Fix line numbers bug where Goto line jumped to wrong line
+- Fix line numbers bug where line in statusbar was wrong
+- Build window has 3 states now
+
+
 v0.4
 =====================
 - BuildWindow: Special window rendered at bottom of screen for showing compile results.
@@ -21,13 +30,13 @@ v0.4
 v0.3
 ======================
 Multiple Cursors (WIP):
-	Another selection on match
-	Another selection next line
-	Moving all selections in a direction: up/down/left/right
+Another selection on match
+Another selection next line
+Moving all selections in a direction: up/down/left/right
 Multiple Windows (WIP):
-	spliting vertically
-	spliting horizontaly (WIP)
-	Closing window
+spliting vertically
+spliting horizontaly (WIP)
+Closing window
 
 
 v0.2
