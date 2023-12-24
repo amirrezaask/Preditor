@@ -844,11 +844,15 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 					matchingIdx := byteutils.FindMatching(e.Buffer.Content, e.Cursors[0].Point)
 					if matchingIdx != -1 {
 						idxPosition := e.BufferIndexToPosition(matchingIdx)
-						posX := int32(idxPosition.Column)*int32(charSize.X) + int32(zeroLocation.X)
+						idxPositionView := Position{
+							Line:   idxPosition.Line - int(e.VisibleStart),
+							Column: idxPosition.Column,
+						}
+						posX := int32(idxPositionView.Column)*int32(charSize.X) + int32(zeroLocation.X)
 						if e.cfg.LineNumbers {
 							posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 						}
-						posY := int32(idxPosition.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
+						posY := int32(idxPositionView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
 
 						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().HighlightMatching.ToColorRGBA(), 0.4))
 					}
