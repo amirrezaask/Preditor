@@ -120,6 +120,10 @@ func (f *FilePickerBuffer) calculateLocationItems() {
 		f.List.Selection = len(f.List.Items) - 1
 	}
 
+	if f.List.Selection < 0 {
+		f.List.Selection = 0
+	}
+
 	return
 }
 
@@ -187,10 +191,19 @@ func (f *FilePickerBuffer) openUserInput() error {
 }
 
 func (f *FilePickerBuffer) openSelection() error {
-	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
-	if err != nil {
-		panic(err)
+	if f.List.Selection < 0 || f.List.Selection >= len(f.List.Items) {
+		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+
+		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	return nil
 }
 
