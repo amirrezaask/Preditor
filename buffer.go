@@ -139,6 +139,9 @@ type BufferView struct {
 
 	keymaps []Keymap
 
+	// Old Len is stored for times that buffer content is changed under our feet
+	oldLen int
+	
 	// Cursor
 	Cursors []Cursor
 
@@ -672,7 +675,6 @@ func (e *BufferView) updateMaxLineAndColumn(maxH float64, maxW float64) {
 
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-
 	oldMaxLine := e.maxLine
 	e.maxColumn = int32(maxW / float64(charSize.X))
 	e.maxLine = int32(maxH / float64(charSize.Y))
@@ -826,43 +828,46 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			Y: zeroLocation.Y,
 		}, float32(e.parent.FontSize), 0, rl.White)
 	}
+	if e.parent.ActiveDrawableID() == e.ID {
+		for _, sel := range e.Cursors {
+			if sel.Start() == sel.End() {
+				cursor := e.BufferIndexToPosition(sel.Start())
+				cursorView := Position{
+					Line:   cursor.Line - int(e.StartLine),
+					Column: cursor.Column,
+				}
+				posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
+				if e.cfg.LineNumbers {
+					posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+				}
+				posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
 
-	for _, sel := range e.Cursors {
-		if sel.Start() == sel.End() {
-			cursor := e.BufferIndexToPosition(sel.Start())
-			cursorView := Position{
-				Line:   cursor.Line - int(e.StartLine),
-				Column: cursor.Column,
-			}
-			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
-			if e.cfg.LineNumbers {
-				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
-			}
-			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
+				if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
+					continue
+				}
+				switch e.cfg.CursorShape {
+				case CURSOR_SHAPE_OUTLINE:
+					rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				case CURSOR_SHAPE_BLOCK:
+					rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+					if len(e.Buffer.Content)-1 >= sel.Point {
+						rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
+					}
 
-			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
-				continue
-			}
-			switch e.cfg.CursorShape {
-			case CURSOR_SHAPE_OUTLINE:
-				rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-			case CURSOR_SHAPE_BLOCK:
-				rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-				if len(e.Buffer.Content)-1 >= sel.Point {
-					rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
+				case CURSOR_SHAPE_LINE:
+					rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				}
+				if e.cfg.CursorLineHighlight {
+					rl.DrawRectangle(int32(zeroLocation.X), int32(cursor.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
 				}
 
-			case CURSOR_SHAPE_LINE:
-				rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+			} else {
+				e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 			}
-			if e.cfg.CursorLineHighlight {
-				rl.DrawRectangle(int32(zeroLocation.X), int32(cursor.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
-			}
-
-		} else {
-			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
+
 	}
+
 
 	e.zeroLocation = zeroLocation
 
