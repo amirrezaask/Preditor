@@ -25,4 +25,16 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+
+	Key{K: "<mouse-wheel-down>", Control: true}: func(c *Context) error {
+		c.DecreaseFontSize(2)
+
+		return nil
+	},
+
+	Key{K: "<mouse-wheel-up>", Control: true}: func(c *Context) error {
+		c.IncreaseFontSize(2)
+		return nil
+
+	},
 }

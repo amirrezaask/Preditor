@@ -1446,6 +1446,15 @@ var EditorKeymap = Keymap{
 	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
+
+	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
+		return e.ScrollDown(5)
+	}),
+
+	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
+		return e.ScrollUp(5)
+	}),
+
 	Key{K: "<lmouse>-hold"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
