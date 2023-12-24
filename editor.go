@@ -57,6 +57,15 @@ type Editor struct {
 	BeforeSaveHook            []func(*Editor) error
 }
 
+func (t *Editor) SetStateDirty() {
+	t.calculateVisualLines()
+	t.State = State_Dirty
+}
+
+func (t *Editor) SetStateClean() {
+	t.State = State_Clean
+}
+
 func (t *Editor) replaceTabsWithSpaces() {
 	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
 }
@@ -133,6 +142,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 	}
 	t.replaceTabsWithSpaces()
 	t.updateMaxLineAndColumn()
+	t.calculateVisualLines()
 	return &t, nil
 
 }
@@ -559,7 +569,6 @@ func (t *Editor) renderSearchResults() {
 }
 
 func (t *Editor) Render() {
-	t.calculateVisualLines()
 	t.renderText()
 	t.renderSearchResults()
 	t.renderCursor()
@@ -636,7 +645,6 @@ func (t *Editor) InsertCharAtCursor(char byte) error {
 
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
-		t.calculateVisualLines()
 	} else {
 		idx = t.positionToBufferIndex(t.Cursor)
 	}
@@ -646,9 +654,8 @@ func (t *Editor) InsertCharAtCursor(char byte) error {
 		t.Content = append(t.Content[:idx+1], t.Content[idx:]...)
 		t.Content[idx] = char
 	}
-	t.State = State_Dirty
+	t.SetStateDirty()
 
-	t.calculateVisualLines()
 	if char == '\n' {
 		t.CursorDown()
 		t.BeginingOfTheLine()
@@ -693,7 +700,7 @@ func (t *Editor) DeleteCharBackward() error {
 
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
-		t.State = State_Dirty
+		t.SetStateDirty()
 		t.HasSelection = false
 		return nil
 	}
@@ -707,8 +714,7 @@ func (t *Editor) DeleteCharBackward() error {
 	} else {
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
 	}
-	t.State = State_Dirty
-	t.calculateVisualLines()
+	t.SetStateDirty()
 	t.CursorLeft()
 
 	return nil
@@ -721,7 +727,7 @@ func (t *Editor) DeleteCharForward() error {
 		return nil
 	}
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
-	t.State = State_Dirty
+	t.SetStateDirty()
 
 	return nil
 }
@@ -895,7 +901,6 @@ func (t *Editor) NextWord() error {
 	}
 	pos := t.convertBufferIndexToLineAndColumn(jump + currentidx)
 
-	Printlnf(pos)
 	if t.isValidCursorPosition(*pos) {
 		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
 	}
@@ -916,7 +921,6 @@ func (t *Editor) PreviousWord() error {
 	}
 	pos := t.convertBufferIndexToLineAndColumn(currentidx - jump)
 
-	Printlnf(pos)
 	if t.isValidCursorPosition(*pos) {
 		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
 	}
@@ -987,7 +991,7 @@ func (t *Editor) Write() error {
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
-	t.State = State_Clean
+	t.SetStateDirty()
 	t.replaceTabsWithSpaces()
 	return nil
 }
@@ -1000,12 +1004,9 @@ func (t *Editor) Indent() error {
 		t.Content = append(t.Content, []byte(strings.Repeat(" ", t.TabSize))...)
 	} else {
 		t.Content = append(t.Content[:idx], append([]byte(strings.Repeat(" ", t.TabSize)), t.Content[idx:]...)...)
-		t.calculateVisualLines()
-		t.CursorRight(t.TabSize)
 	}
 
-	t.State = State_Dirty
-
+	t.SetStateDirty()
 	return nil
 }
 
@@ -1058,7 +1059,7 @@ func (t *Editor) cut() error {
 
 	t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 
-	t.State = State_Dirty
+	t.SetStateDirty()
 
 	return nil
 }
@@ -1099,21 +1100,18 @@ func (t *Editor) paste() error {
 
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
-		t.calculateVisualLines()
 	} else {
 		idx = t.positionToBufferIndex(t.Cursor)
 	}
 	contentToPaste := getClipboardContent()
-	fmt.Printf("content to paste: '%s'\n", contentToPaste)
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, contentToPaste...)
 	} else {
 		t.Content = append(t.Content[:idx], append(contentToPaste, t.Content[idx:]...)...)
 	}
-	t.State = State_Dirty
+	t.SetStateDirty()
 	t.HasSelection = false
 	t.SelectionStart = nil
-	t.calculateVisualLines()
 
 	t.CursorRight(len(contentToPaste))
 	return nil
