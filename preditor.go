@@ -49,21 +49,48 @@ func (b *BaseBuffer) SetID(i int) {
 	b.ID = i
 }
 
+type Window struct {
+	ID           int
+	BufferID     int
+	ZeroLocation rl.Vector2
+	MaxHeight    int32
+	MaxWidth     int32
+}
+
+func (w *Window) Render(c *Context) {
+	c.Buffers[w.BufferID].Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
+}
+
 type Context struct {
-	CWD             string
-	Cfg             *Config
-	ScratchBufferID int
-	MessageBufferID int
-	Buffers         map[int]Buffer
-	ActiveBufferID  int
-	GlobalKeymap    Keymap
-	GlobalVariables Variables
-	Commands        Commands
-	FontPath        string
-	Font            rl.Font
-	FontSize        int32
-	OSWindowHeight  int32
-	OSWindowWidth   int32
+	CWD               string
+	Cfg               *Config
+	ScratchBufferID   int
+	MessageBufferID   int
+	Buffers           map[int]Buffer
+	GlobalKeymap      Keymap
+	GlobalVariables   Variables
+	Commands          Commands
+	FontPath          string
+	Font              rl.Font
+	FontSize          int32
+	OSWindowHeight    int32
+	OSWindowWidth     int32
+	Windows           map[int]*Window
+	ActiveWindowIndex int
+}
+
+func (c *Context) ActiveWindow() *Window {
+	w := c.Windows[c.ActiveWindowIndex]
+	return w
+}
+
+func (c *Context) ActiveBuffer() Buffer {
+	bufferid := c.Windows[c.ActiveWindowIndex].BufferID
+	return c.Buffers[bufferid]
+}
+func (c *Context) ActiveBufferID() int {
+	bufferid := c.Windows[c.ActiveWindowIndex].BufferID
+	return bufferid
 }
 
 var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
@@ -90,8 +117,19 @@ func (c *Context) AddBuffer(b Buffer) {
 	c.Buffers[id] = b
 	b.SetID(id)
 }
+
+func (c *Context) AddWindow(w *Window) {
+	id := len(c.Windows) + 1
+	c.Windows[id] = w
+	w.ID = id
+}
+
+func (c *Context) MarkWindowAsActive(id int) {
+	c.ActiveWindowIndex = id
+}
+
 func (c *Context) MarkBufferAsActive(id int) {
-	c.ActiveBufferID = id
+	c.ActiveWindow().BufferID = id
 }
 
 func (c *Context) GetBuffer(id int) Buffer {
@@ -100,10 +138,6 @@ func (c *Context) GetBuffer(id int) Buffer {
 
 func (c *Context) KillBuffer(id int) {
 	delete(c.Buffers, id)
-
-	for k := range c.Buffers {
-		c.ActiveBufferID = k
-	}
 }
 
 func (c *Context) LoadFont(name string, size int32) error {
@@ -129,10 +163,6 @@ func (c *Context) DecreaseFontSize(n int) {
 	c.Font = rl.LoadFontEx(c.FontPath, c.FontSize, nil)
 	charSizeCache = map[byte]rl.Vector2{}
 
-}
-
-func (c *Context) ActiveBuffer() Buffer {
-	return c.Buffers[c.ActiveBufferID]
 }
 
 type Command func(*Context) error
@@ -204,7 +234,9 @@ func (c *Context) HandleKeyEvents() {
 func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.Colors.Background)
-	c.ActiveBuffer().Render(rl.Vector2{}, c.OSWindowHeight, c.OSWindowWidth)
+	for _, win := range c.Windows {
+		win.Render(c)
+	}
 	rl.EndDrawing()
 }
 
@@ -220,7 +252,9 @@ func (c *Context) HandleMouseEvents() {
 		for i := len(keymaps) - 1; i >= 0; i-- {
 			cmd := keymaps[i][key]
 			if cmd != nil {
-				cmd(c)
+				if err := cmd(c); err != nil {
+					c.WriteMessage(err.Error())
+				}
 				break
 			}
 		}
@@ -263,11 +297,6 @@ func getKey() Key {
 		Shift:   modifierState.shift,
 		K:       key,
 	}
-	// if !k.IsEmpty() {
-	// 	fmt.Println("=================================")
-	// 	fmt.Printf("key: %+v\n", k)
-	// 	fmt.Println("=================================")
-	// }
 
 	return k
 }
@@ -315,11 +344,6 @@ func getMouseKey() Key {
 		Shift:   modifierState.shift,
 		K:       key,
 	}
-	// if !k.IsEmpty() {
-	// 	fmt.Println("=================================")
-	// 	fmt.Printf("key: %+v\n", k)
-	// 	fmt.Println("=================================")
-	// }
 
 	return k
 
@@ -561,6 +585,7 @@ func New() (*Context, error) {
 		Buffers:        map[int]Buffer{},
 		OSWindowHeight: int32(rl.GetRenderHeight()),
 		OSWindowWidth:  int32(rl.GetRenderWidth()),
+		Windows:        map[int]*Window{},
 	}
 
 	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
@@ -581,6 +606,15 @@ func New() (*Context, error) {
 
 	p.MessageBufferID = message.ID
 	p.ScratchBufferID = scratch.ID
+
+	mainWindow := Window{
+		ZeroLocation: rl.Vector2{},
+		MaxHeight:    p.OSWindowHeight,
+		MaxWidth:     p.OSWindowWidth,
+	}
+	p.AddWindow(&mainWindow)
+
+	p.MarkWindowAsActive(mainWindow.ID)
 
 	p.MarkBufferAsActive(scratch.ID)
 	p.GlobalKeymap = GlobalKeymap

@@ -447,14 +447,14 @@ func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *Int
 
 	}
 	openUserInput := func(parent *Context, userInput string) {
-		parent.KillBuffer(parent.ActiveBufferID)
+		parent.KillBuffer(parent.ActiveBufferID())
 		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, userInput, nil)
 		if err != nil {
 			panic(err)
 		}
 	}
 	openSelection := func(parent *Context, item LocationItem) error {
-		parent.KillBuffer(parent.ActiveBufferID)
+		parent.KillBuffer(parent.ActiveBufferID())
 		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Filename, nil)
 		if err != nil {
 			panic(err)
