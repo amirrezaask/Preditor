@@ -14,8 +14,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/amirrezaask/preditor/byteutils"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"golang.design/x/clipboard"
 )
@@ -1094,19 +1092,19 @@ func (e *Buffer) AnotherSelectionOnMatch() error {
 		})
 
 	} else {
-		start := byteutils.SeekPreviousNonLetter(e.Content, lastSel.Point)
-		end := byteutils.SeekNextNonLetter(e.Content, lastSel.Point)
-		e.Cursors[len(e.Cursors)-1].Point = start + 1
-		e.Cursors[len(e.Cursors)-1].Mark = start + 1
-		thingToSearch = e.Content[start+1 : end]
-		next := findNextMatch(e.Content, lastSel.End()+1, thingToSearch)
-		if len(next) == 0 {
-			return nil
+		tokenPos := e.findIndexPositionInTokens(lastSel.Point)
+		if tokenPos != -1 {
+			token := e.Tokens[tokenPos]
+			thingToSearch = e.Content[token.Start:token.End]
+			next := findNextMatch(e.Content, lastSel.End()+1, thingToSearch)
+			if len(next) == 0 {
+				return nil
+			}
+			e.Cursors = append(e.Cursors, Cursor{
+				Point: next[0],
+				Mark:  next[0],
+			})
 		}
-		e.Cursors = append(e.Cursors, Cursor{
-			Point: next[0],
-			Mark:  next[0],
-		})
 
 	}
 
