@@ -1,25 +1,36 @@
 package byteutils
 
 import (
-	"bytes"
+	"unicode"
 )
 
-func SeekNextWhitespace(bs []byte, i int) int {
-	idx := bytes.IndexAny(bytes.TrimLeft(bs[i:], " \n\r"), " \n\r")
-	return i + idx
+const nonLetter = "~!@#$%^&*()_+{}[];:'\"\\\n\r <>,.?/"
+
+func SeekNextNonLetter(bs []byte, idx int) int {
+	for i := idx; i < len(bs); i++ {
+		if !unicode.IsLetter(rune(bs[i])) {
+			return i
+		}
+	}
+
+	return -1
 }
 
-func SeekPreviousWhitespace(bs []byte, i int) int {
-	idx := bytes.LastIndexAny(bs[:i], " \n\r")
-	return idx
+func SeekPreviousNonLetter(bs []byte, idx int) int {
+	for i := idx; i >= 0; i-- {
+		if !unicode.IsLetter(rune(bs[i])) {
+			return i
+		}
+	}
+	return -1
 }
 
 func PreviousWordInBuffer(bs []byte, idx int) int {
-	lastWhitespaceIndex := SeekPreviousWhitespace(bs, idx)
+	lastWhitespaceIndex := SeekPreviousNonLetter(bs, idx)
 	return lastWhitespaceIndex - 1
 }
 
 func NextWordInBuffer(bs []byte, idx int) int {
-	firstWhitespaceIndex := SeekNextWhitespace(bs, idx)
+	firstWhitespaceIndex := SeekNextNonLetter(bs, idx)
 	return firstWhitespaceIndex + 1
 }
