@@ -967,6 +967,12 @@ func (e *TextBuffer) ScrollIfNeeded() error {
 		e.VisibleEnd = int32(pos.Line) + e.maxLine/3
 		e.VisibleStart = e.VisibleEnd - e.maxLine
 	}
+
+	if int(e.VisibleEnd) >= len(e.visualLines) {
+		e.VisibleEnd = int32(len(e.visualLines) - 1)
+		e.VisibleStart = e.VisibleEnd - e.maxLine
+	}
+
 	if e.VisibleStart < 0 {
 		e.VisibleStart = 0
 		e.VisibleEnd = e.maxLine
@@ -974,11 +980,6 @@ func (e *TextBuffer) ScrollIfNeeded() error {
 	if e.VisibleEnd < 0 {
 		e.VisibleStart = 0
 		e.VisibleEnd = e.maxLine
-	}
-
-	if int(e.VisibleEnd) >= len(e.visualLines) {
-		e.VisibleEnd = int32(len(e.visualLines) - 1)
-		e.VisibleStart = e.VisibleEnd - e.maxLine
 	}
 
 	return nil
