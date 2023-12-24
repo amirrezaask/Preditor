@@ -187,6 +187,36 @@ func (t *EditorBuffer) renderCursor() {
 	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
+func (t *EditorBuffer) renderStatusBar() {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	//render status bar
+	rl.DrawRectangle(
+		int32(t.ZeroPosition.X),
+		t.maxLine*int32(charSize.Y),
+		t.MaxWidth,
+		int32(charSize.Y),
+		t.Colors.StatusBarBackground,
+	)
+	file := t.File
+	if file == "" {
+		file = "[scratch]"
+	}
+	var state string
+	if t.State == State_Dirty {
+		state = "**"
+	} else {
+		state = "--"
+	}
+
+	rl.DrawTextEx(font,
+		fmt.Sprintf("%s %s %d:%d", state, file, t.visualLines[t.Cursor.Line].ActualLine, t.Cursor.Column),
+		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
+		fontSize,
+		0,
+		t.Colors.StatusBarForeground)
+}
+
 func (t *EditorBuffer) Render() {
 
 	t.calculateVisualLines()
@@ -206,7 +236,7 @@ func (t *EditorBuffer) Render() {
 	}
 
 	t.renderCursor()
-
+	t.renderStatusBar()
 }
 
 func (t *EditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -718,7 +748,6 @@ var editorBufferKeymap = Keymap{
 	Key{K: "`"}:              func(e *Application) error { return insertCharAtCursor(e, '`') },
 	Key{K: "`", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '~') },
 	Key{K: "<tab>"}:          func(e *Application) error { return e.ActiveEditor().Indent() },
-
 }
 
 func insertCharAtCursor(e *Application, char byte) error {

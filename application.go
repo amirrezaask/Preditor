@@ -96,43 +96,11 @@ func (e *Application) HandleKeyEvents() {
 
 }
 
-func (e *Application) renderStatusBar() {
-	t := e.ActiveEditor()
-	charSize := measureTextSize(font, ' ', fontSize, 0)
-
-	//render status bar
-	rl.DrawRectangle(
-		int32(t.ZeroPosition.X),
-		t.maxLine*int32(charSize.Y),
-		t.MaxWidth,
-		int32(charSize.Y),
-		t.Colors.StatusBarBackground,
-	)
-	file := t.File
-	if file == "" {
-		file = "[scratch]"
-	}
-	var state string
-	if t.State == State_Dirty {
-		state = "**"
-	} else {
-		state = "--"
-	}
-
-	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %s %d:%d", state, file, t.Cursor.Line, t.Cursor.Column),
-		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
-		fontSize,
-		0,
-		t.Colors.StatusBarForeground)
-}
-
 func (e *Application) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
 
 	e.ActiveEditor().Render()
-	e.renderStatusBar()
 
 	rl.EndDrawing()
 
