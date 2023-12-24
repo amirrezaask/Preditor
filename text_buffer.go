@@ -192,7 +192,7 @@ func (e *TextBuffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	e.maxColumn = int32(maxW / float64(charSize.X))
 	e.maxLine = int32(maxH / float64(charSize.Y))
 
-	// reserve one line for status bar
+	// reserve one line forr status bar
 	e.maxLine--
 
 	diff := e.maxLine - oldMaxLine
