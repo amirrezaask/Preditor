@@ -38,6 +38,8 @@ func main() {
 		LineWrapping: true,
 		Colors:       cfg.Colors,
 	}
+	rl.SetTextLineSpacing(int(fontSize))
+	rl.SetExitKey(0)
 
 	err = loadFont(cfg.FontName, 20)
 	if err != nil {
@@ -49,19 +51,41 @@ func main() {
 		filename = flag.Args()[0]
 	}
 
-	_ = filename
-	rl.SetTextLineSpacing(int(fontSize))
-	rl.SetExitKey(0)
-	editor.Windows = append(editor.Windows, NewFilePicker(&editor, "", int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, EditorOptions{
-		LineNumbers:        true,
-		TabSize:            4,
-		MaxHeight:          int32(rl.GetRenderHeight()),
-		MaxWidth:           int32(rl.GetRenderWidth()),
-		Colors:             editor.Colors,
-		CursorShape:        cfg.CursorShape,
-		CursorBlinking:     cfg.CursorBlinking,
-		SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
-	}))
+	stat, err := os.Stat(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	if stat.IsDir() {
+		editor.Windows = append(editor.Windows, NewFilePicker(&editor, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, EditorOptions{
+			LineNumbers:        true,
+			TabSize:            4,
+			MaxHeight:          int32(rl.GetRenderHeight()),
+			MaxWidth:           int32(rl.GetRenderWidth()),
+			Colors:             editor.Colors,
+			CursorShape:        cfg.CursorShape,
+			CursorBlinking:     cfg.CursorBlinking,
+			SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
+		}))
+	} else {
+		e, err := NewEditor(EditorOptions{
+			MaxHeight:          int32(rl.GetRenderHeight()),
+			MaxWidth:           int32(rl.GetRenderWidth()),
+			ZeroPosition:       rl.Vector2{},
+			Colors:             editor.Colors,
+			Filename:           filename,
+			LineNumbers:        true,
+			TabSize:            4,
+			CursorBlinking:     cfg.CursorBlinking,
+			CursorShape:        cfg.CursorShape,
+			SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
+		})
+		if err != nil {
+			panic(err)
+		}
+		editor.Windows = append(editor.Windows, e)
+	}
+
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()
 		editor.HandleMouseEvents()

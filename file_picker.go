@@ -218,7 +218,16 @@ func (f *FilePicker) DeleteWordBackward() error {
 	f.CursorLeft(diff)
 	return nil
 }
+func (f *FilePicker) DeleteWordForward() error {
+	nextWordStartIdx := nextWordInBuffer(f.UserInput, f.Idx)
+	if len(f.UserInput) > nextWordStartIdx+1 {
+		f.UserInput = append(f.UserInput[:f.Idx+1], f.UserInput[nextWordStartIdx+1:]...)
+	} else {
+		f.UserInput = f.UserInput[:f.Idx]
 
+	}
+	return nil
+}
 func (f *FilePicker) DeleteCharForward() error {
 	if f.Idx < 0 {
 		return nil
@@ -331,6 +340,7 @@ var filePickerKeymap = Keymap{
 	Key{K: "<backspace>"}:                makeFilePickerCommand(func(e *FilePicker) error { return e.DeleteCharBackward() }),
 	Key{K: "<backspace>", Control: true}: makeFilePickerCommand(func(e *FilePicker) error { return e.DeleteWordBackward() }),
 	Key{K: "d", Control: true}:           makeFilePickerCommand(func(e *FilePicker) error { return e.DeleteCharForward() }),
+	Key{K: "d", Alt: true}:               makeFilePickerCommand(func(e *FilePicker) error { return e.DeleteWordForward() }),
 	Key{K: "<delete>"}:                   makeFilePickerCommand(func(e *FilePicker) error { return e.DeleteCharForward() }),
 	Key{K: "a"}:                          makeFilePickerCommand(func(f *FilePicker) error { return f.insertCharAtBuffer('a') }),
 	Key{K: "b"}:                          makeFilePickerCommand(func(f *FilePicker) error { return f.insertCharAtBuffer('b') }),
