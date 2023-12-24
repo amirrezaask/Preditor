@@ -61,7 +61,9 @@ func init() {
 (type_identifier) @type
 (comment) @comment
 [(interpreted_string_literal) (raw_string_literal)] @string
-(identifier) @ident
+[(identifier)] @ident
+(selector_expression operand: (_) @selector field: (_) @field)
+(if_statement condition: (_) @if_condition)
 `),
 			AfterSave: func(buffer *Buffer) error {
 				return buffer.CompileNoAsk()
