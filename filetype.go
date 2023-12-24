@@ -25,7 +25,7 @@ type SyntaxHighlight struct {
 }
 
 func keywordPat(word string) string {
-	return fmt.Sprintf("\\s*%s\\s+", word)
+	return fmt.Sprintf("\\b%s\\b", word)
 }
 func keywordsPat(words ...string) string {
 	var pats []string
@@ -51,11 +51,11 @@ func initFileTypes(cfg Colors) {
 
 			SyntaxHighlights: SyntaxHighlights{
 				Keywords: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("if", "struct", "type", "interface", "else", "func")),
+					Regex: regexp.MustCompile(keywordsPat("if", "struct", "type", "interface", "else", "func", "package", "import")),
 					Color: cfg.SyntaxKeywords,
 				},
 				Types: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("int", "int8", "int16", "int32", "int64")),
+					Regex: regexp.MustCompile(keywordsPat("int8", "int16", "int32", "int64", "int")),
 					Color: cfg.SyntaxTypes,
 				},
 				Identifiers: SyntaxHighlight{
