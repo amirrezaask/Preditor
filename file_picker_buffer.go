@@ -13,6 +13,7 @@ type LocationItem struct {
 }
 
 type FilePickerBuffer struct {
+	BaseBuffer
 	cfg                *Config
 	parent             *Preditor
 	keymaps            []Keymap
@@ -183,7 +184,7 @@ func (f *FilePickerBuffer) Keymaps() []Keymap {
 }
 
 func (f *FilePickerBuffer) openUserInput() error {
-	f.parent.KillBuffer(f.parent.ActiveBufferIndex)
+	f.parent.KillBuffer(f.parent.ActiveBufferID)
 	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
 	if err != nil {
 		panic(err)
@@ -192,7 +193,7 @@ func (f *FilePickerBuffer) openUserInput() error {
 }
 
 func (f *FilePickerBuffer) openSelection() error {
-	f.parent.KillBuffer(f.parent.ActiveBufferIndex)
+	f.parent.KillBuffer(f.parent.ActiveBufferID)
 	if f.List.Selection < 0 || f.List.Selection >= len(f.List.Items) {
 		err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputComponent.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
 		if err != nil {

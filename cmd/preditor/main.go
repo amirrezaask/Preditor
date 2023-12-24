@@ -36,18 +36,9 @@ func main() {
 		}
 	}
 
-	stat, err := os.Stat(filename)
+	err = preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, editor.OSWindowHeight, editor.OSWindowWidth, rl.Vector2{}, nil)
 	if err != nil {
 		panic(err)
-	}
-
-	if stat.IsDir() {
-		editor.Buffers = append(editor.Buffers, preditor.NewFilePickerBuffer(editor, cfg, filename, editor.OSWindowHeight, editor.OSWindowWidth, rl.Vector2{}))
-	} else {
-		err := preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, nil)
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	// start main loop

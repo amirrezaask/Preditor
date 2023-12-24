@@ -25,6 +25,7 @@ func (g GrepLocationItem) StringWithTruncate(maxLen int) string {
 }
 
 type GrepBuffer struct {
+	BaseBuffer
 	cfg          *Config
 	parent       *Preditor
 	keymaps      []Keymap
@@ -225,12 +226,6 @@ func init() {
 		}),
 		Key{K: "s", Control: true}: makeGrepBufferCommand(func(a *GrepBuffer) error {
 			a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
-			return nil
-		}),
-		Key{K: "<esc>"}: makeGrepBufferCommand(func(p *GrepBuffer) error {
-			// maybe close ?
-			p.parent.Buffers = p.parent.Buffers[:len(p.parent.Buffers)-1]
-			p.parent.ActiveBufferIndex = len(p.parent.Buffers) - 1
 			return nil
 		}),
 
