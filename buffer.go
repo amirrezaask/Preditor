@@ -90,6 +90,7 @@ type Buffer struct {
 	Content        []byte
 	State          int
 	BeforeSaveHook []func(*Buffer) error
+	AfterSaveHook  []func(*Buffer) error
 	Readonly       bool
 	maxLine        int32
 	maxColumn      int32

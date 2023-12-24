@@ -168,7 +168,7 @@ var defaultConfig = Config{
 				StatusBarForeground:   mustParseHexColor("#ffa900"),
 				LineNumbersForeground: mustParseHexColor("#010101"),
 				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
-				Cursor:                mustParseHexColor("#00ff00"),
+				Cursor:                mustParseHexColor("#e0741b"),
 				CursorLineBackground:  mustParseHexColor("#52534E"),
 				SyntaxKeywords:        mustParseHexColor("#f0c674"),
 				SyntaxTypes:           mustParseHexColor("#f0c674"),
