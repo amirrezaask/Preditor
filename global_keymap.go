@@ -1,6 +1,16 @@
 package preditor
 
 var GlobalKeymap = Keymap{
+	Key{K: "\\", Alt: true}: func(c *Context) error {
+		c.VSplit()
+
+		return nil
+	},
+	Key{K: "=", Alt: true}: func(c *Context) error {
+		c.HSplit()
+
+		return nil
+	},
 	Key{K: "q", Alt: true}: func(preditor *Context) error {
 		preditor.CloseWindow(preditor.ActiveWindowIndex)
 
@@ -45,11 +55,6 @@ var GlobalKeymap = Keymap{
 
 	Key{K: "w", Alt: true}: func(c *Context) error {
 		c.OtherWindow()
-
-		return nil
-	},
-	Key{K: "\\", Alt: true}: func(c *Context) error {
-		c.VSplit()
 
 		return nil
 	},

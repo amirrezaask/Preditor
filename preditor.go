@@ -133,9 +133,26 @@ func (c *Context) windowCount() int {
 	return count
 }
 
-func (c *Context) AddWindow(w *Window) {
+func (c *Context) AddWindowInANewColumn(w *Window) {
 	c.Windows = append(c.Windows, []*Window{w})
 	w.ID = c.windowCount()
+}
+
+func (c *Context) AddWindowInCurrentColum(w *Window) {
+	currentColIndex := -1
+HERE:
+	for i, col := range c.Windows {
+		for _, win := range col {
+			if win.ID == c.ActiveWindowIndex {
+				currentColIndex = i
+				break HERE
+			}
+		}
+	}
+
+	if currentColIndex != -1 {
+		c.Windows[currentColIndex] = append(c.Windows[currentColIndex], w)
+	}
 }
 
 func (c *Context) MarkWindowAsActive(id int) {
@@ -618,7 +635,7 @@ func setupRaylib(cfg *Config) {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.SetTraceLogLevel(rl.LogError)
-	rl.InitWindow(1920, 1080, "Context")
+	rl.InitWindow(1920, 1080, "Preditor")
 	rl.SetTargetFPS(120)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
@@ -670,7 +687,7 @@ func New() (*Context, error) {
 	p.ScratchBufferID = scratch.ID
 
 	mainWindow := Window{}
-	p.AddWindow(&mainWindow)
+	p.AddWindowInANewColumn(&mainWindow)
 
 	p.MarkWindowAsActive(mainWindow.ID)
 
@@ -776,8 +793,12 @@ func (c *Context) openGrepBuffer() {
 
 func (c *Context) VSplit() {
 	win := &Window{}
-	c.AddWindow(win)
+	c.AddWindowInANewColumn(win)
+}
 
+func (c *Context) HSplit() {
+	win := &Window{}
+	c.AddWindowInCurrentColum(win)
 }
 
 func (c *Context) OtherWindow() {
