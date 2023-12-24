@@ -1,8 +1,9 @@
-package preditor
+package byteutils
 
 import "unicode"
 
-func previousWordInBuffer(bs []byte, idx int) int {
+func PreviousWordInBuffer(bs []byte, idx int) int {
+
 	var firstNonWord int
 	for i := idx; i >= 0; i-- {
 		if len(bs) > i && !unicode.IsLetter(rune(bs[i])) {
@@ -32,7 +33,7 @@ func previousWordInBuffer(bs []byte, idx int) int {
 	return idx
 }
 
-func nextWordInBuffer(bs []byte, idx int) int {
+func NextWordInBuffer(bs []byte, idx int) int {
 	var firstNonWord int
 	if idx+1 >= len(bs) {
 		return -1

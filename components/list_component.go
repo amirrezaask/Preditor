@@ -1,4 +1,4 @@
-package preditor
+package components
 
 type ListComponent[T any] struct {
 	VisibleStart int

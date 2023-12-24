@@ -3,6 +3,7 @@ package preditor
 import (
 	"bytes"
 	"fmt"
+	"github.com/amirrezaask/preditor/byteutils"
 	"image/color"
 	"math"
 	"os"
@@ -1079,7 +1080,7 @@ func (e *TextBuffer) indexOfFirstNonLetter(bs []byte) int {
 
 func (e *TextBuffer) NextWord() error {
 	for i := range e.Selections {
-		newidx := nextWordInBuffer(e.Content, e.Selections[i].Start)
+		newidx := byteutils.NextWordInBuffer(e.Content, e.Selections[i].Start)
 		if newidx == -1 {
 			return nil
 		}
@@ -1095,7 +1096,7 @@ func (e *TextBuffer) NextWord() error {
 
 func (e *TextBuffer) PreviousWord() error {
 	for i := range e.Selections {
-		newidx := previousWordInBuffer(e.Content, e.Selections[i].Start)
+		newidx := byteutils.PreviousWordInBuffer(e.Content, e.Selections[i].Start)
 		if newidx == -1 {
 			return nil
 		}
@@ -1255,7 +1256,7 @@ func (e *TextBuffer) DeleteWordBackward() {
 		return
 	}
 	cur := e.Selections[0]
-	previousWordEndIdx := previousWordInBuffer(e.Content, cur.Start)
+	previousWordEndIdx := byteutils.PreviousWordInBuffer(e.Content, cur.Start)
 	oldLen := len(e.Content)
 	if len(e.Content) > cur.Start+1 {
 		e.AddUndoAction(EditorAction{

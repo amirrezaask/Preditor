@@ -660,20 +660,19 @@ func (e *Preditor) openFileBuffer() {
 }
 
 func (e *Preditor) openFuzzyFilePicker() {
-	ofb := NewFuzzyFilePickerBuffer(e, e.Cfg, e.getCWD())
+	ofb := NewFuzzyFileBuffer(e, e.Cfg)
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 
 }
 func (e *Preditor) openBufferSwitcher() {
-	ofb := NewBufferSwitcherBuffer(e, e.Cfg)
+	ofb := NewBufferSwitcher(e, e.Cfg)
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
-
 }
 
 func (e *Preditor) openGrepBuffer() {
-	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD())
+	ofb := NewGrepBuffer(e, e.Cfg)
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 }
