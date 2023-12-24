@@ -17,7 +17,6 @@ var SearchTextBufferKeymap = Keymap{
 	Key{K: "r", Control: true}: MakeCommand(func(editor *Buffer) error {
 		return ISearchPreviousMatch(editor)
 	}),
-
 	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *Buffer) error {
 		return ISearchPreviousMatch(editor)
 	}),
@@ -90,6 +89,10 @@ func init() {
 
 			return nil
 		}),
+		Key{K: ";", Control: true}: MakeCommand(func(editor *Buffer) error {
+			return CompileNoAsk(editor)
+		}),
+
 		Key{K: "g", Alt: true}: MakeCommand(func(t *Buffer) error {
 			return GrepAsk(t)
 		}),

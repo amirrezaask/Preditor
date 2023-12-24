@@ -65,9 +65,6 @@ func init() {
 (selector_expression operand: (_) @selector field: (_) @field)
 (if_statement condition: (_) @if_condition)
 `),
-			AfterSave: func(buffer *Buffer) error {
-				return CompileNoAsk(buffer)
-			},
 			DefaultCompileCommand: "go build -v ./...",
 		},
 	}
