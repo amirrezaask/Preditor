@@ -58,7 +58,6 @@ type Window struct {
 }
 
 func (w *Window) Render(c *Context) {
-
 	c.Buffers[w.BufferID].Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
 }
 
@@ -76,7 +75,7 @@ type Context struct {
 	FontSize          int32
 	OSWindowHeight    float64
 	OSWindowWidth     float64
-	Windows           map[int]*Window
+	Windows           []*Window
 	ActiveWindowIndex int
 }
 
@@ -94,7 +93,8 @@ func (c *Context) ActiveBufferID() int {
 	return bufferid
 }
 
-var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
+var charSizeCache = map[byte]rl.Vector2{}
+
 func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vector2 {
 	if charSize, exists := charSizeCache[s]; exists {
 		return charSize
@@ -120,9 +120,9 @@ func (c *Context) AddBuffer(b Buffer) {
 }
 
 func (c *Context) AddWindow(w *Window) {
-	id := len(c.Windows) + 1
-	c.Windows[id] = w
-	w.ID = id
+	c.Windows = append(c.Windows, w)
+	id := len(c.Windows) - 1
+	c.Windows[id].ID = id
 }
 
 func (c *Context) MarkWindowAsActive(id int) {
@@ -139,6 +139,10 @@ func (c *Context) GetBuffer(id int) Buffer {
 
 func (c *Context) KillBuffer(id int) {
 	delete(c.Buffers, id)
+	for _, buf := range c.Buffers {
+		bufid := buf.GetID()
+		c.ActiveWindow().BufferID = bufid
+	}
 }
 
 func (c *Context) LoadFont(name string, size int32) error {
@@ -237,8 +241,13 @@ func (c *Context) Render() {
 	rl.ClearBackground(c.Cfg.Colors.Background)
 	for _, win := range c.Windows {
 		win.Render(c)
-		if win.ID == c.ActiveWindowIndex {
-			rl.DrawRectangleLines(int32(win.ZeroLocation.X), int32(win.ZeroLocation.Y), int32(win.MaxWidth), int32(win.MaxHeight), rl.Red)
+		if win.ID == c.ActiveWindowIndex && len(c.Windows) > 1 {
+			rl.DrawRectangleLinesEx(rl.Rectangle{
+				X:      float32(win.ZeroLocation.X),
+				Y:      float32(win.ZeroLocation.Y),
+				Width:  float32(win.MaxWidth),
+				Height: float32(win.MaxHeight),
+			}, 1, rl.Red)
 		}
 	}
 	rl.EndDrawing()
@@ -604,7 +613,7 @@ func New() (*Context, error) {
 		Buffers:        map[int]Buffer{},
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
-		Windows:        map[int]*Window{},
+		Windows:        []*Window{},
 	}
 
 	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
@@ -628,7 +637,7 @@ func New() (*Context, error) {
 
 	mainWindow := Window{
 		ZeroLocation: rl.Vector2{},
-		MaxWidth:     p.OSWindowWidth / 2,
+		MaxWidth:     p.OSWindowWidth,
 		MaxHeight:    p.OSWindowHeight,
 	}
 	p.AddWindow(&mainWindow)
