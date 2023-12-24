@@ -208,6 +208,11 @@ func (e *TextBuffer) getIndexVisualLine(i int) visualLine {
 		}
 	}
 
+	if len(e.visualLines) > 0 {
+		lastLine := e.visualLines[len(e.visualLines)-1]
+		lastLine.endIndex++
+		return lastLine
+	}
 	return visualLine{}
 }
 
@@ -705,6 +710,7 @@ func (e *TextBuffer) InsertCharAtCursor(char byte) error {
 	})
 	e.SetStateDirty()
 	e.CursorRight(1)
+	e.ScrollIfNeeded()
 	return nil
 }
 
@@ -941,6 +947,9 @@ func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 	// check if cursor should be moved back
 	if col > e.visualLines[line].Length {
 		col = e.visualLines[line].Length
+	}
+	if col < 0 {
+		col = 0
 	}
 
 	e.bufferIndex = e.positionToBufferIndex(Position{Line: line, Column: col})
