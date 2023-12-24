@@ -88,9 +88,12 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 func (e *Application) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		cmd := e.ActiveEditor().Keymap[key]
-		if cmd != nil {
-			cmd(e)
+		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {
+			cmd := e.ActiveEditor().Keymaps[i][key]
+			if cmd != nil {
+				cmd(e)
+				break
+			}
 		}
 	}
 
@@ -123,9 +126,12 @@ func (e *Application) HandleWindowResize() {
 func (e *Application) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		cmd := e.ActiveEditor().Keymap[key]
-		if cmd != nil {
-			cmd(e)
+		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {
+			cmd := e.ActiveEditor().Keymaps[i][key]
+			if cmd != nil {
+				cmd(e)
+				break
+			}
 		}
 	}
 }

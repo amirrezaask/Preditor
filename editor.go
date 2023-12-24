@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"image/color"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -17,27 +19,33 @@ const (
 )
 
 type Editor struct {
-	File              string
-	Content           []byte
-	Keymap            Keymap
-	Variables         Variables
-	Commands          Commands
-	MaxHeight         int32
-	MaxWidth          int32
-	ZeroPosition      rl.Vector2
-	TabSize           int
-	VisibleStart      int32
-	VisibleEnd        int32
-	visualLines       []visualLine
-	Cursor            Position
-	maxLine           int32
-	maxColumn         int32
-	Colors            Colors
-	State             int
-	CursorBlinking    bool
-	RenderLineNumbers bool
-	HasSelection      bool
-	SelectionStart    *Position
+	File                      string
+	Content                   []byte
+	Keymaps                   []Keymap
+	Variables                 Variables
+	Commands                  Commands
+	MaxHeight                 int32
+	MaxWidth                  int32
+	ZeroPosition              rl.Vector2
+	TabSize                   int
+	VisibleStart              int32
+	VisibleEnd                int32
+	visualLines               []visualLine
+	Cursor                    Position
+	maxLine                   int32
+	maxColumn                 int32
+	Colors                    Colors
+	State                     int
+	CursorBlinking            bool
+	RenderLineNumbers         bool
+	HasSelection              bool
+	SelectionStart            *Position
+	IsSearching               bool
+	LastSearchString          string
+	SearchString              *string
+	SearchMatches             [][2]Position
+	CurrentMatch              int
+	MovedAwayFromCurrentMatch bool
 }
 
 func (t *Editor) replaceTabsWithSpaces() {
@@ -88,7 +96,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
 	t.Colors = opts.Colors
-	t.Keymap = editorBufferKeymap
+	t.Keymaps = append([]Keymap{}, editorBufferKeymap)
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -228,13 +236,54 @@ func (t *Editor) renderStatusBar() {
 	} else {
 		line = 0
 	}
+	var searchString string
+	if t.SearchString != nil {
+		searchString = fmt.Sprintf("Searching: \"%s\"", *t.SearchString)
+	}
 
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %s %d:%d", state, file, line, t.Cursor.Column),
+		fmt.Sprintf("%s %s %d:%d %s", state, file, line, t.Cursor.Column, searchString),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
 		t.Colors.StatusBarForeground)
+}
+
+func (t *Editor) highilightBetweenTwoPositions(start Position, end Position, color color.RGBA) {
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	for i := start.Line; i <= end.Line; i++ {
+		if len(t.visualLines) <= i {
+			break
+		}
+		var thisLineEnd int
+		var thisLineStart int
+		line := t.visualLines[i]
+		if i == start.Line {
+			thisLineStart = start.Column
+		} else {
+			thisLineStart = 0
+		}
+
+		if i < end.Line {
+			thisLineEnd = line.Length - 1
+		} else {
+			thisLineEnd = end.Column
+		}
+		for j := thisLineStart; j <= thisLineEnd; j++ {
+			posX := int32(j)*int32(charSize.X) + int32(t.ZeroPosition.X)
+			if t.RenderLineNumbers {
+				if len(t.visualLines) > i {
+					posX += int32((len(fmt.Sprint(t.visualLines[i].ActualLine)) + 1) * int(charSize.X))
+				} else {
+					posX += int32(charSize.X)
+
+				}
+			}
+			rl.DrawRectangle(posX, int32(i-int(t.VisibleStart))*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
+		}
+	}
+
 }
 
 func (t *Editor) renderSelection() {
@@ -270,39 +319,13 @@ func (t *Editor) renderSelection() {
 
 	}
 
-	charSize := measureTextSize(font, ' ', fontSize, 0)
-
-	for i := startLine; i <= endLine; i++ {
-		if len(t.visualLines) <= i {
-			break
-		}
-		var thisLineEnd int
-		var thisLineStart int
-		line := t.visualLines[i]
-		if i == startLine {
-			thisLineStart = startColumn
-		} else {
-			thisLineStart = 0
-		}
-
-		if i < endLine {
-			thisLineEnd = line.Length - 1
-		} else {
-			thisLineEnd = endColumn
-		}
-		for j := thisLineStart; j <= thisLineEnd; j++ {
-			posX := int32(j)*int32(charSize.X) + int32(t.ZeroPosition.X)
-			if t.RenderLineNumbers {
-				if len(t.visualLines) > i {
-					posX += int32((len(fmt.Sprint(t.visualLines[i].ActualLine)) + 1) * int(charSize.X))
-				} else {
-					posX += int32(charSize.X)
-
-				}
-			}
-			rl.DrawRectangle(posX, int32(i-int(t.VisibleStart))*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.Selection, 0.5))
-		}
-	}
+	t.highilightBetweenTwoPositions(Position{
+		Line:   startLine,
+		Column: startColumn,
+	}, Position{
+		Line:   endLine,
+		Column: endColumn,
+	}, t.Colors.Selection)
 
 }
 
@@ -337,10 +360,71 @@ func (t *Editor) renderText() {
 		}
 	}
 }
+func (t *Editor) convertBufferIndexToLineAndColumn(idx int) *Position {
+	for lineIndex, line := range t.visualLines {
+		if line.startIndex <= idx && line.endIndex >= idx {
+			return &Position{
+				Line:   lineIndex,
+				Column: idx - line.startIndex,
+			}
+		}
+	}
+
+	return nil
+}
+func (t *Editor) regexMatchAndHighlight(pattern string) error {
+	if pattern != t.LastSearchString {
+		t.SearchMatches = [][2]Position{}
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return err
+		}
+
+		matches := re.FindAllStringIndex(string(t.Content), -1)
+		for _, match := range matches {
+			matchStart := t.convertBufferIndexToLineAndColumn(match[0])
+			matchEnd := t.convertBufferIndexToLineAndColumn(match[1])
+			if matchStart == nil || matchEnd == nil {
+				continue
+			}
+			matchEnd.Column--
+			t.SearchMatches = append(t.SearchMatches, [2]Position{*matchStart, *matchEnd})
+		}
+	}
+	for idx, match := range t.SearchMatches {
+		c := t.Colors.Selection
+		if idx == t.CurrentMatch {
+			c = rl.Fade(rl.Red, 0.5)
+			if !(t.VisibleStart < int32(match[0].Line) && t.VisibleEnd > int32(match[1].Line)) && !t.MovedAwayFromCurrentMatch {
+				// current match is not in view
+				// move the view
+				oldStart := t.VisibleStart
+				t.VisibleStart = int32(match[0].Line) - t.maxLine/2
+				if t.VisibleStart < 0 {
+					t.VisibleStart = int32(match[0].Line)
+				}
+
+				diff := t.VisibleStart - oldStart
+				t.VisibleEnd += diff
+			}
+		}
+		t.highilightBetweenTwoPositions(match[0], match[1], c)
+	}
+	t.LastSearchString = pattern
+
+	return nil
+}
+func (t *Editor) renderSearchResults() {
+	if t.SearchString == nil || len(*t.SearchString) < 1 {
+		return
+	}
+	t.regexMatchAndHighlight(*t.SearchString)
+}
 
 func (t *Editor) Render() {
 	t.calculateVisualLines()
 	t.renderText()
+	t.renderSearchResults()
 	t.renderCursor()
 	t.renderStatusBar()
 	t.renderSelection()
@@ -732,10 +816,17 @@ func (t *Editor) Indent() error {
 }
 
 var editorBufferKeymap = Keymap{
-
+	Key{K: "f", Control: true}: func(e *Application) error {
+		return e.ActiveEditor().CursorRight(1)
+	},
 	Key{K: "s", Control: true}: func(e *Application) error {
 		return e.ActiveEditor().Write()
 	},
+	Key{K: "f", Alt: true}: func(a *Application) error {
+		a.ActiveEditor().Keymaps = append(a.ActiveEditor().Keymaps, searchModeKeymap)
+		return nil
+	},
+
 	//selection
 	Key{K: "<space>", Control: true}: func(e *Application) error {
 		editor := e.ActiveEditor()
@@ -797,9 +888,7 @@ var editorBufferKeymap = Keymap{
 	Key{K: "<right>"}: func(e *Application) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
-	Key{K: "f", Control: true}: func(e *Application) error {
-		return e.ActiveEditor().CursorRight(1)
-	},
+
 	Key{K: "<left>"}: func(e *Application) error {
 		return e.ActiveEditor().CursorLeft()
 	},
@@ -818,8 +907,8 @@ var editorBufferKeymap = Keymap{
 	},
 
 	//insertion
-	Key{K: "<enter>"}: func(e *Application) error { return insertCharAtCursor(e, '\n') },
-	Key{K: "<space>"}: func(e *Application) error { return insertCharAtCursor(e, ' ') },
+	Key{K: "<enter>"}: func(e *Application) error { return insertChar(e, '\n') },
+	Key{K: "<space>"}: func(e *Application) error { return insertChar(e, ' ') },
 	Key{K: "<backspace>"}: func(e *Application) error {
 		return e.ActiveEditor().DeleteCharBackward()
 	},
@@ -832,106 +921,106 @@ var editorBufferKeymap = Keymap{
 	Key{K: "<delete>"}: func(e *Application) error {
 		return e.ActiveEditor().DeleteCharForward()
 	},
-	Key{K: "a"}:               func(e *Application) error { return insertCharAtCursor(e, 'a') },
-	Key{K: "b"}:               func(e *Application) error { return insertCharAtCursor(e, 'b') },
-	Key{K: "c"}:               func(e *Application) error { return insertCharAtCursor(e, 'c') },
-	Key{K: "d"}:               func(e *Application) error { return insertCharAtCursor(e, 'd') },
-	Key{K: "e"}:               func(e *Application) error { return insertCharAtCursor(e, 'e') },
-	Key{K: "f"}:               func(e *Application) error { return insertCharAtCursor(e, 'f') },
-	Key{K: "g"}:               func(e *Application) error { return insertCharAtCursor(e, 'g') },
-	Key{K: "h"}:               func(e *Application) error { return insertCharAtCursor(e, 'h') },
-	Key{K: "i"}:               func(e *Application) error { return insertCharAtCursor(e, 'i') },
-	Key{K: "j"}:               func(e *Application) error { return insertCharAtCursor(e, 'j') },
-	Key{K: "k"}:               func(e *Application) error { return insertCharAtCursor(e, 'k') },
-	Key{K: "l"}:               func(e *Application) error { return insertCharAtCursor(e, 'l') },
-	Key{K: "m"}:               func(e *Application) error { return insertCharAtCursor(e, 'm') },
-	Key{K: "n"}:               func(e *Application) error { return insertCharAtCursor(e, 'n') },
-	Key{K: "o"}:               func(e *Application) error { return insertCharAtCursor(e, 'o') },
-	Key{K: "p"}:               func(e *Application) error { return insertCharAtCursor(e, 'p') },
-	Key{K: "q"}:               func(e *Application) error { return insertCharAtCursor(e, 'q') },
-	Key{K: "r"}:               func(e *Application) error { return insertCharAtCursor(e, 'r') },
-	Key{K: "s"}:               func(e *Application) error { return insertCharAtCursor(e, 's') },
-	Key{K: "t"}:               func(e *Application) error { return insertCharAtCursor(e, 't') },
-	Key{K: "u"}:               func(e *Application) error { return insertCharAtCursor(e, 'u') },
-	Key{K: "v"}:               func(e *Application) error { return insertCharAtCursor(e, 'v') },
-	Key{K: "w"}:               func(e *Application) error { return insertCharAtCursor(e, 'w') },
-	Key{K: "x"}:               func(e *Application) error { return insertCharAtCursor(e, 'x') },
-	Key{K: "y"}:               func(e *Application) error { return insertCharAtCursor(e, 'y') },
-	Key{K: "z"}:               func(e *Application) error { return insertCharAtCursor(e, 'z') },
-	Key{K: "0"}:               func(e *Application) error { return insertCharAtCursor(e, '0') },
-	Key{K: "1"}:               func(e *Application) error { return insertCharAtCursor(e, '1') },
-	Key{K: "2"}:               func(e *Application) error { return insertCharAtCursor(e, '2') },
-	Key{K: "3"}:               func(e *Application) error { return insertCharAtCursor(e, '3') },
-	Key{K: "4"}:               func(e *Application) error { return insertCharAtCursor(e, '4') },
-	Key{K: "5"}:               func(e *Application) error { return insertCharAtCursor(e, '5') },
-	Key{K: "6"}:               func(e *Application) error { return insertCharAtCursor(e, '6') },
-	Key{K: "7"}:               func(e *Application) error { return insertCharAtCursor(e, '7') },
-	Key{K: "8"}:               func(e *Application) error { return insertCharAtCursor(e, '8') },
-	Key{K: "9"}:               func(e *Application) error { return insertCharAtCursor(e, '9') },
-	Key{K: "\\"}:              func(e *Application) error { return insertCharAtCursor(e, '\\') },
-	Key{K: "\\", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '|') },
+	Key{K: "a"}:               func(e *Application) error { return insertChar(e, 'a') },
+	Key{K: "b"}:               func(e *Application) error { return insertChar(e, 'b') },
+	Key{K: "c"}:               func(e *Application) error { return insertChar(e, 'c') },
+	Key{K: "d"}:               func(e *Application) error { return insertChar(e, 'd') },
+	Key{K: "e"}:               func(e *Application) error { return insertChar(e, 'e') },
+	Key{K: "f"}:               func(e *Application) error { return insertChar(e, 'f') },
+	Key{K: "g"}:               func(e *Application) error { return insertChar(e, 'g') },
+	Key{K: "h"}:               func(e *Application) error { return insertChar(e, 'h') },
+	Key{K: "i"}:               func(e *Application) error { return insertChar(e, 'i') },
+	Key{K: "j"}:               func(e *Application) error { return insertChar(e, 'j') },
+	Key{K: "k"}:               func(e *Application) error { return insertChar(e, 'k') },
+	Key{K: "l"}:               func(e *Application) error { return insertChar(e, 'l') },
+	Key{K: "m"}:               func(e *Application) error { return insertChar(e, 'm') },
+	Key{K: "n"}:               func(e *Application) error { return insertChar(e, 'n') },
+	Key{K: "o"}:               func(e *Application) error { return insertChar(e, 'o') },
+	Key{K: "p"}:               func(e *Application) error { return insertChar(e, 'p') },
+	Key{K: "q"}:               func(e *Application) error { return insertChar(e, 'q') },
+	Key{K: "r"}:               func(e *Application) error { return insertChar(e, 'r') },
+	Key{K: "s"}:               func(e *Application) error { return insertChar(e, 's') },
+	Key{K: "t"}:               func(e *Application) error { return insertChar(e, 't') },
+	Key{K: "u"}:               func(e *Application) error { return insertChar(e, 'u') },
+	Key{K: "v"}:               func(e *Application) error { return insertChar(e, 'v') },
+	Key{K: "w"}:               func(e *Application) error { return insertChar(e, 'w') },
+	Key{K: "x"}:               func(e *Application) error { return insertChar(e, 'x') },
+	Key{K: "y"}:               func(e *Application) error { return insertChar(e, 'y') },
+	Key{K: "z"}:               func(e *Application) error { return insertChar(e, 'z') },
+	Key{K: "0"}:               func(e *Application) error { return insertChar(e, '0') },
+	Key{K: "1"}:               func(e *Application) error { return insertChar(e, '1') },
+	Key{K: "2"}:               func(e *Application) error { return insertChar(e, '2') },
+	Key{K: "3"}:               func(e *Application) error { return insertChar(e, '3') },
+	Key{K: "4"}:               func(e *Application) error { return insertChar(e, '4') },
+	Key{K: "5"}:               func(e *Application) error { return insertChar(e, '5') },
+	Key{K: "6"}:               func(e *Application) error { return insertChar(e, '6') },
+	Key{K: "7"}:               func(e *Application) error { return insertChar(e, '7') },
+	Key{K: "8"}:               func(e *Application) error { return insertChar(e, '8') },
+	Key{K: "9"}:               func(e *Application) error { return insertChar(e, '9') },
+	Key{K: "\\"}:              func(e *Application) error { return insertChar(e, '\\') },
+	Key{K: "\\", Shift: true}: func(e *Application) error { return insertChar(e, '|') },
 
-	Key{K: "0", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, ')') },
-	Key{K: "1", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '!') },
-	Key{K: "2", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '@') },
-	Key{K: "3", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '#') },
-	Key{K: "4", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '$') },
-	Key{K: "5", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '%') },
-	Key{K: "6", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '^') },
-	Key{K: "7", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '&') },
-	Key{K: "8", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '*') },
-	Key{K: "9", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '(') },
-	Key{K: "a", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'A') },
-	Key{K: "b", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'B') },
-	Key{K: "c", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'C') },
-	Key{K: "d", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'D') },
-	Key{K: "e", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'E') },
-	Key{K: "f", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'F') },
-	Key{K: "g", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'G') },
-	Key{K: "h", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'H') },
-	Key{K: "i", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'I') },
-	Key{K: "j", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'J') },
-	Key{K: "k", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'K') },
-	Key{K: "l", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'L') },
-	Key{K: "m", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'M') },
-	Key{K: "n", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'N') },
-	Key{K: "o", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'O') },
-	Key{K: "p", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'P') },
-	Key{K: "q", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Q') },
-	Key{K: "r", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'R') },
-	Key{K: "s", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'S') },
-	Key{K: "t", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'T') },
-	Key{K: "u", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'U') },
-	Key{K: "v", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'V') },
-	Key{K: "w", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'W') },
-	Key{K: "x", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'X') },
-	Key{K: "y", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Y') },
-	Key{K: "z", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, 'Z') },
-	Key{K: "["}:              func(e *Application) error { return insertCharAtCursor(e, '[') },
-	Key{K: "]"}:              func(e *Application) error { return insertCharAtCursor(e, ']') },
-	Key{K: "{", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '{') },
-	Key{K: "}", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '}') },
-	Key{K: ";"}:              func(e *Application) error { return insertCharAtCursor(e, ';') },
-	Key{K: ";", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, ':') },
-	Key{K: "'"}:              func(e *Application) error { return insertCharAtCursor(e, '\'') },
-	Key{K: "'", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '"') },
-	Key{K: "\""}:             func(e *Application) error { return insertCharAtCursor(e, '"') },
-	Key{K: ","}:              func(e *Application) error { return insertCharAtCursor(e, ',') },
-	Key{K: "."}:              func(e *Application) error { return insertCharAtCursor(e, '.') },
-	Key{K: ",", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '<') },
-	Key{K: ".", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '>') },
-	Key{K: "/"}:              func(e *Application) error { return insertCharAtCursor(e, '/') },
-	Key{K: "/", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '?') },
-	Key{K: "-"}:              func(e *Application) error { return insertCharAtCursor(e, '-') },
-	Key{K: "="}:              func(e *Application) error { return insertCharAtCursor(e, '=') },
-	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '_') },
-	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '+') },
-	Key{K: "`"}:              func(e *Application) error { return insertCharAtCursor(e, '`') },
-	Key{K: "`", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '~') },
+	Key{K: "0", Shift: true}: func(e *Application) error { return insertChar(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Application) error { return insertChar(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Application) error { return insertChar(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Application) error { return insertChar(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Application) error { return insertChar(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Application) error { return insertChar(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Application) error { return insertChar(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Application) error { return insertChar(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Application) error { return insertChar(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Application) error { return insertChar(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Application) error { return insertChar(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Application) error { return insertChar(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Application) error { return insertChar(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Application) error { return insertChar(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Application) error { return insertChar(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Application) error { return insertChar(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Application) error { return insertChar(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Application) error { return insertChar(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Application) error { return insertChar(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Application) error { return insertChar(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Application) error { return insertChar(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Application) error { return insertChar(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Application) error { return insertChar(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Application) error { return insertChar(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Application) error { return insertChar(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Application) error { return insertChar(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Application) error { return insertChar(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Application) error { return insertChar(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Application) error { return insertChar(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Application) error { return insertChar(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Application) error { return insertChar(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Application) error { return insertChar(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Application) error { return insertChar(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Application) error { return insertChar(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Application) error { return insertChar(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Application) error { return insertChar(e, 'Z') },
+	Key{K: "["}:              func(e *Application) error { return insertChar(e, '[') },
+	Key{K: "]"}:              func(e *Application) error { return insertChar(e, ']') },
+	Key{K: "[", Shift: true}: func(e *Application) error { return insertChar(e, '{') },
+	Key{K: "]", Shift: true}: func(e *Application) error { return insertChar(e, '}') },
+	Key{K: ";"}:              func(e *Application) error { return insertChar(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Application) error { return insertChar(e, ':') },
+	Key{K: "'"}:              func(e *Application) error { return insertChar(e, '\'') },
+	Key{K: "'", Shift: true}: func(e *Application) error { return insertChar(e, '"') },
+	Key{K: "\""}:             func(e *Application) error { return insertChar(e, '"') },
+	Key{K: ","}:              func(e *Application) error { return insertChar(e, ',') },
+	Key{K: "."}:              func(e *Application) error { return insertChar(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Application) error { return insertChar(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Application) error { return insertChar(e, '>') },
+	Key{K: "/"}:              func(e *Application) error { return insertChar(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Application) error { return insertChar(e, '?') },
+	Key{K: "-"}:              func(e *Application) error { return insertChar(e, '-') },
+	Key{K: "="}:              func(e *Application) error { return insertChar(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Application) error { return insertChar(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Application) error { return insertChar(e, '+') },
+	Key{K: "`"}:              func(e *Application) error { return insertChar(e, '`') },
+	Key{K: "`", Shift: true}: func(e *Application) error { return insertChar(e, '~') },
 	Key{K: "<tab>"}:          func(e *Application) error { return e.ActiveEditor().Indent() },
 }
 
-func insertCharAtCursor(e *Application, char byte) error {
+func insertChar(e *Application, char byte) error {
 	return e.ActiveEditor().InsertCharAtCursor(char)
 }
 
@@ -941,4 +1030,190 @@ func getClipboardContent() []byte {
 
 func writeToClipboard(bs []byte) {
 	<-clipboard.Write(clipboard.FmtText, bs)
+}
+
+func insertCharAtSearchString(e *Application, char byte) error {
+
+	editor := e.ActiveEditor()
+	if editor.SearchString == nil {
+		editor.SearchString = new(string)
+	}
+
+	*editor.SearchString += string(char)
+
+	return nil
+}
+
+func (e *Editor) DeleteCharBackwardFromActiveSearch() error {
+	if e.SearchString == nil {
+		return nil
+	}
+	s := []byte(*e.SearchString)
+	if len(s) < 1 {
+		return nil
+	}
+	s = s[:len(s)-1]
+
+	e.SearchString = &[]string{string(s)}[0]
+
+	return nil
+}
+
+var searchModeKeymap = Keymap{
+	Key{K: "<space>"}: func(e *Application) error { return insertCharAtSearchString(e, ' ') },
+	Key{K: "<backspace>"}: func(e *Application) error {
+		return e.ActiveEditor().DeleteCharBackwardFromActiveSearch()
+	},
+	Key{K: "<enter>"}: func(a *Application) error {
+		editor := a.ActiveEditor()
+
+		editor.CurrentMatch++
+		if editor.CurrentMatch >= len(editor.SearchMatches) {
+			editor.CurrentMatch = 0
+		}
+		editor.MovedAwayFromCurrentMatch = false
+		return nil
+	},
+	Key{K: "<esc>"}: func(a *Application) error {
+		a.ActiveEditor().Keymaps = a.ActiveEditor().Keymaps[:len(a.ActiveEditor().Keymaps)-1]
+		fmt.Println("exiting search mode")
+		editor := a.ActiveEditor()
+		editor.IsSearching = false
+		editor.LastSearchString = ""
+		editor.SearchString = nil
+		editor.SearchMatches = nil
+		editor.CurrentMatch = 0
+		editor.MovedAwayFromCurrentMatch = false
+		return nil
+	},
+	Key{K: "<lmouse>-click"}: func(e *Application) error {
+		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
+	},
+	Key{K: "<mouse-wheel-up>"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+		return e.ActiveEditor().ScrollUp(10)
+
+	},
+	Key{K: "<mouse-wheel-down>"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+
+		return e.ActiveEditor().ScrollDown(10)
+	},
+
+	Key{K: "<rmouse>-click"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+
+		return e.ActiveEditor().ScrollDown(10)
+	},
+	Key{K: "<mmouse>-click"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+
+		return e.ActiveEditor().ScrollUp(10)
+	},
+	Key{K: "<pagedown>"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+		return e.ActiveEditor().ScrollDown(1)
+	},
+	Key{K: "<pageup>"}: func(e *Application) error {
+		e.ActiveEditor().MovedAwayFromCurrentMatch = true
+
+		return e.ActiveEditor().ScrollUp(1)
+	},
+
+	Key{K: "a"}:               func(e *Application) error { return insertCharAtSearchString(e, 'a') },
+	Key{K: "b"}:               func(e *Application) error { return insertCharAtSearchString(e, 'b') },
+	Key{K: "c"}:               func(e *Application) error { return insertCharAtSearchString(e, 'c') },
+	Key{K: "d"}:               func(e *Application) error { return insertCharAtSearchString(e, 'd') },
+	Key{K: "e"}:               func(e *Application) error { return insertCharAtSearchString(e, 'e') },
+	Key{K: "f"}:               func(e *Application) error { return insertCharAtSearchString(e, 'f') },
+	Key{K: "g"}:               func(e *Application) error { return insertCharAtSearchString(e, 'g') },
+	Key{K: "h"}:               func(e *Application) error { return insertCharAtSearchString(e, 'h') },
+	Key{K: "i"}:               func(e *Application) error { return insertCharAtSearchString(e, 'i') },
+	Key{K: "j"}:               func(e *Application) error { return insertCharAtSearchString(e, 'j') },
+	Key{K: "k"}:               func(e *Application) error { return insertCharAtSearchString(e, 'k') },
+	Key{K: "l"}:               func(e *Application) error { return insertCharAtSearchString(e, 'l') },
+	Key{K: "m"}:               func(e *Application) error { return insertCharAtSearchString(e, 'm') },
+	Key{K: "n"}:               func(e *Application) error { return insertCharAtSearchString(e, 'n') },
+	Key{K: "o"}:               func(e *Application) error { return insertCharAtSearchString(e, 'o') },
+	Key{K: "p"}:               func(e *Application) error { return insertCharAtSearchString(e, 'p') },
+	Key{K: "q"}:               func(e *Application) error { return insertCharAtSearchString(e, 'q') },
+	Key{K: "r"}:               func(e *Application) error { return insertCharAtSearchString(e, 'r') },
+	Key{K: "s"}:               func(e *Application) error { return insertCharAtSearchString(e, 's') },
+	Key{K: "t"}:               func(e *Application) error { return insertCharAtSearchString(e, 't') },
+	Key{K: "u"}:               func(e *Application) error { return insertCharAtSearchString(e, 'u') },
+	Key{K: "v"}:               func(e *Application) error { return insertCharAtSearchString(e, 'v') },
+	Key{K: "w"}:               func(e *Application) error { return insertCharAtSearchString(e, 'w') },
+	Key{K: "x"}:               func(e *Application) error { return insertCharAtSearchString(e, 'x') },
+	Key{K: "y"}:               func(e *Application) error { return insertCharAtSearchString(e, 'y') },
+	Key{K: "z"}:               func(e *Application) error { return insertCharAtSearchString(e, 'z') },
+	Key{K: "0"}:               func(e *Application) error { return insertCharAtSearchString(e, '0') },
+	Key{K: "1"}:               func(e *Application) error { return insertCharAtSearchString(e, '1') },
+	Key{K: "2"}:               func(e *Application) error { return insertCharAtSearchString(e, '2') },
+	Key{K: "3"}:               func(e *Application) error { return insertCharAtSearchString(e, '3') },
+	Key{K: "4"}:               func(e *Application) error { return insertCharAtSearchString(e, '4') },
+	Key{K: "5"}:               func(e *Application) error { return insertCharAtSearchString(e, '5') },
+	Key{K: "6"}:               func(e *Application) error { return insertCharAtSearchString(e, '6') },
+	Key{K: "7"}:               func(e *Application) error { return insertCharAtSearchString(e, '7') },
+	Key{K: "8"}:               func(e *Application) error { return insertCharAtSearchString(e, '8') },
+	Key{K: "9"}:               func(e *Application) error { return insertCharAtSearchString(e, '9') },
+	Key{K: "\\"}:              func(e *Application) error { return insertCharAtSearchString(e, '\\') },
+	Key{K: "\\", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '|') },
+
+	Key{K: "0", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, ')') },
+	Key{K: "1", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '!') },
+	Key{K: "2", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '@') },
+	Key{K: "3", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '#') },
+	Key{K: "4", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '$') },
+	Key{K: "5", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '%') },
+	Key{K: "6", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '^') },
+	Key{K: "7", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '&') },
+	Key{K: "8", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '*') },
+	Key{K: "9", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '(') },
+	Key{K: "a", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'A') },
+	Key{K: "b", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'B') },
+	Key{K: "c", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'C') },
+	Key{K: "d", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'D') },
+	Key{K: "e", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'E') },
+	Key{K: "f", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'F') },
+	Key{K: "g", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'G') },
+	Key{K: "h", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'H') },
+	Key{K: "i", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'I') },
+	Key{K: "j", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'J') },
+	Key{K: "k", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'K') },
+	Key{K: "l", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'L') },
+	Key{K: "m", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'M') },
+	Key{K: "n", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'N') },
+	Key{K: "o", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'O') },
+	Key{K: "p", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'P') },
+	Key{K: "q", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Q') },
+	Key{K: "r", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'R') },
+	Key{K: "s", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'S') },
+	Key{K: "t", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'T') },
+	Key{K: "u", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'U') },
+	Key{K: "v", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'V') },
+	Key{K: "w", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'W') },
+	Key{K: "x", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'X') },
+	Key{K: "y", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Y') },
+	Key{K: "z", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, 'Z') },
+	Key{K: "["}:              func(e *Application) error { return insertCharAtSearchString(e, '[') },
+	Key{K: "]"}:              func(e *Application) error { return insertCharAtSearchString(e, ']') },
+	Key{K: "[", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '{') },
+	Key{K: "]", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '}') },
+	Key{K: ";"}:              func(e *Application) error { return insertCharAtSearchString(e, ';') },
+	Key{K: ";", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, ':') },
+	Key{K: "'"}:              func(e *Application) error { return insertCharAtSearchString(e, '\'') },
+	Key{K: "'", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '"') },
+	Key{K: "\""}:             func(e *Application) error { return insertCharAtSearchString(e, '"') },
+	Key{K: ","}:              func(e *Application) error { return insertCharAtSearchString(e, ',') },
+	Key{K: "."}:              func(e *Application) error { return insertCharAtSearchString(e, '.') },
+	Key{K: ",", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '<') },
+	Key{K: ".", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '>') },
+	Key{K: "/"}:              func(e *Application) error { return insertCharAtSearchString(e, '/') },
+	Key{K: "/", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '?') },
+	Key{K: "-"}:              func(e *Application) error { return insertCharAtSearchString(e, '-') },
+	Key{K: "="}:              func(e *Application) error { return insertCharAtSearchString(e, '=') },
+	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '_') },
+	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '+') },
+	Key{K: "`"}:              func(e *Application) error { return insertCharAtSearchString(e, '`') },
+	Key{K: "`", Shift: true}: func(e *Application) error { return insertCharAtSearchString(e, '~') },
 }
