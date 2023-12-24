@@ -62,8 +62,29 @@ func Test_RemoveRange(t *testing.T) {
 	assert.Equal(t, "012345678\n012345678", string(bufferView.Buffer.Content))
 }
 
-//func Test_KillLine(t *testing.T) {
-//}
+func Test_KillLine(t *testing.T) {
+	bufferView := BufferView{
+		Buffer: &Buffer{
+			File:    "",
+			Content: []byte("012345678\n012345678"),
+			CRLF:    false,
+		},
+		Cursors: []Cursor{
+			{
+				Point: 2,
+				Mark:  2,
+			},
+		},
+		ActionStack: NewStack[BufferAction](10),
+	}
+	bufferView.calcRenderState()
+	KillLine(&bufferView)
+	assert.Equal(t, "01\n012345678", string(bufferView.Buffer.Content))
+	RevertLastBufferAction(&bufferView)
+	assert.Equal(t, "012345678\n012345678", string(bufferView.Buffer.Content))
+
+}
+
 //func Test_Cut(t *testing.T)                {}
 //func Test_Paste(t *testing.T)              {}
 //func Test_DeleteCharBackword(t *testing.T) {}

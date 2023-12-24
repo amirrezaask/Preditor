@@ -706,6 +706,60 @@ type bufferRenderContext struct {
 	zeroLocation     rl.Vector2
 }
 
+func (e *BufferView) calcRenderState() {
+	e.bufferLines = []BufferLine{}
+	totalVisualLines := 0
+	lineCharCounter := 0
+	var actualLineIndex = 1
+	var start int
+	for idx, char := range e.Buffer.Content {
+		lineCharCounter++
+		if char == '\n' {
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.bufferLines = append(e.bufferLines, line)
+			totalVisualLines++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+		if idx == len(e.Buffer.Content)-1 {
+			// last index
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx + 1,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.bufferLines = append(e.bufferLines, line)
+			totalVisualLines++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+		if e.maxColumn != 0 && int32(lineCharCounter) > e.maxColumn-5 {
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.bufferLines = append(e.bufferLines, line)
+			totalVisualLines++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+	}
+
+}
+
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	oldMaxLine := e.maxLine
 	oldMaxColumn := e.maxColumn
@@ -719,56 +773,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		textZeroLocation.Y += charSize.Y
 	}
 	if e.Buffer.needParsing || len(e.Buffer.Content) != oldBufferContentLen || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
-		e.bufferLines = []BufferLine{}
-		totalVisualLines := 0
-		lineCharCounter := 0
-		var actualLineIndex = 1
-		var start int
-		for idx, char := range e.Buffer.Content {
-			lineCharCounter++
-			if char == '\n' {
-				line := BufferLine{
-					Index:      totalVisualLines,
-					startIndex: start,
-					endIndex:   idx,
-					Length:     idx - start + 1,
-					ActualLine: actualLineIndex,
-				}
-				e.bufferLines = append(e.bufferLines, line)
-				totalVisualLines++
-				actualLineIndex++
-				lineCharCounter = 0
-				start = idx + 1
-			}
-			if idx == len(e.Buffer.Content)-1 {
-				// last index
-				line := BufferLine{
-					Index:      totalVisualLines,
-					startIndex: start,
-					endIndex:   idx + 1,
-					Length:     idx - start + 1,
-					ActualLine: actualLineIndex,
-				}
-				e.bufferLines = append(e.bufferLines, line)
-				totalVisualLines++
-				actualLineIndex++
-				lineCharCounter = 0
-				start = idx + 1
-			}
-			if int32(lineCharCounter) > e.maxColumn-5 {
-				line := BufferLine{
-					Index:      totalVisualLines,
-					startIndex: start,
-					endIndex:   idx,
-					Length:     idx - start + 1,
-					ActualLine: actualLineIndex,
-				}
-				e.bufferLines = append(e.bufferLines, line)
-				totalVisualLines++
-				lineCharCounter = 0
-				start = idx + 1
-			}
-		}
+		e.calcRenderState()
 	}
 	e.OldBufferContentLen = len(e.Buffer.Content)
 	if !e.NoStatusbar && !e.parent.GlobalNoStatusbar {
@@ -1234,6 +1239,10 @@ func RevertLastBufferAction(e *BufferView) {
 		e.AddBytesAtIndex(last.Data, last.Idx, false)
 	}
 	e.SetStateDirty()
+
+	if len(e.ActionStack.data) < 1 {
+		e.SetStateClean()
+	}
 }
 
 func AnotherSelectionOnMatch(e *BufferView) {
@@ -1321,9 +1330,9 @@ func Indent(e *BufferView) error {
 	return nil
 }
 
-func KillLine(e *BufferView) error {
+func KillLine(e *BufferView) {
 	if e.Buffer.Readonly || len(e.Cursors) > 1 {
-		return nil
+		return
 	}
 	var lastChange int
 	for i := range e.Cursors {
@@ -1336,7 +1345,6 @@ func KillLine(e *BufferView) error {
 	}
 	e.SetStateDirty()
 
-	return nil
 }
 func Cut(e *BufferView) error {
 	if e.Buffer.Readonly || len(e.Cursors) > 1 {
