@@ -327,7 +327,7 @@ func (e *Buffer) calculateVisualLines() {
 	e.View.Lines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
-	var actualLineIndex int
+	var actualLineIndex = 1
 	var start int
 	if e.View.EndLine == 0 {
 		e.View.EndLine = e.maxLine
@@ -1807,7 +1807,7 @@ func init() {
 				}
 
 				for _, line := range e.View.Lines {
-					if line.Index == number {
+					if line.ActualLine == number {
 						e.Cursors[0].SetBoth(line.startIndex)
 						e.ScrollIfNeeded()
 					}
