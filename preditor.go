@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/flopp/go-findfont"
 	"image/color"
 	"math/rand"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/flopp/go-findfont"
 	"golang.design/x/clipboard"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -940,7 +940,7 @@ func New() (*Context, error) {
 				}
 			}()
 		} else {
-			err = SwitchOrOpenFileInTextBuffer(p, cfg, filename, nil)
+			err = SwitchOrOpenFileInCurrentWindow(p, cfg, filename, nil)
 			if err != nil {
 				panic(err)
 			}
@@ -1016,6 +1016,29 @@ func (c *Context) openThemeSwitcher() {
 	c.MarkBufferAsActive(ofb.ID)
 }
 
+func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, startingPos *Position, window *Window) error {
+	for _, buf := range parent.Drawables {
+		switch t := buf.(type) {
+		case *Buffer:
+			if t.File == filename {
+				window.DrawableID = t.ID
+				t.MoveToPositionInNextRender = startingPos
+				return nil
+			}
+		}
+	}
+
+	tb, err := NewBuffer(parent, cfg, filename)
+	if err != nil {
+		return nil
+	}
+
+	parent.AddBuffer(tb)
+	window.DrawableID = tb.ID
+	tb.MoveToPositionInNextRender = startingPos
+	return nil
+}
+
 func (c *Context) openCompilationBuffer(command string) error {
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
@@ -1027,7 +1050,7 @@ func (c *Context) openCompilationBuffer(command string) error {
 	return nil
 }
 
-func (c *Context) openCompilationBufferInAVSplit(command string) error {
+func (c *Context) OpenCompilationBufferInAVSplit(command string) error {
 	win := c.VSplit()
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
@@ -1038,7 +1061,7 @@ func (c *Context) openCompilationBufferInAVSplit(command string) error {
 	return nil
 }
 
-func (c *Context) openCompilationBufferInAHSplit(command string) error {
+func (c *Context) OpenCompilationBufferInAHSplit(command string) error {
 	win := c.HSplit()
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {

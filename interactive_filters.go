@@ -2,12 +2,13 @@ package preditor
 
 import (
 	"fmt"
-	"github.com/amirrezaask/preditor/components"
-	rl "github.com/gen2brain/raylib-go/raylib"
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/amirrezaask/preditor/components"
+	rl "github.com/gen2brain/raylib-go/raylib"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 type ScoredItem[T any] struct {
@@ -277,7 +278,7 @@ func NewInteractiveFuzzyFile(parent *Context, cfg *Config, cwd string) *Interact
 
 	}
 	openSelection := func(parent *Context, item ScoredItem[LocationItem]) error {
-		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, path.Join(cwd, item.Item.Filename), nil)
+		err := SwitchOrOpenFileInCurrentWindow(parent, parent.Cfg, path.Join(cwd, item.Item.Filename), nil)
 		if err != nil {
 			panic(err)
 		}
@@ -342,14 +343,14 @@ func NewInteractiveFilePicker(parent *Context, cfg *Config, initialInput string)
 	}
 	openUserInput := func(parent *Context, userInput string) {
 		parent.KillBuffer(parent.ActiveBufferID())
-		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, userInput, nil)
+		err := SwitchOrOpenFileInCurrentWindow(parent, parent.Cfg, userInput, nil)
 		if err != nil {
 			panic(err)
 		}
 	}
 	openSelection := func(parent *Context, item LocationItem) error {
 		parent.KillBuffer(parent.ActiveBufferID())
-		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Filename, nil)
+		err := SwitchOrOpenFileInCurrentWindow(parent, parent.Cfg, item.Filename, nil)
 		if err != nil {
 			panic(err)
 		}
