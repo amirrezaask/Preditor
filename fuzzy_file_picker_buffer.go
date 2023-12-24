@@ -17,64 +17,22 @@ type FuzzyFilePickerBuffer struct {
 	cfg                            *Config
 	parent                         *Preditor
 	keymaps                        []Keymap
-	maxHeight                      int32
-	maxWidth                       int32
-	ZeroLocation                   rl.Vector2
 	List                           ListComponent[LocationItemScored]
 	UserInputComponent             *UserInputComponent
 	LastInputWeCalculatedScoresFor string
 }
 
-func (f *FuzzyFilePickerBuffer) HandleFontChange() {
-	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
-	oldEnd := f.List.VisibleEnd
-	oldStart := f.List.VisibleStart
-	f.List.MaxLine = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleEnd = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleStart += (f.List.VisibleEnd - oldEnd)
-
-	if int(f.List.VisibleEnd) >= len(f.List.Items) {
-		f.List.VisibleEnd = len(f.List.Items) - 1
-		f.List.VisibleStart = f.List.VisibleEnd - f.List.MaxLine
-	}
-
-	if f.List.VisibleStart < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-	if f.List.VisibleEnd < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-
-	diff := f.List.VisibleStart - oldStart
-	f.List.Selection += diff
-}
-
 func NewFuzzyFilePickerBuffer(parent *Preditor,
 	cfg *Config,
 	root string,
-	maxH int32,
-	maxW int32,
-	zeroLocation rl.Vector2) *FuzzyFilePickerBuffer {
-	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
-	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
-
+) *FuzzyFilePickerBuffer {
 	ofb := &FuzzyFilePickerBuffer{
-		cfg:       cfg,
-		parent:    parent,
-		Root:      root,
-		keymaps:   []Keymap{FilePickerKeymap},
-		maxHeight: maxH,
-		maxWidth:  maxW,
-		List: ListComponent[LocationItemScored]{
-			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
-			VisibleStart: 0,
-			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH-startOfListY) - 1),
-		},
-		ZeroLocation:       zeroLocation,
-		UserInputComponent: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		cfg:                cfg,
+		parent:             parent,
+		Root:               root,
+		keymaps:            []Keymap{FilePickerKeymap},
+		List:               ListComponent[LocationItemScored]{},
+		UserInputComponent: NewUserInputComponent(parent, cfg),
 	}
 
 	files := RipgrepFiles()
@@ -101,7 +59,7 @@ func (f *FuzzyFilePickerBuffer) SortItems() {
 
 }
 
-func (f *FuzzyFilePickerBuffer) Render() {
+func (f *FuzzyFilePickerBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	if f.LastInputWeCalculatedScoresFor != string(f.UserInputComponent.UserInput) {
 		f.LastInputWeCalculatedScoresFor = string(f.UserInputComponent.UserInput)
 		f.SortItems()
@@ -109,50 +67,32 @@ func (f *FuzzyFilePickerBuffer) Render() {
 	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), maxW, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(f.parent.Font, string(f.UserInputComponent.UserInput), rl.Vector2{
-		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
+		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
 	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputComponent.Idx), int32(zeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
 	//draw list of items
 	for idx, item := range f.List.Items {
 		rl.DrawTextEx(f.parent.Font, item.Filename, rl.Vector2{
-			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
+			X: zeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 	}
 
 	if len(f.List.Items) > 0 {
-		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), maxW, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
-}
-
-func (f *FuzzyFilePickerBuffer) SetMaxWidth(w int32) {
-	f.maxWidth = w
-	f.HandleFontChange()
-}
-
-func (f *FuzzyFilePickerBuffer) SetMaxHeight(h int32) {
-	f.maxHeight = h
-	f.HandleFontChange()
-}
-
-func (f *FuzzyFilePickerBuffer) GetMaxWidth() int32 {
-	return f.maxWidth
-}
-
-func (f *FuzzyFilePickerBuffer) GetMaxHeight() int32 {
-	return f.maxHeight
 }
 
 func (f *FuzzyFilePickerBuffer) Keymaps() []Keymap {
@@ -160,7 +100,7 @@ func (f *FuzzyFilePickerBuffer) Keymaps() []Keymap {
 }
 
 func (f *FuzzyFilePickerBuffer) openSelection() error {
-	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
+	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, f.List.Items[f.List.Selection].Filename, nil)
 	if err != nil {
 		panic(err)
 	}

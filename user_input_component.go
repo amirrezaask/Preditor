@@ -13,13 +13,10 @@ type UserInputComponent struct {
 	LastInput    string
 }
 
-func NewUserInputComponent(parent *Preditor, cfg *Config, zeroLocation rl.Vector2, maxH int32, maxW int32) *UserInputComponent {
+func NewUserInputComponent(parent *Preditor, cfg *Config) *UserInputComponent {
 	uib := UserInputComponent{
-		cfg:          cfg,
-		parent:       parent,
-		maxHeight:    maxH,
-		maxWidth:     maxW,
-		ZeroLocation: zeroLocation,
+		cfg:    cfg,
+		parent: parent,
 	}
 
 	return &uib

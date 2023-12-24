@@ -32,13 +32,8 @@ type Colors struct {
 type Buffer interface {
 	GetID() int
 	SetID(int)
-	Render()
-	SetMaxWidth(w int32)
-	SetMaxHeight(h int32)
-	GetMaxWidth() int32
-	GetMaxHeight() int32
+	Render(zeroLocation rl.Vector2, maxHeight int32, maxWidth int32)
 	Keymaps() []Keymap
-	HandleFontChange()
 	fmt.Stringer
 }
 type BaseBuffer struct {
@@ -122,14 +117,12 @@ func (p *Preditor) IncreaseFontSize(n int) {
 	p.FontSize += int32(n)
 	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
 	charSizeCache = map[byte]rl.Vector2{}
-	p.HandleFontChange()
 }
 
 func (p *Preditor) DecreaseFontSize(n int) {
 	p.FontSize -= int32(n)
 	p.Font = rl.LoadFontEx(p.FontPath, p.FontSize, nil)
 	charSizeCache = map[byte]rl.Vector2{}
-	p.HandleFontChange()
 
 }
 
@@ -206,32 +199,13 @@ func (e *Preditor) HandleKeyEvents() {
 func (e *Preditor) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Cfg.Colors.Background)
-	e.ActiveBuffer().Render()
+	e.ActiveBuffer().Render(rl.Vector2{}, e.OSWindowHeight, e.OSWindowWidth)
 	rl.EndDrawing()
-}
-func (e *Preditor) HandleFontChange() {
-
-	// window is resized
-	for _, buffer := range e.Buffers {
-		buffer.HandleFontChange()
-	}
 }
 
 func (e *Preditor) HandleWindowResize() {
 	e.OSWindowHeight = int32(rl.GetRenderHeight())
 	e.OSWindowWidth = int32(rl.GetRenderWidth())
-
-	// window is resized
-	for _, buffer := range e.Buffers {
-		if buffer.GetMaxWidth() != int32(e.OSWindowHeight) {
-			buffer.SetMaxWidth(int32(e.OSWindowWidth))
-		}
-
-		if buffer.GetMaxHeight() != int32(e.OSWindowHeight) {
-			buffer.SetMaxHeight(int32(e.OSWindowWidth))
-
-		}
-	}
 }
 
 func (e *Preditor) HandleMouseEvents() {
@@ -246,15 +220,6 @@ func (e *Preditor) HandleMouseEvents() {
 			}
 		}
 	}
-}
-
-func Printlnf(obj interface{}, message ...string) {
-	if len(message) > 0 {
-		fmt.Printf(message[0]+"\n", obj)
-	} else {
-		fmt.Printf("%T %+v\n", obj, obj)
-	}
-
 }
 
 type modifierKeyState struct {
@@ -585,11 +550,11 @@ func New(cfg *Config) (*Preditor, error) {
 	if err != nil {
 		return nil, err
 	}
-	scratch, err := NewTextBuffer(p, p.Cfg, "*Scratch*", p.OSWindowHeight, p.OSWindowWidth, rl.Vector2{})
+	scratch, err := NewTextBuffer(p, p.Cfg, "*Scratch*")
 	if err != nil {
 		return nil, err
 	}
-	message, err := NewTextBuffer(p, p.Cfg, "*Messages*", p.OSWindowHeight, p.OSWindowWidth, rl.Vector2{})
+	message, err := NewTextBuffer(p, p.Cfg, "*Messages*")
 	if err != nil {
 		return nil, err
 	}
@@ -636,26 +601,26 @@ func (p *Preditor) MaxWidthToMaxColumn(maxW int32) int32 {
 }
 
 func (e *Preditor) openFileBuffer() {
-	ofb := NewFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	ofb := NewFilePickerBuffer(e, e.Cfg, e.getCWD())
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 }
 
 func (e *Preditor) openFuzzyFilePicker() {
-	ofb := NewFuzzyFilePickerBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	ofb := NewFuzzyFilePickerBuffer(e, e.Cfg, e.getCWD())
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 
 }
 func (e *Preditor) openBufferSwitcher() {
-	ofb := NewBufferSwitcherBuffer(e, e.Cfg, e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	ofb := NewBufferSwitcherBuffer(e, e.Cfg)
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 
 }
 
 func (e *Preditor) openGrepBuffer() {
-	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD(), e.OSWindowHeight, e.OSWindowWidth, rl.Vector2{})
+	ofb := NewGrepBuffer(e, e.Cfg, e.getCWD())
 	e.AddBuffer(ofb)
 	e.MarkBufferAsActive(ofb.ID)
 }

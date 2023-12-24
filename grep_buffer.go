@@ -30,48 +30,15 @@ type GrepBuffer struct {
 	parent       *Preditor
 	keymaps      []Keymap
 	root         string
-	maxHeight    int32
-	maxWidth     int32
-	ZeroLocation rl.Vector2
 	List         ListComponent[GrepLocationItem]
 	LastQuery    string
 	UserInputBox *UserInputComponent
 	maxColumn    int
 }
 
-func (f *GrepBuffer) HandleFontChange() {
-	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
-	oldEnd := f.List.VisibleEnd
-	oldStart := f.List.VisibleStart
-	f.List.MaxLine = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleEnd = int(f.parent.MaxHeightToMaxLine(f.maxHeight - startOfListY))
-	f.List.VisibleStart += (f.List.VisibleEnd - oldEnd)
-
-	if int(f.List.VisibleEnd) >= len(f.List.Items) {
-		f.List.VisibleEnd = len(f.List.Items) - 1
-		f.List.VisibleStart = f.List.VisibleEnd - f.List.MaxLine
-	}
-
-	if f.List.VisibleStart < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-	if f.List.VisibleEnd < 0 {
-		f.List.VisibleStart = 0
-		f.List.VisibleEnd = f.List.MaxLine
-	}
-
-	diff := f.List.VisibleStart - oldStart
-	f.List.Selection += diff
-}
-
 func NewGrepBuffer(parent *Preditor,
 	cfg *Config,
-	root string,
-	maxH int32,
-	maxW int32,
-	zeroLocation rl.Vector2) *GrepBuffer {
+	root string) *GrepBuffer {
 	if root == "" {
 		root, _ = os.Getwd()
 	}
@@ -79,23 +46,14 @@ func NewGrepBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
-	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
-	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
 
 	ofb := &GrepBuffer{
 		cfg:          cfg,
 		parent:       parent,
 		root:         absRoot,
 		keymaps:      []Keymap{GrepBufferKeymap},
-		maxHeight:    maxH,
-		maxWidth:     maxW,
-		ZeroLocation: zeroLocation,
-		List: ListComponent[GrepLocationItem]{
-			MaxLine:      int(parent.MaxHeightToMaxLine(maxH - startOfListY)),
-			VisibleStart: 0, VisibleEnd: int(parent.MaxHeightToMaxLine(maxH-startOfListY) - 1),
-		},
-		maxColumn:    int(maxW / int32(charSize.X)),
-		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		List:         ListComponent[GrepLocationItem]{},
+		UserInputBox: NewUserInputComponent(parent, cfg),
 	}
 
 	return ofb
@@ -138,53 +96,38 @@ func (f *GrepBuffer) calculateLocationItems() error {
 	return nil
 }
 
-func (f *GrepBuffer) Render() {
+func (f *GrepBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
+	f.maxColumn = int(maxW / int32(charSize.X))
 
 	//draw input box
-	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), maxW, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(f.parent.Font, string(f.UserInputBox.UserInput), rl.Vector2{
-		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
+		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
 	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
-	startOfListY := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
+	maxLine := int((maxH - startOfListY) / int32(charSize.Y))
+
 	//draw list of items
-	for idx, item := range f.List.VisibleView() {
+	for idx, item := range f.List.VisibleView(maxLine) {
 		rl.DrawTextEx(f.parent.Font, item.StringWithTruncate(f.maxColumn), rl.Vector2{
-			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
+			X: zeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
 		}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 	}
 	if len(f.List.Items) > 0 {
-		rl.DrawRectangle(int32(f.ZeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), f.maxWidth, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(f.List.Selection-f.List.VisibleStart)*int(charSize.Y)), maxW, int32(charSize.Y), rl.Fade(f.cfg.Colors.Selection, 0.2))
 	}
 
-}
-
-func (f *GrepBuffer) SetMaxWidth(w int32) {
-	f.maxWidth = w
-	f.HandleFontChange()
-}
-
-func (f *GrepBuffer) SetMaxHeight(h int32) {
-	f.maxHeight = h
-	f.HandleFontChange()
-}
-
-func (f *GrepBuffer) GetMaxWidth() int32 {
-	return f.maxWidth
-}
-
-func (f *GrepBuffer) GetMaxHeight() int32 {
-	return f.maxHeight
 }
 
 func (f *GrepBuffer) Keymaps() []Keymap {
@@ -194,7 +137,7 @@ func (f *GrepBuffer) Keymaps() []Keymap {
 func (e *GrepBuffer) OpenSelection() error {
 	item := e.List.Items[e.List.Selection]
 
-	return SwitchOrOpenFileInTextBuffer(e.parent, e.cfg, item.Filename, e.maxHeight, e.maxWidth, e.ZeroLocation, &Position{Line: item.Line, Column: item.Col})
+	return SwitchOrOpenFileInTextBuffer(e.parent, e.cfg, item.Filename, &Position{Line: item.Line, Column: item.Col})
 }
 
 func makeGrepBufferCommand(f func(e *GrepBuffer) error) Command {

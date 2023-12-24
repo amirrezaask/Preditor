@@ -2,8 +2,6 @@ package preditor
 
 type ListComponent[T any] struct {
 	VisibleStart int
-	VisibleEnd   int
-	MaxLine      int
 	Items        []T
 	Selection    int
 }
@@ -14,13 +12,6 @@ func (l *ListComponent[T]) NextItem() {
 		l.Selection = len(l.Items) - 1
 	}
 
-	if l.Selection >= l.VisibleEnd {
-		l.VisibleEnd++
-		l.VisibleStart++
-		if l.VisibleEnd >= len(l.Items)-1 {
-			l.VisibleEnd = len(l.Items) - 1
-		}
-	}
 }
 
 func (l *ListComponent[T]) PrevItem() {
@@ -31,7 +22,6 @@ func (l *ListComponent[T]) PrevItem() {
 
 	if l.Selection < l.VisibleStart {
 		l.VisibleStart--
-		l.VisibleEnd--
 		if l.VisibleStart < 0 {
 			l.VisibleStart = 0
 		}
@@ -40,32 +30,30 @@ func (l *ListComponent[T]) PrevItem() {
 }
 func (l *ListComponent[T]) Scroll(n int) {
 	l.VisibleStart += n
-	l.VisibleEnd += n
-
-	if int(l.VisibleEnd) >= len(l.Items) {
-		l.VisibleEnd = len(l.Items) - 1
-		l.VisibleStart = l.VisibleEnd - l.MaxLine
-	}
 
 	if l.VisibleStart < 0 {
 		l.VisibleStart = 0
-		l.VisibleEnd = l.MaxLine
-	}
-	if l.VisibleEnd < 0 {
-		l.VisibleStart = 0
-		l.VisibleEnd = l.MaxLine
 	}
 
 }
-func (l *ListComponent[T]) VisibleView() []T {
-	start := l.VisibleStart
-	end := l.VisibleEnd
-	if l.VisibleEnd >= len(l.Items) {
-		end = len(l.Items)
-		start = end - l.MaxLine
-		if start < 0 {
-			start = 0
+func (l *ListComponent[T]) VisibleView(maxLine int) []T {
+	if l.Selection < l.VisibleStart {
+		l.VisibleStart -= maxLine / 3
+		if l.VisibleStart < 0 {
+			l.VisibleStart = 0
 		}
 	}
-	return l.Items[start:end]
+
+	if l.Selection >= l.VisibleStart+maxLine {
+		l.VisibleStart += maxLine / 3
+		if l.VisibleStart >= len(l.Items) {
+			l.VisibleStart = len(l.Items)
+		}
+	}
+
+	if len(l.Items) > l.VisibleStart+maxLine {
+		return l.Items[l.VisibleStart : l.VisibleStart+maxLine]
+	} else {
+		return l.Items[l.VisibleStart:len(l.Items)]
+	}
 }

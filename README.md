@@ -46,7 +46,6 @@ Mapping from a Key event to a function that handles it, specific to each buffer.
 ![Main.go](assets/screenshot.png)
 ![Open File Menu](assets/files.png)
 
-
 ## TODO:
 - Command output buffer ( run a command and see it's result, similar to *Compile Mode* in Emacs)
 

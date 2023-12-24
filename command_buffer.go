@@ -24,9 +24,6 @@ type CommandBuffer struct {
 	parent       *Preditor
 	keymaps      []Keymap
 	root         string
-	maxHeight    int32
-	maxWidth     int32
-	ZeroLocation rl.Vector2
 	LastQuery    string
 	UserInputBox *UserInputComponent
 	Selection    int
@@ -36,10 +33,7 @@ type CommandBuffer struct {
 
 func NewCommandBuffer(parent *Preditor,
 	cfg *Config,
-	root string,
-	maxH int32,
-	maxW int32,
-	zeroLocation rl.Vector2) *CommandBuffer {
+	root string) *CommandBuffer {
 	if root == "" {
 		root, _ = os.Getwd()
 	}
@@ -47,25 +41,16 @@ func NewCommandBuffer(parent *Preditor,
 	if err != nil {
 		panic(err)
 	}
-	charSize := measureTextSize(parent.Font, ' ', parent.FontSize, 0)
 	ofb := &CommandBuffer{
 		cfg:          cfg,
 		parent:       parent,
 		root:         absRoot,
 		keymaps:      []Keymap{CommandBufferKeymap},
-		maxHeight:    maxH,
-		maxWidth:     maxW,
-		ZeroLocation: zeroLocation,
 		outputBuffer: bytes.Buffer{},
-		maxColumn:    int(maxW / int32(charSize.X)),
-		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		UserInputBox: NewUserInputComponent(parent, cfg),
 	}
 
 	return ofb
-}
-
-func (f *CommandBuffer) HandleFontChange() {
-
 }
 
 func (f *CommandBuffer) String() string {
@@ -94,46 +79,30 @@ func (f *CommandBuffer) runCommand() error {
 	return nil
 }
 
-func (f *CommandBuffer) Render() {
+func (f *CommandBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	charSize := measureTextSize(f.parent.Font, ' ', f.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), maxW, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(f.parent.Font, string(f.UserInputBox.UserInput), rl.Vector2{
-		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
+		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
 	}, float32(f.parent.FontSize), 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangle(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(f.ZeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
+		rl.DrawRectangleLines(int32(charSize.X)*int32(f.UserInputBox.Idx), int32(zeroLocation.Y+charSize.Y/2), 2, int32(charSize.Y), rl.Fade(rl.Red, 0.5))
 	}
 
-	startOfOutput := int32(f.ZeroLocation.Y) + int32(3*(charSize.Y))
+	startOfOutput := int32(zeroLocation.Y) + int32(3*(charSize.Y))
 
 	rl.DrawTextEx(f.parent.Font, f.outputBuffer.String(), rl.Vector2{
-		X: f.ZeroLocation.X,
+		X: zeroLocation.X,
 		Y: float32(startOfOutput),
 	}, float32(f.parent.FontSize), 0, rl.White)
-}
-
-func (f *CommandBuffer) SetMaxWidth(w int32) {
-	f.maxWidth = w
-}
-
-func (f *CommandBuffer) SetMaxHeight(h int32) {
-	f.maxHeight = h
-}
-
-func (f *CommandBuffer) GetMaxWidth() int32 {
-	return f.maxWidth
-}
-
-func (f *CommandBuffer) GetMaxHeight() int32 {
-	return f.maxHeight
 }
 
 func (f *CommandBuffer) Keymaps() []Keymap {

@@ -34,9 +34,6 @@ type TextBuffer struct {
 	SyntaxHighlights          *SyntaxHighlights
 	Variables                 Variables
 	Commands                  Commands
-	MaxHeight                 int32
-	MaxWidth                  int32
-	ZeroPosition              rl.Vector2
 	TabSize                   int
 	VisibleStart              int32
 	VisibleEnd                int32
@@ -58,6 +55,7 @@ type TextBuffer struct {
 	isGotoLine                bool
 	gotoLineBuffer            []byte
 	Readonly                  bool
+	SearchHighlights          [][]int
 }
 
 const (
@@ -111,7 +109,6 @@ func (e *TextBuffer) PopAndReverseLastAction() {
 }
 
 func (e *TextBuffer) SetStateDirty() {
-	e.calculateVisualLines()
 	e.State = State_Dirty
 }
 
@@ -123,24 +120,11 @@ func (e *TextBuffer) replaceTabsWithSpaces() {
 	e.Content = bytes.Replace(e.Content, []byte("\t"), []byte(strings.Repeat(" ", e.TabSize)), -1)
 }
 
-func (e *TextBuffer) SetMaxWidth(w int32) {
-	e.MaxWidth = w
-	e.updateMaxLineAndColumn()
-	e.calculateVisualLines()
-
-}
-
-func (e *TextBuffer) SetMaxHeight(h int32) {
-	e.MaxHeight = h
-	e.updateMaxLineAndColumn()
-	e.calculateVisualLines()
-}
-
-func (e *TextBuffer) updateMaxLineAndColumn() {
+func (e *TextBuffer) updateMaxLineAndColumn(maxH int32, maxW int32) {
 	oldMaxLine := e.maxLine
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	e.maxColumn = e.MaxWidth / int32(charSize.X)
-	e.maxLine = e.MaxHeight / int32(charSize.Y)
+	e.maxColumn = maxW / int32(charSize.X)
+	e.maxLine = maxH / int32(charSize.Y)
 
 	// reserve one line for status bar
 	e.maxLine--
@@ -152,18 +136,13 @@ func (e *TextBuffer) Type() string {
 	return "text_editor_buffer"
 }
 
-func (e *TextBuffer) HandleFontChange() {
-	e.updateMaxLineAndColumn()
-	e.calculateVisualLines()
-}
-
 const (
 	CURSOR_SHAPE_BLOCK   = 1
 	CURSOR_SHAPE_OUTLINE = 2
 	CURSOR_SHAPE_LINE    = 3
 )
 
-func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2, startingPos *Position) error {
+func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string, startingPos *Position) error {
 	for idx, buf := range parent.Buffers {
 		switch t := buf.(type) {
 		case *TextBuffer:
@@ -178,7 +157,7 @@ func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string
 		}
 	}
 
-	tb, err := NewTextBuffer(parent, cfg, filename, maxH, maxW, zeroPosition)
+	tb, err := NewTextBuffer(parent, cfg, filename)
 	if err != nil {
 		return nil
 	}
@@ -193,13 +172,10 @@ func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string
 	return nil
 }
 
-func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, maxW int32, zeroPosition rl.Vector2) (*TextBuffer, error) {
+func NewTextBuffer(parent *Preditor, cfg *Config, filename string) (*TextBuffer, error) {
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
 	t.File = filename
-	t.MaxHeight = maxH
-	t.MaxWidth = maxW
-	t.ZeroPosition = zeroPosition
 	t.keymaps = append([]Keymap{}, EditorKeymap)
 	t.SelectionStart = -1
 	t.UndoStack = NewStack[EditorAction](1000)
@@ -223,8 +199,6 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	}
 
 	t.replaceTabsWithSpaces()
-	t.updateMaxLineAndColumn()
-	t.calculateVisualLines()
 	return &t, nil
 
 }
@@ -420,7 +394,7 @@ func (e *TextBuffer) calculateVisualLines() {
 	}
 }
 
-func (e *TextBuffer) renderCursor() {
+func (e *TextBuffer) renderCursor(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 
 	if e.cfg.CursorBlinking && time.Since(e.LastCursorBlink).Milliseconds() < 1000 {
@@ -432,7 +406,7 @@ func (e *TextBuffer) renderCursor() {
 		Line:   cursor.Line - int(e.VisibleStart),
 		Column: cursor.Column,
 	}
-	posX := int32(cursorView.Column)*int32(charSize.X) + int32(e.ZeroPosition.X)
+	posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
 	if e.cfg.LineNumbers {
 		if len(e.visualLines) > cursor.Line {
 			posX += int32((len(fmt.Sprint(e.visualLines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
@@ -443,26 +417,26 @@ func (e *TextBuffer) renderCursor() {
 	}
 	switch e.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
-		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), e.cfg.Colors.Cursor)
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), e.cfg.Colors.Cursor)
 	case CURSOR_SHAPE_BLOCK:
-		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.Cursor, 0.5))
+		rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.Cursor, 0.5))
 	case CURSOR_SHAPE_LINE:
-		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
+		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
 	}
 
-	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(e.ZeroPosition.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
+	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
 
 	e.LastCursorBlink = time.Now()
 }
 
-func (e *TextBuffer) renderStatusBar() {
+func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH int32, maxW int32) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	cursor := e.getIndexPosition(e.bufferIndex)
 	//render status bar
 	rl.DrawRectangle(
-		int32(e.ZeroPosition.X),
+		int32(zeroLocation.X),
 		e.maxLine*int32(charSize.Y),
-		e.MaxWidth,
+		maxW,
 		int32(charSize.Y),
 		e.cfg.Colors.StatusBarBackground,
 	)
@@ -493,13 +467,13 @@ func (e *TextBuffer) renderStatusBar() {
 	statusbar := fmt.Sprintf("%s %s %d:%d %s %s", state, file, line, cursor.Column, searchString, gotoLine)
 	rl.DrawTextEx(e.parent.Font,
 		statusbar,
-		rl.Vector2{X: e.ZeroPosition.X, Y: float32(e.maxLine) * charSize.Y},
+		rl.Vector2{X: zeroLocation.X, Y: float32(e.maxLine) * charSize.Y},
 		float32(e.parent.FontSize),
 		0,
 		e.cfg.Colors.StatusBarForeground)
 }
 
-func (e *TextBuffer) highlightBetweenTwoIndexes(idx1 int, idx2 int, color color.RGBA) {
+func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, color color.RGBA) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	var start Position
 	var end Position
@@ -529,7 +503,7 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(idx1 int, idx2 int, color color.
 			thisLineEnd = end.Column
 		}
 		for j := thisLineStart; j <= thisLineEnd; j++ {
-			posX := int32(j)*int32(charSize.X) + int32(e.ZeroPosition.X)
+			posX := int32(j)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
 				if len(e.visualLines) > i {
 					posX += int32((len(fmt.Sprint(e.visualLines[i].ActualLine)) + 1) * int(charSize.X))
@@ -538,21 +512,22 @@ func (e *TextBuffer) highlightBetweenTwoIndexes(idx1 int, idx2 int, color color.
 
 				}
 			}
-			rl.DrawRectangle(posX, int32(i-int(e.VisibleStart))*int32(charSize.Y)+int32(e.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
+			rl.DrawRectangle(posX, int32(i-int(e.VisibleStart))*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(color, 0.5))
 		}
 	}
 
 }
 
-func (e *TextBuffer) renderSelection() {
+func (e *TextBuffer) renderSelection(zeroLocation rl.Vector2) {
 	if e.SelectionStart == -1 {
 		return
 	}
-	e.highlightBetweenTwoIndexes(e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
+	e.highlightBetweenTwoIndexes(zeroLocation, e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
 
 }
 
-func (e *TextBuffer) renderText() {
+func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+	e.calculateVisualLines()
 	var visibleLines []visualLine
 	if e.VisibleEnd > int32(len(e.visualLines)) {
 		visibleLines = e.visualLines[e.VisibleStart:]
@@ -567,7 +542,7 @@ func (e *TextBuffer) renderText() {
 				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
 				rl.DrawTextEx(e.parent.Font,
 					fmt.Sprintf("%d", line.ActualLine),
-					rl.Vector2{X: e.ZeroPosition.X, Y: float32(idx) * charSize.Y},
+					rl.Vector2{X: zeroLocation.X, Y: float32(idx) * charSize.Y},
 					float32(e.parent.FontSize),
 					0,
 					e.cfg.Colors.LineNumbersForeground)
@@ -579,7 +554,7 @@ func (e *TextBuffer) renderText() {
 				for _, h := range highlights {
 					rl.DrawTextEx(e.parent.Font,
 						string(e.Content[h.start:h.end+1]),
-						rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
+						rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
 						float32(e.parent.FontSize),
 						0,
 						h.Color)
@@ -589,7 +564,7 @@ func (e *TextBuffer) renderText() {
 
 				rl.DrawTextEx(e.parent.Font,
 					string(e.Content[line.startIndex:line.endIndex]),
-					rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
+					rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
 					float32(e.parent.FontSize),
 					0,
 					e.cfg.Colors.Foreground)
@@ -624,7 +599,7 @@ func (e *TextBuffer) findMatchesRegex(pattern string) error {
 	return nil
 }
 
-func (e *TextBuffer) findMatchesAndHighlight(pattern string) error {
+func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2) error {
 	if pattern != e.LastSearchString {
 		if err := e.findMatchesRegex(pattern); err != nil {
 			return err
@@ -650,25 +625,27 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string) error {
 				e.VisibleEnd += diff
 			}
 		}
-		e.highlightBetweenTwoIndexes(match[0], match[1], c)
+		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], c)
 	}
 	e.LastSearchString = pattern
 
 	return nil
 }
-func (e *TextBuffer) renderSearchResults() {
+func (e *TextBuffer) renderSearchResults(zeroLocation rl.Vector2) {
 	if e.SearchString == nil || len(*e.SearchString) < 1 {
+		e.SearchHighlights = nil
 		return
 	}
-	e.findMatchesAndHighlight(*e.SearchString)
+	e.findMatchesAndHighlight(*e.SearchString, zeroLocation)
 }
 
-func (e *TextBuffer) Render() {
-	e.renderText()
-	e.renderSearchResults()
-	e.renderCursor()
-	e.renderStatusBar()
-	e.renderSelection()
+func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+	e.updateMaxLineAndColumn(maxH, maxW)
+	e.renderText(zeroLocation, maxH, maxW)
+	e.renderSearchResults(zeroLocation)
+	e.renderCursor(zeroLocation, maxH, maxW)
+	e.renderStatusBar(zeroLocation, maxH, maxW)
+	e.renderSelection(zeroLocation)
 }
 
 func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -1029,12 +1006,9 @@ func (e *TextBuffer) Write() error {
 	}
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
-	e.calculateVisualLines()
 	return nil
 }
 
-func (e *TextBuffer) GetMaxHeight() int32 { return e.MaxHeight }
-func (e *TextBuffer) GetMaxWidth() int32  { return e.MaxWidth }
 func (e *TextBuffer) Indent() error {
 	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.AddUndoAction(EditorAction{
@@ -1531,8 +1505,6 @@ func (e *TextBuffer) readFileFromDisk() error {
 
 	e.Content = bs
 	e.replaceTabsWithSpaces()
-	e.updateMaxLineAndColumn()
-	e.calculateVisualLines()
 	e.SetStateClean()
 	return nil
 }
