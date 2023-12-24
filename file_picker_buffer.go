@@ -135,24 +135,10 @@ func (f *FilePickerBuffer) Keymaps() []Keymap {
 }
 
 func (f *FilePickerBuffer) openUserInput() error {
-	p := f.parent
-
-	for _, window := range p.Buffers {
-		switch window.(type) {
-		case *TextBuffer:
-			tb := window.(*TextBuffer)
-			if tb.File == string(f.UserInputBox.UserInput) {
-				p.Buffers[p.ActiveBufferIndex] = window
-				return nil
-			}
-		}
-	}
-
-	e, err := NewTextBuffer(f.parent, f.cfg, string(f.UserInputBox.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation)
+	err := SwitchOrOpenFileInTextBuffer(f.parent, f.cfg, string(f.UserInputBox.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation, nil)
 	if err != nil {
 		panic(err)
 	}
-	p.Buffers[p.ActiveBufferIndex] = e
 	return nil
 }
 

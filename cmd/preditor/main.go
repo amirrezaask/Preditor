@@ -44,11 +44,10 @@ func main() {
 	if stat.IsDir() {
 		editor.Buffers = append(editor.Buffers, preditor.NewFilePickerBuffer(editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
 	} else {
-		e, err := preditor.NewTextBuffer(editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{})
+		err := preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, nil)
 		if err != nil {
 			panic(err)
 		}
-		editor.Buffers = append(editor.Buffers, e)
 	}
 
 	// start main loop
