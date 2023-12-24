@@ -82,6 +82,15 @@ type ISearch struct {
 	MovedAwayFromCurrentMatch bool
 }
 
+type Gotoline struct {
+	IsGotoLine        bool
+	GotoLineUserInput []byte
+}
+
+type Compilation struct {
+	IsCompiling bool
+}
+
 type TextBuffer struct {
 	BaseBuffer
 	cfg            *Config
@@ -112,8 +121,7 @@ type TextBuffer struct {
 	UndoStack Stack[EditorAction]
 
 	//Gotoline
-	isGotoLine        bool
-	GotoLineUserInput []byte
+	GotoLine Gotoline
 
 	LastCursorBlink time.Time
 }
@@ -234,7 +242,7 @@ func NewTextBuffer(parent *Context, cfg *Config, filename string) (*TextBuffer, 
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
 	t.File = filename
-	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(b byte) error {
+	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
 		return t.InsertCharAtCursor(b)
 	}))
 	t.UndoStack = NewStack[EditorAction](1000)
@@ -723,12 +731,12 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 }
 
 func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if !e.isGotoLine {
+	if !e.GotoLine.IsGotoLine {
 		return
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Goto: %s", string(e.GotoLineUserInput)), rl.Vector2{
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Goto: %s", string(e.GotoLine.GotoLineUserInput)), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
 	}, float32(e.parent.FontSize), 0, rl.White)
@@ -1589,7 +1597,7 @@ var EditorKeymap = Keymap{
 	}),
 	Key{K: "g", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.keymaps = append(e.keymaps, GotoLineKeymap)
-		e.isGotoLine = true
+		e.GotoLine.IsGotoLine = true
 
 		return nil
 	}),
@@ -1598,7 +1606,7 @@ var EditorKeymap = Keymap{
 	}),
 
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
-		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(b byte) error {
+		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
 			if a.ISearch.SearchString == nil {
 				a.ISearch.SearchString = new(string)
 			}
@@ -1728,7 +1736,7 @@ func insertCharAtSearchString(editor *TextBuffer, char byte) error {
 }
 
 func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
-	editor.GotoLineUserInput = append(editor.GotoLineUserInput, char)
+	editor.GotoLine.GotoLineUserInput = append(editor.GotoLine.GotoLineUserInput, char)
 
 	return nil
 }
@@ -1761,10 +1769,10 @@ func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
 }
 
 func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
-	if len(e.GotoLineUserInput) < 1 {
+	if len(e.GotoLine.GotoLineUserInput) < 1 {
 		return nil
 	}
-	e.GotoLineUserInput = e.GotoLineUserInput[:len(e.GotoLineUserInput)-1]
+	e.GotoLine.GotoLineUserInput = e.GotoLine.GotoLineUserInput[:len(e.GotoLine.GotoLineUserInput)-1]
 
 	return nil
 }
@@ -1853,18 +1861,23 @@ var SearchTextBufferKeymap = Keymap{
 
 var GotoLineKeymap = Keymap{
 	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
-		return e.DeleteCharBackwardFromActiveSearch()
+		if len(e.GotoLine.GotoLineUserInput) < 1 {
+			return nil
+		}
+		e.GotoLine.GotoLineUserInput = e.GotoLine.GotoLineUserInput[:len(e.GotoLine.GotoLineUserInput)-1]
+
+		return nil
 	}),
 	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
-		number, err := strconv.Atoi(string(editor.GotoLineUserInput))
+		number, err := strconv.Atoi(string(editor.GotoLine.GotoLineUserInput))
 		if err != nil {
 			return nil
 		}
 
 		for _, line := range editor.View.Lines {
 			if line.Index == number {
-				editor.isGotoLine = false
-				editor.GotoLineUserInput = nil
+				editor.GotoLine.IsGotoLine = false
+				editor.GotoLine.GotoLineUserInput = nil
 				editor.Cursors[0].SetBoth(line.startIndex)
 				editor.ScrollIfNeeded()
 			}
@@ -1875,7 +1888,8 @@ var GotoLineKeymap = Keymap{
 
 	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
-		editor.isGotoLine = false
+		editor.GotoLine.IsGotoLine = false
+		editor.GotoLine.GotoLineUserInput = nil
 		return nil
 	}),
 
