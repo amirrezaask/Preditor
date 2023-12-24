@@ -2,7 +2,7 @@ package main
 
 import rl "github.com/gen2brain/raylib-go/raylib"
 
-type UserInputBox struct {
+type UserInputComponent struct {
 	cfg          *Config
 	parent       *Preditor
 	maxHeight    int32
@@ -12,8 +12,8 @@ type UserInputBox struct {
 	Idx          int
 }
 
-func NewuserInputBox(parent *Preditor, cfg *Config, zeroLocation rl.Vector2, maxH int32, maxW int32) *UserInputBox {
-	uib := UserInputBox{
+func NewUserInputComponent(parent *Preditor, cfg *Config, zeroLocation rl.Vector2, maxH int32, maxW int32) *UserInputComponent {
+	uib := UserInputComponent{
 		cfg:          cfg,
 		parent:       parent,
 		maxHeight:    maxH,
@@ -24,7 +24,7 @@ func NewuserInputBox(parent *Preditor, cfg *Config, zeroLocation rl.Vector2, max
 	return &uib
 }
 
-func (f *UserInputBox) setNewUserInput(bs []byte) {
+func (f *UserInputComponent) setNewUserInput(bs []byte) {
 	f.UserInput = bs
 	f.Idx += len(f.UserInput)
 
@@ -35,12 +35,12 @@ func (f *UserInputBox) setNewUserInput(bs []byte) {
 	}
 
 }
-func (f *UserInputBox) insertCharAtBuffer(char byte) error {
+func (f *UserInputComponent) insertCharAtBuffer(char byte) error {
 	f.setNewUserInput(append(f.UserInput, char))
 	return nil
 }
 
-func (f *UserInputBox) CursorRight(n int) error {
+func (f *UserInputComponent) CursorRight(n int) error {
 	if f.Idx >= len(f.UserInput) {
 		return nil
 	}
@@ -50,35 +50,35 @@ func (f *UserInputBox) CursorRight(n int) error {
 	return nil
 }
 
-func (f *UserInputBox) paste() error {
+func (f *UserInputComponent) paste() error {
 	content := getClipboardContent()
 	f.UserInput = append(f.UserInput[:f.Idx], append(content, f.UserInput[f.Idx+1:]...)...)
 
 	return nil
 }
 
-func (f *UserInputBox) killLine() error {
+func (f *UserInputComponent) killLine() error {
 	f.setNewUserInput(f.UserInput[:f.Idx])
 	return nil
 }
 
-func (f *UserInputBox) copy() error {
+func (f *UserInputComponent) copy() error {
 	writeToClipboard(f.UserInput)
 
 	return nil
 }
 
-func (f *UserInputBox) BeginingOfTheLine() error {
+func (f *UserInputComponent) BeginingOfTheLine() error {
 	f.Idx = 0
 	return nil
 }
 
-func (f *UserInputBox) EndOfTheLine() error {
+func (f *UserInputComponent) EndOfTheLine() error {
 	f.Idx = len(f.UserInput)
 	return nil
 }
 
-func (f *UserInputBox) NextWordStart() error {
+func (f *UserInputComponent) NextWordStart() error {
 	if idx := nextWordInBuffer(f.UserInput, f.Idx); idx != -1 {
 		f.Idx = idx
 	}
@@ -86,7 +86,7 @@ func (f *UserInputBox) NextWordStart() error {
 	return nil
 }
 
-func (f *UserInputBox) CursorLeft(n int) error {
+func (f *UserInputComponent) CursorLeft(n int) error {
 
 	if f.Idx <= 0 {
 		return nil
@@ -97,7 +97,7 @@ func (f *UserInputBox) CursorLeft(n int) error {
 	return nil
 }
 
-func (f *UserInputBox) PreviousWord() error {
+func (f *UserInputComponent) PreviousWord() error {
 	if idx := previousWordInBuffer(f.UserInput, f.Idx); idx != -1 {
 		f.Idx = idx
 	}
@@ -105,7 +105,7 @@ func (f *UserInputBox) PreviousWord() error {
 	return nil
 }
 
-func (f *UserInputBox) DeleteCharBackward() error {
+func (f *UserInputComponent) DeleteCharBackward() error {
 	if f.Idx <= 0 {
 		return nil
 	}
@@ -117,7 +117,7 @@ func (f *UserInputBox) DeleteCharBackward() error {
 	return nil
 }
 
-func (f *UserInputBox) DeleteWordBackward() error {
+func (f *UserInputComponent) DeleteWordBackward() error {
 	previousWordEndIdx := previousWordInBuffer(f.UserInput, f.Idx)
 	if len(f.UserInput) > f.Idx+1 {
 		f.setNewUserInput(append(f.UserInput[:previousWordEndIdx+1], f.UserInput[f.Idx+1:]...))
@@ -126,7 +126,7 @@ func (f *UserInputBox) DeleteWordBackward() error {
 	}
 	return nil
 }
-func (f *UserInputBox) DeleteWordForward() error {
+func (f *UserInputComponent) DeleteWordForward() error {
 	nextWordStartIdx := nextWordInBuffer(f.UserInput, f.Idx)
 	if len(f.UserInput) > nextWordStartIdx+1 {
 		f.setNewUserInput(append(f.UserInput[:f.Idx+1], f.UserInput[nextWordStartIdx+1:]...))
@@ -136,7 +136,7 @@ func (f *UserInputBox) DeleteWordForward() error {
 
 	return nil
 }
-func (f *UserInputBox) DeleteCharForward() error {
+func (f *UserInputComponent) DeleteCharForward() error {
 	if f.Idx < 0 {
 		return nil
 	}

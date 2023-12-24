@@ -70,6 +70,10 @@ type EditorAction struct {
 	Data        []byte
 }
 
+func (e *TextBuffer) String() string {
+	return fmt.Sprintf("%s", e.File)
+}
+
 func (e *TextBuffer) Keymaps() []Keymap {
 	return e.keymaps
 }
@@ -1096,9 +1100,14 @@ func (e *TextBuffer) openFileBuffer() {
 	ofb := NewFilePickerBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
 	e.parent.Buffers = append(e.parent.Buffers, ofb)
-	e.parent.ActiveWindowIndex = len(e.parent.Buffers) - 1
+	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
+func (e *TextBuffer) openBufferSwitcher() {
+	ofb := NewBufferSwitcherBuffer(e.parent, e.cfg, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
+	e.parent.Buffers = append(e.parent.Buffers, ofb)
+	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
+}
 func (e *TextBuffer) deleteWordBackward() {
 	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
 	oldLen := len(e.Content)
@@ -1167,6 +1176,11 @@ var editorKeymap = Keymap{
 	}),
 	Key{K: "o", Control: true}: makeCommand(func(a *TextBuffer) error {
 		a.openFileBuffer()
+
+		return nil
+	}),
+	Key{K: "b", Alt: true}: makeCommand(func(a *TextBuffer) error {
+		a.openBufferSwitcher()
 
 		return nil
 	}),
