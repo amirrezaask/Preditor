@@ -13,6 +13,8 @@ Simple text editor implemented in Golang using Raylib with the goal of being a s
 - Basic status bar to show file name, file state
 - Selecting text
 - Incremental Buffer Search
+- Support BeforeSaveHook to use formatting tools like Go fmt
+- Auto format go code using pkg/format
 
 
 ## TODO:

@@ -22,6 +22,7 @@ func main() {
 
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
+
 	rl.SetTraceLogLevel(rl.LogError)
 	rl.InitWindow(1920, 1080, "Preditor")
 
@@ -34,7 +35,7 @@ func main() {
 	editor := Preditor{
 		LineNumbers:  true,
 		LineWrapping: true,
-		Colors:       cfg.Colors,
+		Colors:	   cfg.Colors,
 	}
 
 	err = loadFont(cfg.FontName, 20)
@@ -51,12 +52,12 @@ func main() {
 
 	// initialize first editor
 	textEditorBuffer, err := NewEditor(EditorOptions{
-		Filename:       filename,
-		LineNumbers:    true,
-		TabSize:        4,
-		MaxHeight:      int32(rl.GetRenderHeight()),
-		MaxWidth:       int32(rl.GetRenderWidth()),
-		Colors:         editor.Colors,
+		Filename:	   filename,
+		LineNumbers:	true,
+		TabSize:		4,
+		MaxHeight:	  int32(rl.GetRenderHeight()),
+		MaxWidth:	   int32(rl.GetRenderWidth()),
+		Colors:		 editor.Colors,
 		CursorBlinking: false,
 	})
 	if err != nil {
