@@ -53,14 +53,15 @@ func main() {
 
 	// initialize first editor
 	textEditorBuffer, err := NewEditor(EditorOptions{
-		Filename:       filename,
-		LineNumbers:    true,
-		TabSize:        4,
-		MaxHeight:      int32(rl.GetRenderHeight()),
-		MaxWidth:       int32(rl.GetRenderWidth()),
-		Colors:         editor.Colors,
-		CursorShape:    cfg.CursorShape,
-		CursorBlinking: cfg.CursorBlinking,
+		Filename:           filename,
+		LineNumbers:        true,
+		TabSize:            4,
+		MaxHeight:          int32(rl.GetRenderHeight()),
+		MaxWidth:           int32(rl.GetRenderWidth()),
+		Colors:             editor.Colors,
+		CursorShape:        cfg.CursorShape,
+		CursorBlinking:     cfg.CursorBlinking,
+		SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
 	})
 	if err != nil {
 		panic(err)

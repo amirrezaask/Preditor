@@ -26,6 +26,7 @@ type Editor struct {
 	Content                   []byte
 	Keymaps                   []Keymap
 	ColorGroups               map[*regexp.Regexp]color.RGBA
+	EnableSyntaxHighlighting  bool
 	Variables                 Variables
 	Commands                  Commands
 	MaxHeight                 int32
@@ -90,15 +91,16 @@ const (
 )
 
 type EditorOptions struct {
-	MaxHeight      int32
-	MaxWidth       int32
-	ZeroPosition   rl.Vector2
-	Colors         Colors
-	Filename       string
-	LineNumbers    bool
-	TabSize        int
-	CursorBlinking bool
-	CursorShape    int
+	MaxHeight          int32
+	MaxWidth           int32
+	ZeroPosition       rl.Vector2
+	Colors             Colors
+	Filename           string
+	LineNumbers        bool
+	TabSize            int
+	CursorBlinking     bool
+	CursorShape        int
+	SyntaxHighlighting bool
 }
 
 func NewEditor(opts EditorOptions) (*Editor, error) {
@@ -113,6 +115,7 @@ func NewEditor(opts EditorOptions) (*Editor, error) {
 	t.Keymaps = append([]Keymap{}, editorKeymap)
 	t.CursorShape = opts.CursorShape
 	t.CursorBlinking = opts.CursorBlinking
+	t.EnableSyntaxHighlighting = opts.SyntaxHighlighting
 	var err error
 	if t.File != "" {
 		t.Content, err = os.ReadFile(t.File)
@@ -444,12 +447,25 @@ func (t *Editor) renderText() {
 
 			}
 
-			rl.DrawTextEx(font,
-				string(t.Content[line.startIndex:line.endIndex+1]),
-				rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
-				fontSize,
-				0,
-				t.Colors.Foreground)
+			if t.EnableSyntaxHighlighting {
+				var last float32
+				for _, h := range line.Highlights {
+					rl.DrawTextEx(font,
+						string(t.Content[h.start:h.end]),
+						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + last*charSize.X, Y: float32(idx) * charSize.Y},
+						fontSize,
+						0,
+						h.Color)
+					last = float32(h.end - h.start)
+				}
+			} else {
+				rl.DrawTextEx(font,
+					string(t.Content[line.startIndex:line.endIndex+1]),
+					rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
+					fontSize,
+					0,
+					t.Colors.Foreground)
+			}
 		}
 	}
 }

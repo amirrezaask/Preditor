@@ -473,7 +473,6 @@ func loadFont(name string, size float32) error {
 
 	fontSize = size
 	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
-
 	return nil
 }
 
