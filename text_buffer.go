@@ -1430,16 +1430,17 @@ func (e *TextBuffer) DeleteWordBackward() {
 	if e.Readonly || len(e.Cursors) > 1 {
 		return
 	}
-	cur := e.Cursors[0]
+	e.deleteSelectionsIfAnySelection()
+	cur := &e.Cursors[0]
+	old := len(e.Content)
 	previousWordEndIdx := byteutils.PreviousWordInBuffer(e.Content, cur.Start())
-	oldLen := len(e.Content)
 	if len(e.Content) > cur.Start()+1 {
 		e.AddUndoAction(EditorAction{
 			Type: EditorActionType_Delete,
 			Idx:  previousWordEndIdx + 1,
 			Data: e.Content[previousWordEndIdx+1 : cur.Start()],
 		})
-		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[cur.Start()+1:]...)
+		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[cur.Start():]...)
 	} else {
 		e.AddUndoAction(EditorAction{
 			Type: EditorActionType_Delete,
@@ -1448,7 +1449,7 @@ func (e *TextBuffer) DeleteWordBackward() {
 		})
 		e.Content = e.Content[:previousWordEndIdx+1]
 	}
-	cur.AddToStart(len(e.Content) - oldLen)
+	cur.SetBoth(cur.Point + (len(e.Content) - old))
 	e.SetStateDirty()
 }
 
