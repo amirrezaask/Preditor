@@ -32,7 +32,7 @@ type GrepBuffer struct {
 	maxHeight    int32
 	maxWidth     int32
 	ZeroLocation rl.Vector2
-	Items        []GrepLocationItem
+	ListComponent[GrepLocationItem]
 	LastQuery    string
 	UserInputBox *UserInputComponent
 	Selection    int
@@ -54,15 +54,16 @@ func NewGrepBuffer(parent *Preditor,
 	}
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	ofb := &GrepBuffer{
-		cfg:          cfg,
-		parent:       parent,
-		root:         absRoot,
-		keymaps:      []Keymap{GrepBufferKeymap},
-		maxHeight:    maxH,
-		maxWidth:     maxW,
-		ZeroLocation: zeroLocation,
-		maxColumn:    int(maxW / int32(charSize.X)),
-		UserInputBox: NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
+		cfg:           cfg,
+		parent:        parent,
+		root:          absRoot,
+		keymaps:       []Keymap{GrepBufferKeymap},
+		maxHeight:     maxH,
+		maxWidth:      maxW,
+		ZeroLocation:  zeroLocation,
+		ListComponent: ListComponent[GrepLocationItem]{},
+		maxColumn:     int(maxW / int32(charSize.X)),
+		UserInputBox:  NewUserInputComponent(parent, cfg, zeroLocation, maxH, maxW),
 	}
 
 	return ofb
