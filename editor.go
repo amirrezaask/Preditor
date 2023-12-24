@@ -55,6 +55,22 @@ type Editor struct {
 	CursorShape               int
 	LastCursorBlink           time.Time
 	BeforeSaveHook            []func(*Editor) error
+	UndoStack                 Stack[EditorAction]
+}
+
+const (
+	EditorActionType_InsertChar = iota + 1
+	EditorActionType_DeleteCharBackward
+	EditorActionType_DeleteCharForward
+	EditorActionType_Indent
+	EditorActionType_Cut
+	EditorActionType_Paste
+	C
+)
+
+type EditorAction struct {
+	Type int
+	Data []byte
 }
 
 func (t *Editor) Keymaps() []Keymap {
@@ -995,7 +1011,7 @@ func (t *Editor) Write() error {
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
-	t.SetStateDirty()
+	t.SetStateClean()
 	t.replaceTabsWithSpaces()
 	return nil
 }
