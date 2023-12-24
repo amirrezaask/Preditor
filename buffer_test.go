@@ -14,32 +14,73 @@ func TestSearch(t *testing.T) {
 
 // ///////////// These are the buggy ones
 func Test_BufferInsertChar(t *testing.T) {
-	bufferView := BufferView{
-		Buffer: &Buffer{
-			File:    "",
-			Content: []byte("12"),
-			CRLF:    false,
-		},
-		Cursors: []Cursor{
-			{
-				Point: 0,
-				Mark:  0,
+	t.Run("single cursor", func(t *testing.T) {
+		bufferView := BufferView{
+			Buffer: &Buffer{
+				File:    "",
+				Content: []byte("12"),
+				CRLF:    false,
 			},
-		},
-		ActionStack: NewStack[BufferAction](10),
-	}
+			Cursors: []Cursor{
+				{
+					Point: 0,
+					Mark:  0,
+				},
+			},
+			ActionStack: NewStack[BufferAction](10),
+		}
+		BufferInsertChar(&bufferView, '0')
+		assert.Equal(t, []byte("012"), bufferView.Buffer.Content)
+		bufferView.Cursors[0].SetBoth(3)
+		BufferInsertChar(&bufferView, '3')
+		assert.Equal(t, []byte("0123"), bufferView.Buffer.Content)
 
-	BufferInsertChar(&bufferView, '0')
-	assert.Equal(t, []byte("012"), bufferView.Buffer.Content)
-	bufferView.Cursors[0].SetBoth(3)
-	BufferInsertChar(&bufferView, '3')
-	assert.Equal(t, []byte("0123"), bufferView.Buffer.Content)
+		RevertLastBufferAction(&bufferView)
+		assert.Equal(t, []byte("012"), bufferView.Buffer.Content)
+		RevertLastBufferAction(&bufferView)
+		assert.Equal(t, []byte("12"), bufferView.Buffer.Content)
 
-	RevertLastBufferAction(&bufferView)
-	assert.Equal(t, []byte("012"), bufferView.Buffer.Content)
-	RevertLastBufferAction(&bufferView)
-	assert.Equal(t, []byte("12"), bufferView.Buffer.Content)
+	})
+
+	t.Run("multi cursor", func(t *testing.T) {
+		bufferView := BufferView{
+			Buffer: &Buffer{
+				File:    "",
+				Content: []byte("012345678\n012345678\n012345678"),
+				CRLF:    false,
+			},
+			Cursors: []Cursor{
+				{
+					Point: 0,
+					Mark:  0,
+				},
+				{
+					Point: 10,
+					Mark:  10,
+				},
+				{
+					Point: 20,
+					Mark:  20,
+				},
+			},
+			ActionStack: NewStack[BufferAction](10),
+		}
+
+		BufferInsertChar(&bufferView, 'X')
+		assert.Equal(t, []byte("X012345678\nX012345678\nX012345678"), bufferView.Buffer.Content)
+
+		RevertLastBufferAction(&bufferView)
+		assert.Equal(t, []byte("X012345678\nX012345678\n012345678"), bufferView.Buffer.Content)
+
+		RevertLastBufferAction(&bufferView)
+		assert.Equal(t, []byte("X012345678\n012345678\n012345678"), bufferView.Buffer.Content)
+
+		RevertLastBufferAction(&bufferView)
+		assert.Equal(t, []byte("012345678\n012345678\n012345678"), bufferView.Buffer.Content)
+	})
+
 }
+
 func Test_RemoveRange(t *testing.T) {
 	bufferView := BufferView{
 		Buffer: &Buffer{
@@ -151,7 +192,7 @@ func Test_Paste(t *testing.T) {
 	assert.Equal(t, "01\n012345678", string(bufferView.Buffer.Content))
 }
 
-func Test_DeleteCharBackword(t *testing.T) {
+func Test_DeleteCharBackward(t *testing.T) {
 	bufferView := BufferView{
 		Buffer: &Buffer{
 			File:    "",
