@@ -22,9 +22,18 @@ type Colors struct {
 	SyntaxTypes           color.RGBA
 }
 
+type Window interface {
+	Render()
+	SetMaxWidth(w int32)
+	SetMaxHeight(h int32)
+	GetMaxWidth() int32
+	GetMaxHeight() int32
+	Keymaps() []Keymap
+}
+
 type Preditor struct {
-	Editors           []*Editor
-	ActiveEditorIndex int
+	Windows           []Window
+	ActiveWindowIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -33,8 +42,8 @@ type Preditor struct {
 	Colors            Colors
 }
 
-func (e *Preditor) ActiveEditor() *Editor {
-	return e.Editors[e.ActiveEditorIndex]
+func (e *Preditor) ActiveWindow() Window {
+	return e.Windows[e.ActiveWindowIndex]
 }
 
 type Command func(*Preditor) error
@@ -91,8 +100,8 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 func (e *Preditor) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {
-			cmd := e.ActiveEditor().Keymaps[i][key]
+		for i := len(e.ActiveWindow().Keymaps()) - 1; i >= 0; i-- {
+			cmd := e.ActiveWindow().Keymaps()[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
@@ -105,7 +114,7 @@ func (e *Preditor) HandleKeyEvents() {
 func (e *Preditor) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
-	e.ActiveEditor().Render()
+	e.ActiveWindow().Render()
 	rl.EndDrawing()
 }
 
@@ -114,7 +123,7 @@ func (e *Preditor) HandleWindowResize() {
 	width := rl.GetRenderWidth()
 
 	// window is resized
-	for _, buffer := range e.Editors {
+	for _, buffer := range e.Windows {
 		if buffer.GetMaxWidth() != int32(width) {
 			buffer.SetMaxWidth(int32(width))
 		}
@@ -129,8 +138,8 @@ func (e *Preditor) HandleWindowResize() {
 func (e *Preditor) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
-		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {
-			cmd := e.ActiveEditor().Keymaps[i][key]
+		for i := len(e.ActiveWindow().Keymaps()) - 1; i >= 0; i-- {
+			cmd := e.ActiveWindow().Keymaps()[i][key]
 			if cmd != nil {
 				cmd(e)
 				break
