@@ -3,6 +3,7 @@ package preditor
 import (
 	"errors"
 	"fmt"
+	"golang.design/x/clipboard"
 	"image/color"
 	"strconv"
 
@@ -34,21 +35,14 @@ type Buffer interface {
 }
 
 type Preditor struct {
+	Cfg               *Config
 	Buffers           []Buffer
 	ActiveBufferIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
 	Commands          Commands
-	LineWrapping      bool
-	LineNumbers       bool
 	Colors            Colors
 }
-
-//
-//func (e *Preditor) AddBuffer(b Buffer) int {
-//
-//
-//}
 
 func (e *Preditor) ActiveBuffer() Buffer {
 	return e.Buffers[e.ActiveBufferIndex]
@@ -479,7 +473,7 @@ func measureTextSize(font rl.Font, s byte, size float32, spacing float32) rl.Vec
 var (
 	fontPath string
 	font     rl.Font
-	FontSize float32
+	fontSize float32
 )
 
 func LoadFont(name string, size float32) error {
@@ -489,20 +483,58 @@ func LoadFont(name string, size float32) error {
 		return err
 	}
 
-	FontSize = size
-	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
+	fontSize = size
+	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	return nil
 }
 
 func increaseFontSize(n int) {
-	FontSize += float32(n)
-	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
+	fontSize += float32(n)
+	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	charSizeCache = map[byte]rl.Vector2{}
 }
 
 func decreaseFontSize(n int) {
-	FontSize -= float32(n)
-	font = rl.LoadFontEx(fontPath, int32(FontSize), nil)
+	fontSize -= float32(n)
+	font = rl.LoadFontEx(fontPath, int32(fontSize), nil)
 	charSizeCache = map[byte]rl.Vector2{}
+
+}
+
+func setupRaylib() {
+	// basic setup
+	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
+	rl.SetTraceLogLevel(rl.LogError)
+	rl.InitWindow(1920, 1080, "Preditor")
+	rl.SetTargetFPS(60)
+	rl.SetTextLineSpacing(int(fontSize))
+	rl.SetExitKey(0)
+}
+
+func New(cfg *Config) (*Preditor, error) {
+	setupRaylib()
+	initFileTypes(cfg.Colors)
+
+	if err := clipboard.Init(); err != nil {
+		panic(err)
+	}
+
+	err := LoadFont(cfg.FontName, float32(cfg.FontSize))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Preditor{
+		Cfg: cfg,
+	}, nil
+}
+
+func (p *Preditor) StartMainLoop() {
+	for !rl.WindowShouldClose() {
+		p.HandleWindowResize()
+		p.HandleMouseEvents()
+		p.HandleKeyEvents()
+		p.Render()
+	}
 
 }

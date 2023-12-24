@@ -86,13 +86,13 @@ func (f *FilePickerBuffer) calculateLocationItems() {
 
 func (f *FilePickerBuffer) Render() {
 	f.calculateLocationItems()
-	charSize := measureTextSize(font, ' ', FontSize, 0)
+	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	//draw input box
 	rl.DrawRectangleLines(int32(f.ZeroLocation.X), int32(f.ZeroLocation.Y), f.maxWidth, int32(charSize.Y)*2, f.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(font, string(f.UserInputBox.UserInput), rl.Vector2{
 		X: f.ZeroLocation.X, Y: f.ZeroLocation.Y + charSize.Y/2,
-	}, FontSize, 0, f.cfg.Colors.Foreground)
+	}, fontSize, 0, f.cfg.Colors.Foreground)
 
 	switch f.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
@@ -108,7 +108,7 @@ func (f *FilePickerBuffer) Render() {
 	for idx, item := range f.Items {
 		rl.DrawTextEx(font, item.Filename, rl.Vector2{
 			X: f.ZeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
-		}, FontSize, 0, f.cfg.Colors.Foreground)
+		}, fontSize, 0, f.cfg.Colors.Foreground)
 
 	}
 

@@ -36,7 +36,7 @@ func keywordsPat(words ...string) string {
 	return fmt.Sprintf("(%s)", strings.Join(pats, "|"))
 }
 
-func InitFileTypes(cfg Colors) {
+func initFileTypes(cfg Colors) {
 	fileTypeMappings = map[string]FileType{
 		".go": {
 			TabSize: 4,
