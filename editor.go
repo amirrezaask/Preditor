@@ -65,7 +65,7 @@ const (
 
 type EditorAction struct {
 	Type int
-	Idx    int
+	Idx  int
 	Data []byte
 }
 
@@ -89,7 +89,6 @@ func (t *Editor) PopAndReverseLastAction() {
 		t.Content = append(t.Content[:last.Idx], append(last.Data, t.Content[last.Idx:]...)...)
 	}
 
-
 	t.SetStateDirty()
 }
 
@@ -103,7 +102,7 @@ func (t *Editor) SetStateClean() {
 }
 
 func (t *Editor) replaceTabsWithSpaces() {
-	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
+	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", t.TabSize)), -1)
 }
 
 func (t *Editor) SetMaxWidth(w int32) {
@@ -785,7 +784,7 @@ func (t *Editor) DeleteCharForward() error {
 	t.AddUndoAction(EditorAction{
 		Type: EditorActionType_Delete,
 		Data: []byte{t.Content[idx]},
-		Idx: idx,
+		Idx:  idx,
 	})
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
 	t.SetStateDirty()
@@ -990,6 +989,7 @@ func (t *Editor) PreviousWord() error {
 
 func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
+	oldPos := t.Cursor
 
 	apprLine := pos.Y / charSize.Y
 	apprColumn := pos.X / charSize.X
@@ -1013,17 +1013,27 @@ func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 		t.Cursor.Line = len(t.visualLines) - 1
 	}
 
+	if t.Cursor.Line < 0 {
+		t.Cursor.Line = 0
+	}
+
 	// check if cursor should be moved back
 	if t.Cursor.Column > t.visualLines[t.Cursor.Line].Length {
 		t.Cursor.Column = t.visualLines[t.Cursor.Line].Length
+	}
+	if !t.isValidCursorPosition(t.Cursor) {
+		t.Cursor = oldPos
+		return nil
 	}
 
 	return nil
 }
 
 func (t *Editor) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
+	if !t.isValidCursorPosition(pos) {
+		return nil
+	}
 	t.Cursor = pos
-
 	if t.Cursor.Line == int(t.VisibleStart-1) {
 		jump := int(t.maxLine / 2)
 		t.ScrollUp(jump)
@@ -1041,6 +1051,7 @@ func (t *Editor) Write() error {
 	if t.File == "" {
 		return nil
 	}
+	t.Content = bytes.Replace(t.Content, []byte(strings.Repeat(" ", t.TabSize)), []byte("\t"), -1)
 
 	for _, hook := range t.BeforeSaveHook {
 		if err := hook(t); err != nil {
@@ -1048,12 +1059,12 @@ func (t *Editor) Write() error {
 		}
 	}
 
-	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
 	t.SetStateClean()
 	t.replaceTabsWithSpaces()
+	t.calculateVisualLines()
 	return nil
 }
 
@@ -1090,7 +1101,42 @@ func (t *Editor) copy() error {
 
 	return nil
 }
+func (t *Editor) killLine() error {
+	var startIndex int
+	var endIndex int
+	if t.HasSelection {
+		// copy selection
+		selection := t.positionToBufferIndex(*t.SelectionStart)
+		cursor := t.positionToBufferIndex(t.Cursor)
+		switch {
+		case selection < cursor:
+			writeToClipboard(t.Content[selection:cursor])
+			startIndex = selection
+			endIndex = cursor
+		case selection > cursor:
+			writeToClipboard(t.Content[cursor:selection])
+			startIndex = cursor
+			endIndex = selection
+		case cursor == selection:
+			return nil
+		}
+		t.HasSelection = false
+		t.SelectionStart = nil
+	} else {
+		writeToClipboard(t.Content[t.visualLines[t.Cursor.Line].startIndex:t.visualLines[t.Cursor.Line].endIndex])
+		startIndex = t.Cursor.Column + t.visualLines[t.Cursor.Line].startIndex
+		endIndex = t.visualLines[t.Cursor.Line].endIndex
+	}
+	t.AddUndoAction(EditorAction{
+		Type: EditorActionType_Delete,
+		Data: t.Content[startIndex:endIndex],
+	})
+	t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 
+	t.SetStateDirty()
+
+	return nil
+}
 func (t *Editor) cut() error {
 	var startIndex int
 	var endIndex int
@@ -1188,6 +1234,10 @@ func makeCommand(f func(e *Editor) error) Command {
 }
 
 var editorKeymap = Keymap{
+	Key{K: "/", Control: true}: makeCommand(func(e *Editor) error {
+		e.PopAndReverseLastAction()
+		return nil
+	}),
 	Key{K: "f", Control: true}: makeCommand(func(e *Editor) error {
 		return e.CursorRight(1)
 	}),
@@ -1197,6 +1247,9 @@ var editorKeymap = Keymap{
 	Key{K: "y", Control: true}: makeCommand(func(e *Editor) error {
 		return e.paste()
 	}),
+	Key{K: "k", Control: true}: makeCommand(func(e *Editor) error {
+		return e.killLine()
+	}),
 	Key{K: "w", Alt: true}: makeCommand(func(e *Editor) error {
 		return e.copy()
 	}),
@@ -1204,9 +1257,8 @@ var editorKeymap = Keymap{
 		a.keymaps = append(a.keymaps, searchModeKeymap)
 		return nil
 	}),
-	Key{K: "x", Control: true}: makeCommand(func(a *Editor) error{
-		a.keymaps = append(a.keymaps, searchModeKeymap)
-		return nil
+	Key{K: "x", Control: true}: makeCommand(func(a *Editor) error {
+		return a.Write()
 	}),
 	Key{K: "<esc>"}: makeCommand(func(p *Editor) error {
 		if p.HasSelection {
