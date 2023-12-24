@@ -3,6 +3,7 @@ module github.com/amirrezaask/preditor
 go 1.21.3
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/ebitengine/purego v0.5.0 // indirect
 	github.com/flopp/go-findfont v0.1.0 // indirect
 	github.com/gen2brain/raylib-go/raylib v0.0.0-20231118131254-fed470e4458f // indirect
