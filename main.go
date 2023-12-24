@@ -28,8 +28,8 @@ func main() {
 		LineNumbers: true,
 		LineWrapping: true,
 		Colors: Colors{
-			Background:          editorBackground,
-			Foreground:          editorForeground,
+			Background:		  editorBackground,
+			Foreground:		  editorForeground,
 			StatusBarBackground: editorStatusbarBackground,
 			StatusBarForeground: editorStatusbarForeground,
 			LineNumbersForeground: rl.White,
@@ -52,12 +52,12 @@ func main() {
 
 	// initialize first editor
 	textEditorBuffer, err := NewTextEditor(TextEditorOptions{
-		Filename:    filename,
+		Filename:	filename,
 		LineNumbers: true,
 		TabSize: 4,
-		MaxHeight:    int32(rl.GetRenderHeight()),
-		MaxWidth:     int32(rl.GetRenderWidth()),
-		Colors:       editor.Colors,
+		MaxHeight:	int32(rl.GetRenderHeight()),
+		MaxWidth:	 int32(rl.GetRenderWidth()),
+		Colors:	   editor.Colors,
 	})
 	if err != nil {
 		panic(err)
