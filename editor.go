@@ -570,6 +570,7 @@ func (t *Editor) DeleteCharBackward() error {
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
 		t.State = State_Dirty
+		t.HasSelection = false
 		return nil
 	}
 
@@ -809,7 +810,7 @@ func (t *Editor) Write() error {
 		}
 	}
 
-	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
+	t.Content = bytes.Replace(t.Content, []byte("	"), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
@@ -878,6 +879,9 @@ func (t *Editor) cut() error {
 		fmt.Printf("cut: '%s'\n", string(t.Content[line.startIndex:line.endIndex+1]))
 		t.Content = append(t.Content[:line.startIndex], t.Content[line.endIndex+1:]...)
 	}
+
+	t.HasSelection = false
+	t.SelectionStart = nil
 	t.State = State_Dirty
 	t.calculateVisualLines()
 	return nil
@@ -924,13 +928,15 @@ func (t *Editor) paste() error {
 		idx = t.positionToBufferIndex(t.Cursor)
 	}
 	contentToPaste := getClipboardContent()
+	fmt.Printf("content to paste: '%s'\n", contentToPaste)
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, contentToPaste...)
 	} else {
 		t.Content = append(t.Content[:idx], append(contentToPaste, t.Content[idx:]...)...)
 	}
 	t.State = State_Dirty
-
+	t.HasSelection = false
+	t.SelectionStart = nil
 	t.calculateVisualLines()
 
 	t.CursorRight(len(contentToPaste))
