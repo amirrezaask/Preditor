@@ -54,11 +54,6 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
-	Key{K: "s", Alt: true}: func(a *Context) error {
-		a.openGrepBuffer()
-
-		return nil
-	},
 
 	Key{K: "<mouse-wheel-down>", Control: true}: func(c *Context) error {
 		c.DecreaseFontSize(2)
