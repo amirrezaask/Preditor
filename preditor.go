@@ -151,6 +151,7 @@ func (c *Context) windowCount() int {
 func (c *Context) AddWindowInANewColumn(w *Window) {
 	c.Windows = append(c.Windows, []*Window{w})
 	w.ID = c.windowCount()
+	c.ActiveWindowIndex = w.ID
 }
 
 func (c *Context) AddWindowInCurrentColumn(w *Window) {
@@ -834,6 +835,18 @@ func (c *Context) openGrepBuffer() {
 }
 
 func (c *Context) openCompilationBuffer(command string) error {
+	cb, err := NewCompilationBuffer(c, c.Cfg, command)
+	if err != nil {
+		return err
+	}
+	c.AddBuffer(cb)
+	c.MarkBufferAsActive(cb.ID)
+
+	return nil
+}
+
+func (c *Context) openCompilationBufferInAVSplit(command string) error {
+	c.VSplit()
 	cb, err := NewCompilationBuffer(c, c.Cfg, command)
 	if err != nil {
 		return err
