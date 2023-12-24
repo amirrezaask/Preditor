@@ -1,4 +1,4 @@
-module golangguitest
+module github.com/amirrezaask/core
 
 go 1.21.3
 
