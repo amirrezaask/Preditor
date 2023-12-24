@@ -50,15 +50,16 @@ func initFileTypes(cfg Colors) {
 
 			SyntaxHighlights: &SyntaxHighlights{
 				Keywords: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
-						"import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "true", "false", "iota", "append", "cap", "clear", "close", "complex",
+					Regex: regexp.MustCompile(keywordsPat("break", "case", "const",
+						"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
+						"import", "interface", "package", "range", "return", "select", "struct", "switch", "type", "var", "len", "nil", "iota", "append", "cap", "clear", "close", "complex",
 						"copy", "delete", "imag", "len", "make",
 						"max", "min", "new", "panic", "print",
 						"println", "real", "recover")),
 					Color: cfg.SyntaxKeywords,
 				},
 				Types: SyntaxHighlight{
-					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "chan", "byte")),
+					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)", "bool", "true", "false", "chan", "byte", "map")),
 					Color: cfg.SyntaxTypes,
 				},
 			},

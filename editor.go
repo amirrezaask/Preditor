@@ -188,6 +188,9 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 }
 func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 	var missing []highlight
+	sortme[highlight](hs, func(t1, t2 highlight) bool {
+		return t1.start < t2.start
+	})
 	if len(hs) == 0 {
 		missing = append(missing, highlight{
 			start: start,
@@ -200,7 +203,7 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 				if h.start != start {
 					missing = append(missing, highlight{
 						start: start,
-						end:   h.end - 1,
+						end:   h.start - 1,
 						Color: t.Colors.Foreground,
 					})
 				}
