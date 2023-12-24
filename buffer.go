@@ -877,6 +877,8 @@ func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byt
 }
 
 func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	oldMaxLine := e.maxLine
+	oldMaxColumn := e.maxColumn
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	e.maxColumn = int32(maxW / float64(charSize.X))
 	e.maxLine = int32(maxH / float64(charSize.Y))
@@ -887,57 +889,58 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.Buffer.tokens = e.generateWordTokens()
 	}
 
-	e.bufferLines = []BufferLine{}
-	totalVisualLines := 0
-	lineCharCounter := 0
-	var actualLineIndex = 1
-	var start int
-	for idx, char := range e.Buffer.Content {
-		lineCharCounter++
-		if char == '\n' {
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
+	if e.Buffer.needParsing || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
+		e.bufferLines = []BufferLine{}
+		totalVisualLines := 0
+		lineCharCounter := 0
+		var actualLineIndex = 1
+		var start int
+		for idx, char := range e.Buffer.Content {
+			lineCharCounter++
+			if char == '\n' {
+				line := BufferLine{
+					Index:      totalVisualLines,
+					startIndex: start,
+					endIndex:   idx,
+					Length:     idx - start + 1,
+					ActualLine: actualLineIndex,
+				}
+				e.bufferLines = append(e.bufferLines, line)
+				totalVisualLines++
+				actualLineIndex++
+				lineCharCounter = 0
+				start = idx + 1
 			}
-			e.bufferLines = append(e.bufferLines, line)
-			totalVisualLines++
-			actualLineIndex++
-			lineCharCounter = 0
-			start = idx + 1
-		}
-		if idx == len(e.Buffer.Content)-1 {
-			// last index
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx + 1,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
+			if idx == len(e.Buffer.Content)-1 {
+				// last index
+				line := BufferLine{
+					Index:      totalVisualLines,
+					startIndex: start,
+					endIndex:   idx + 1,
+					Length:     idx - start + 1,
+					ActualLine: actualLineIndex,
+				}
+				e.bufferLines = append(e.bufferLines, line)
+				totalVisualLines++
+				actualLineIndex++
+				lineCharCounter = 0
+				start = idx + 1
 			}
-			e.bufferLines = append(e.bufferLines, line)
-			totalVisualLines++
-			actualLineIndex++
-			lineCharCounter = 0
-			start = idx + 1
-		}
-		if int32(lineCharCounter) > e.maxColumn-5 {
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
+			if int32(lineCharCounter) > e.maxColumn-5 {
+				line := BufferLine{
+					Index:      totalVisualLines,
+					startIndex: start,
+					endIndex:   idx,
+					Length:     idx - start + 1,
+					ActualLine: actualLineIndex,
+				}
+				e.bufferLines = append(e.bufferLines, line)
+				totalVisualLines++
+				lineCharCounter = 0
+				start = idx + 1
 			}
-			e.bufferLines = append(e.bufferLines, line)
-			totalVisualLines++
-			lineCharCounter = 0
-			start = idx + 1
 		}
 	}
-
 	if !e.NoStatusbar {
 		var sections []string
 
@@ -1027,6 +1030,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		visibleLines = e.bufferLines[e.VisibleStart:e.VisibleEnd()]
 	}
 
+	//TODO: @Perf we should check and re render if view has changed or buffer lines has changed
 	for idx, line := range visibleLines {
 		if e.cfg.LineNumbers {
 			rl.DrawTextEx(e.parent.Font,
