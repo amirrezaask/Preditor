@@ -1144,6 +1144,9 @@ func makeCommand(f func(e *TextBuffer) error) Command {
 }
 
 var editorKeymap = Keymap{
+	Key{K: "r", Alt: true}: makeCommand(func(e *TextBuffer) error {
+		return e.readFileFromDisk()
+	}),
 	Key{K: "/", Control: true}: makeCommand(func(e *TextBuffer) error {
 		e.PopAndReverseLastAction()
 		return nil
@@ -1441,6 +1444,20 @@ func insertCharAtSearchString(editor *TextBuffer, char byte) error {
 func insertCharAtGotoLineBuffer(editor *TextBuffer, char byte) error {
 	editor.gotoLineBuffer = append(editor.gotoLineBuffer, char)
 
+	return nil
+}
+
+func (e *TextBuffer) readFileFromDisk() error {
+	bs, err := os.ReadFile(e.File)
+	if err != nil {
+		return nil
+	}
+
+	e.Content = bs
+	e.replaceTabsWithSpaces()
+	e.updateMaxLineAndColumn()
+	e.calculateVisualLines()
+	e.SetStateClean()
 	return nil
 }
 
