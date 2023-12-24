@@ -7,6 +7,8 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 ![Opening Files](assets/searching.gif)
 ![Opening Files](assets/moving-around.gif)
 
+# Demo
+[![Demo](http://img.youtube.com/vi/ogmozlzDAPY/0.jpg)](http://www.youtube.com/watch?v=ogmozlzDAPY)
  
 ## Features So far
 
