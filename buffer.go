@@ -498,6 +498,11 @@ func (e *Buffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW flo
 		int32(charSize.Y),
 		e.cfg.CurrentThemeColors().StatusBarBackground.ToColorRGBA(),
 	)
+	rl.DrawRectangleLines(int32(zeroLocation.X),
+		int32(zeroLocation.Y),
+		int32(maxW),
+		int32(charSize.Y), e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 	sections = append(sections, isActiveWindow)
 	rl.DrawTextEx(e.parent.Font,
