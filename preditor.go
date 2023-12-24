@@ -781,11 +781,23 @@ func (c *Context) VSplit() {
 }
 
 func (c *Context) OtherWindow() {
-	for _, col := range c.Windows {
-		for _, win := range col {
-			if win.ID != c.ActiveWindowIndex {
-				c.ActiveWindowIndex = win.ID
-				return
+	for i, col := range c.Windows {
+		for j, win := range col {
+			if win.ID == c.ActiveWindowIndex {
+				if j+1 < len(col) {
+					c.ActiveWindowIndex = col[j+1].ID
+					return
+				} else {
+					if i+1 < len(c.Windows) {
+						c.ActiveWindowIndex = c.Windows[i+1][0].ID
+						return
+
+					} else {
+						c.ActiveWindowIndex = c.Windows[0][0].ID
+						return
+
+					}
+				}
 			}
 		}
 	}
