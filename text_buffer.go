@@ -107,7 +107,7 @@ type TextBuffer struct {
 	keymaps []Keymap
 
 	HasSyntaxHighlights bool
-	SyntaxHighlights    *SyntaxHighlights
+	SyntaxHighlights    SyntaxHighlights
 
 	TabSize int
 
@@ -329,43 +329,17 @@ func (e *TextBuffer) calculateHighlights(bs []byte, offset int) []highlight {
 		return nil
 	}
 	var highlights []highlight
-	//keywords
-	indexes := e.SyntaxHighlights.Keywords.Regex.FindAllStringIndex(string(bs), -1)
-	for _, index := range indexes {
-		highlights = append(highlights, highlight{
-			start: index[0] + offset,
-			end:   index[1] + offset - 1,
-			Color: e.SyntaxHighlights.Keywords.Color,
-		})
-	}
-	//types
-	indexesTypes := e.SyntaxHighlights.Types.Regex.FindAllStringIndex(string(bs), -1)
-	for _, index := range indexesTypes {
-		highlights = append(highlights, highlight{
-			start: index[0] + offset,
-			end:   index[1] + offset - 1,
-			Color: e.SyntaxHighlights.Types.Color,
-		})
-	}
-	//comments
-	comments := e.SyntaxHighlights.Comments.Regex.FindAllStringIndex(string(bs), -1)
-	for _, index := range comments {
-		highlights = append(highlights, highlight{
-			start: index[0] + offset,
-			end:   index[1] + offset - 1,
-			Color: e.SyntaxHighlights.Comments.Color,
-		})
-	}
-	stringss := e.SyntaxHighlights.Strings.Regex.FindAllStringIndex(string(bs), -1)
-	for _, index := range stringss {
+	for rx, color := range e.SyntaxHighlights {
+		indexes := rx.FindAllStringIndex(string(bs), -1)
+		for _, index := range indexes {
+			highlights = append(highlights, highlight{
+				start: index[0] + offset,
+				end:   index[1] + offset - 1,
+				Color: color,
+			})
+		}
 
-		highlights = append(highlights, highlight{
-			start: index[0] + offset,
-			end:   index[1] + offset - 1,
-			Color: e.SyntaxHighlights.Strings.Color,
-		})
 	}
-
 	return highlights
 }
 
@@ -510,19 +484,6 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 		state = "--"
 	}
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
-
-	//var searchString string
-	//if e.ISearch.SearchString != nil {
-	//	searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.ISearch.SearchString, e.ISearch.CurrentMatch, len(e.ISearch.SearchMatches)-1)
-	//	sections = append(sections, searchString)
-	//}
-	//
-	//var gotoLine string
-	//if e.isGotoLine {
-	//	gotoLine = fmt.Sprintf("Goto Line: %s", e.GotoLineUserInput)
-	//	sections = append(sections, gotoLine)
-	//}
-
 	rl.DrawTextEx(e.parent.Font,
 		strings.Join(sections, " | "),
 		rl.Vector2{X: zeroLocation.X, Y: float32(e.maxLine) * charSize.Y},
