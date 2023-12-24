@@ -227,7 +227,7 @@ func (e *Buffer) PopAndReverseLastAction() {
 func (e *Buffer) SetStateDirty() {
 	e.State = State_Dirty
 	e.needParsing = true
-	e.calculateVisualLines()
+	e.generateBufferLines()
 }
 
 func (e *Buffer) SetStateClean() {
@@ -438,7 +438,7 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 	apprColumn := math.Floor(float64((pos.X - e.zeroLocation.X) / charSize.X))
 
 	if e.cfg.LineNumbers {
-		apprColumn -= float64((len(fmt.Sprint(apprLine)) + 1))
+		apprColumn -= float64(e.getLineNumbersMaxLength())
 	}
 
 	if len(e.View.Lines) < 1 {
@@ -467,7 +467,7 @@ func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
 
 	return nil
 }
-func (e *Buffer) calculateVisualLines() {
+func (e *Buffer) generateBufferLines() {
 	e.Tokens = e.generateWordTokens()
 	e.View.Lines = []BufferLine{}
 	totalVisualLines := 0
@@ -541,11 +541,7 @@ func (e *Buffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float
 			}
 			posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
-				if len(e.View.Lines) > cursor.Line {
-					posX += int32((len(fmt.Sprint(e.View.Lines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
-				} else {
-					posX += int32(charSize.X)
-				}
+				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 			}
 			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
 
@@ -668,12 +664,7 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 		}
 		posX := int32(thisLineStart)*int32(charSize.X) + int32(zeroLocation.X)
 		if e.cfg.LineNumbers {
-			if len(e.View.Lines) > i {
-				posX += int32((len(fmt.Sprint(e.View.Lines[i].ActualLine)) + 1) * int(charSize.X))
-			} else {
-				posX += int32(charSize.X)
-
-			}
+			posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 		}
 		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 		rl.DrawTextEx(e.parent.Font,
@@ -682,6 +673,10 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 				X: float32(posX), Y: float32(posY),
 			}, float32(e.parent.FontSize), 0, color)
 	}
+}
+
+func (e *Buffer) getLineNumbersMaxLength() int {
+	return len(fmt.Sprint(len(e.View.Lines))) + 1
 }
 
 func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, bg color.RGBA, fg color.RGBA) {
@@ -714,6 +709,10 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 			thisLineEnd = end.Column
 		}
 		posX := int32(thisLineStart)*int32(charSize.X) + int32(zeroLocation.X)
+		if e.cfg.LineNumbers {
+			posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+		}
+		
 		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 		if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 			continue
@@ -724,12 +723,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 		for j := thisLineStart; j <= thisLineEnd; j++ {
 			posX := int32(j)*int32(charSize.X) + int32(zeroLocation.X)
 			if e.cfg.LineNumbers {
-				if len(e.View.Lines) > i {
-					posX += int32((len(fmt.Sprint(e.View.Lines[i].ActualLine)) + 1) * int(charSize.X))
-				} else {
-					posX += int32(charSize.X)
-
-				}
+				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 			}
 			posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 			if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
@@ -848,7 +842,7 @@ func (e *Buffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW float6
 func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.zeroLocation = zeroLocation
 	e.updateMaxLineAndColumn(maxH, maxW)
-	e.calculateVisualLines()
+	e.generateBufferLines()
 	e.renderStatusbar(zeroLocation, maxH, maxW)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 	e.renderText(zeroLocation, maxH, maxW)
@@ -977,7 +971,7 @@ func (e *Buffer) addAnotherCursorAt(pos rl.Vector2) error {
 	apprColumn := math.Floor(float64(pos.X / charSize.X))
 
 	if e.cfg.LineNumbers {
-		apprColumn -= float64(len(fmt.Sprint(apprLine)) + 1)
+		apprColumn -= float64(e.getLineNumbersMaxLength())
 	}
 
 	if len(e.View.Lines) < 1 {
