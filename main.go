@@ -8,27 +8,34 @@ func main() {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.InitWindow(1920, 1080, "editor")
-	
+
+
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 
 	editorBackground, _ := parseHexColor("#062329")
 	editorForeground, _ := parseHexColor("#d3b58d")
-
+	editorStatusbarBackground, _ := parseHexColor("#d3b58d")
+	editorStatusbarForeground, _ := parseHexColor("#000000")
+	
 	// create editor
 	editor := Editor{
 		LineWrapping: true,
 		Colors: Colors{
 			Background: editorBackground,
 			Foreground: editorForeground,
+			StatusBarBackground: editorStatusbarBackground,
+			StatusBarForeground: editorStatusbarForeground,
 		},
 	}
 
 	fontSize = 20
+	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
+
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		File:	"main.go",
+		File:	"test.txt",
 		TabSize: 4,
 	}
 
@@ -40,7 +47,6 @@ func main() {
 	})
 	editor.Buffers = append(editor.Buffers, textEditorBuffer)
 
-	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()
 		editor.HandleMouseEvents()
