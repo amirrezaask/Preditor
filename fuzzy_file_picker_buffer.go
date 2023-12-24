@@ -30,7 +30,7 @@ func NewFuzzyFilePickerBuffer(parent *Preditor,
 		cfg:                cfg,
 		parent:             parent,
 		Root:               root,
-		keymaps:            []Keymap{FilePickerKeymap},
+		keymaps:            []Keymap{FuzzyFilePickerKeymap},
 		List:               ListComponent[LocationItemScored]{},
 		UserInputComponent: NewUserInputComponent(parent, cfg),
 	}
