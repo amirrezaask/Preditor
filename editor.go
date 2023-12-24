@@ -195,8 +195,6 @@ func (t *Editor) calculateVisualLines() {
 func (t *Editor) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
-	// render cursor
-	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
 	if t.CursorBlinking && (time.Now().Unix())%2 == 0 {
 		return
 	}
@@ -837,12 +835,92 @@ func (t *Editor) Indent() error {
 	return nil
 }
 
+func (t *Editor) copy() error {
+	if t.HasSelection {
+		// copy selection
+		selection := t.positionToBufferIndex(*t.SelectionStart)
+		cursor := t.positionToBufferIndex(t.Cursor)
+		switch {
+		case selection < cursor:
+			writeToClipboard(t.Content[selection:cursor])
+		case selection > cursor:
+			writeToClipboard(t.Content[cursor:selection])
+		case cursor == selection:
+			return nil
+		}
+	} else {
+		writeToClipboard(t.Content[t.visualLines[t.Cursor.Line].startIndex:t.visualLines[t.Cursor.Line].endIndex])
+	}
+
+	return nil
+}
+func (t *Editor) paste() error {
+	var idx int
+	if t.HasSelection {
+		var startLine int
+		var startColumn int
+		var endLine int
+		var endColumn int
+		switch {
+		case t.SelectionStart.Line < t.Cursor.Line:
+			startLine = t.SelectionStart.Line
+			startColumn = t.SelectionStart.Column
+			endLine = t.Cursor.Line
+			endColumn = t.Cursor.Column
+		case t.Cursor.Line < t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			startColumn = t.Cursor.Column
+			endLine = t.SelectionStart.Line
+			endColumn = t.SelectionStart.Column
+		case t.Cursor.Line == t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			endLine = t.Cursor.Line
+			if t.SelectionStart.Column > t.Cursor.Column {
+				startColumn = t.Cursor.Column
+				endColumn = t.SelectionStart.Column
+			} else {
+				startColumn = t.SelectionStart.Column
+				endColumn = t.Cursor.Column
+			}
+			t.HasSelection = false
+			t.SelectionStart = nil
+		}
+		idx = t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
+		startIndex := t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
+		endIndex := t.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
+
+		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
+		t.Cursor = Position{Line: startLine, Column: startColumn}
+		t.calculateVisualLines()
+	} else {
+		idx = t.positionToBufferIndex(t.Cursor)
+	}
+	contentToPaste := getClipboardContent()
+	if idx >= len(t.Content) { // end of file, appending
+		t.Content = append(t.Content, contentToPaste...)
+	} else {
+		t.Content = append(t.Content[:idx], append(contentToPaste, t.Content[idx:]...)...)
+	}
+	t.State = State_Dirty
+
+	t.calculateVisualLines()
+
+	t.CursorRight(len(contentToPaste))
+	return nil
+}
+
 var editorBufferKeymap = Keymap{
 	Key{K: "f", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().CursorRight(1)
 	},
 	Key{K: "s", Control: true}: func(e *Preditor) error {
 		return e.ActiveEditor().Write()
+	},
+	Key{K: "c", Control: true}: func(e *Preditor) error {
+		return e.ActiveEditor().copy()
+	},
+	Key{K: "v", Control: true}: func(e *Preditor) error {
+		return e.ActiveEditor().paste()
 	},
 	Key{K: "f", Alt: true}: func(a *Preditor) error {
 		a.ActiveEditor().Keymaps = append(a.ActiveEditor().Keymaps, searchModeKeymap)
@@ -1060,7 +1138,7 @@ func getClipboardContent() []byte {
 }
 
 func writeToClipboard(bs []byte) {
-	<-clipboard.Write(clipboard.FmtText, bs)
+	clipboard.Write(clipboard.FmtText, bs)
 }
 
 func insertCharAtSearchString(e *Preditor, char byte) error {
