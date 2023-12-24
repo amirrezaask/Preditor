@@ -892,7 +892,7 @@ func setupRaylib(cfg *Config) {
 	// basic setup
 	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized | rl.FlagVsyncHint)
 	rl.SetTraceLogLevel(rl.LogError)
-	rl.InitWindow(1920, 1080, "Preditor")
+	rl.InitWindow(800, 600, "Preditor")
 	rl.SetTargetFPS(60)
 	rl.SetTextLineSpacing(cfg.FontSize)
 	rl.SetExitKey(0)
