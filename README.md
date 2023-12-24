@@ -1,6 +1,6 @@
-# 4ed Editor
-### Less noise, More code 
-Simple text editor implemented in Golang using Raylib.
+# jed Editor
+### just edit
+Simple text editor implemented in Golang using Raylib with the goal of being a simple, extensible basic editor that you can build your own PDE on.
  
 ## Features So far
 
