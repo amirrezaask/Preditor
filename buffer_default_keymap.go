@@ -92,6 +92,9 @@ func init() {
 		Key{K: ";", Control: true}: MakeCommand(func(editor *Buffer) error {
 			return CompileNoAsk(editor)
 		}),
+		Key{K: ";", Control: true, Shift: true}: MakeCommand(func(editor *Buffer) error {
+			return CompileAskForCommand(editor)
+		}),
 
 		Key{K: "g", Alt: true}: MakeCommand(func(t *Buffer) error {
 			return GrepAsk(t)
