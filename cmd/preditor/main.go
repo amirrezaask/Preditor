@@ -10,9 +10,9 @@ func main() {
 		panic(err)
 	}
 
-	editor.AddWindowInANewColumn(&preditor.Window{
-		BufferID: editor.MessageBufferID,
-	})
+	// editor.AddWindowInANewColumn(&preditor.Window{
+	//	 BufferID: editor.MessageBufferID,
+	// })
 
 	// start main loop
 	editor.StartMainLoop()

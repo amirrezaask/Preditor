@@ -186,7 +186,7 @@ var defaultConfig = Config{
 	CursorBlinking:             false,
 	FontName:                   "LiberationMono-Regular",
 	FontSize:                   30,
-	BuildWindowNormalHeight:    0.1,
+	BuildWindowNormalHeight:    0.2,
 	BuildWindowMaximizedHeight: 0.5,
 }
 
