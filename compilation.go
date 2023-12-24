@@ -28,7 +28,6 @@ func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*TextBu
 			}
 			cmd := exec.Command(bin, args...)
 			cmd.Dir = cwd
-			fmt.Printf("running %s @ %s\n", command, cwd)
 			since := time.Now()
 			output, err := cmd.CombinedOutput()
 			if err != nil {

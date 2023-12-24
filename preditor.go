@@ -90,22 +90,23 @@ type Prompt struct {
 }
 
 type Context struct {
-	CWD               string
-	Cfg               *Config
-	ScratchBufferID   int
-	MessageBufferID   int
-	Buffers           map[int]Buffer
-	GlobalKeymap      Keymap
-	GlobalVariables   Variables
-	Commands          Commands
-	FontPath          string
-	Font              rl.Font
-	FontSize          int32
-	OSWindowHeight    float64
-	OSWindowWidth     float64
-	Windows           [][]*Window
-	Prompt            Prompt
-	ActiveWindowIndex int
+	CWD                 string
+	Cfg                 *Config
+	ScratchBufferID     int
+	MessageBufferID     int
+	Buffers             map[int]Buffer
+	GlobalKeymap        Keymap
+	GlobalVariables     Variables
+	Commands            Commands
+	FontPath            string
+	Font                rl.Font
+	FontSize            int32
+	OSWindowHeight      float64
+	OSWindowWidth       float64
+	Windows             [][]*Window
+	Prompt              Prompt
+	CompileOutputWindow *Window
+	ActiveWindowIndex   int
 }
 
 func (c *Context) SetPrompt(text string,
@@ -782,7 +783,7 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	message.Readonly = true
 	message.Content = append(message.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
 
 	p.AddBuffer(scratch)
