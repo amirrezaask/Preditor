@@ -23,6 +23,7 @@ type OpenFileBuffer struct {
 	Items        []LocationItem
 	CursorShape  int
 	Selection    int
+	LastQuery    string
 }
 
 func NewOpenFileBuffer(parent *Preditor,
@@ -65,6 +66,11 @@ func (f *OpenFileBuffer) setNewUserInput(bs []byte) {
 }
 
 func (f *OpenFileBuffer) calculateLocationItems() {
+	if f.LastQuery == string(f.UserInput) {
+		return
+	}
+
+	f.LastQuery = string(f.UserInput)
 	input := f.UserInput
 	matches, err := filepath.Glob(string(input) + "*")
 	if err != nil {
@@ -84,6 +90,7 @@ func (f *OpenFileBuffer) calculateLocationItems() {
 			Filename: match,
 		})
 	}
+
 	return
 }
 
