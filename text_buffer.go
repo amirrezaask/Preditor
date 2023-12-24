@@ -88,8 +88,8 @@ type Gotoline struct {
 }
 
 type Compilation struct {
-	IsCompiling       bool
-	CompilationOutput []byte
+	CompilationCommand        string
+	CompilationOutputBufferID int
 }
 
 type TextBuffer struct {
@@ -125,8 +125,6 @@ type TextBuffer struct {
 	GotoLine Gotoline
 
 	LastCursorBlink time.Time
-
-	Compilation Compilation
 }
 
 const (
@@ -158,7 +156,6 @@ func (e *TextBuffer) AddUndoAction(a EditorAction) {
 	a.Data = bytes.Clone(a.Data)
 	e.UndoStack.Push(a)
 }
-
 func (e *TextBuffer) PopAndReverseLastAction() {
 	last, err := e.UndoStack.Pop()
 	if err != nil {
@@ -1359,7 +1356,7 @@ func (e *TextBuffer) Write() error {
 
 	for _, hook := range e.BeforeSaveHook {
 		if err := hook(e); err != nil {
-			return err
+			continue
 		}
 	}
 
@@ -1633,7 +1630,11 @@ var EditorKeymap = Keymap{
 	Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Copy()
 	}),
+	Key{K: "c", Alt: true}: MakeCommand(func(e *TextBuffer) error {
+		e.keymaps = append(e.keymaps, CompileKeymap)
 
+		return nil
+	}),
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
 			if a.ISearch.SearchString == nil {
@@ -1933,3 +1934,5 @@ var GotoLineKeymap = Keymap{
 	Key{K: "8"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
 	Key{K: "9"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
 }
+
+var CompileKeymap = Keymap{}

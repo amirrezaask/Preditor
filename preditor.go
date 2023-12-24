@@ -64,6 +64,12 @@ func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, 
 	}
 }
 
+type Prompt struct {
+	Text      string
+	UserInput string
+	Keymaps   []Keymap
+}
+
 type Context struct {
 	CWD               string
 	Cfg               *Config
@@ -80,6 +86,7 @@ type Context struct {
 	OSWindowWidth     float64
 	Windows           [][]*Window
 	ActiveWindowIndex int
+	ActivePrompt      *Prompt
 }
 
 func (c *Context) ActiveWindow() *Window {
