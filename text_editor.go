@@ -181,7 +181,11 @@ func (t *TextEditor) renderCursor() {
 		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
 	}
-	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X)+int32(t.ZeroPosition.X), int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
+	posX := int32(cursorView.Column)*int32(charSize.X)+int32(t.ZeroPosition.X)
+	if t.RenderLineNumbers {
+		posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine))+1) * int(charSize.X))
+	}
+	rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
 func (t *TextEditor) Render() {
