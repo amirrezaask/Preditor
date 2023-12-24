@@ -103,9 +103,8 @@ type Buffer struct {
 
 	keymaps []Keymap
 
-	HasSyntaxHighlights      bool
-	SyntaxHighlights         SyntaxHighlights
-	CommentLineBeginingChars []byte
+	HasSyntaxHighlights bool
+	SyntaxHighlights    SyntaxHighlights
 
 	TabSize int
 
@@ -251,7 +250,6 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 			t.SyntaxHighlights = fileType.SyntaxHighlights
 			t.HasSyntaxHighlights = fileType.SyntaxHighlights != nil
 			t.TabSize = fileType.TabSize
-			t.CommentLineBeginingChars = fileType.CommentLineBeginingChars
 		}
 	}
 	t.lexerConstructor = func(d []byte) lexers.Lexer {
@@ -716,29 +714,6 @@ func (e *Buffer) isValidCursorPosition(newPosition Position) bool {
 	}
 
 	return true
-}
-
-func (e *Buffer) CommentLine() {
-	if e.Readonly || len(e.CommentLineBeginingChars) == 0 {
-		return
-	}
-
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		e.MoveLeft(cur, i*len(e.CommentLineBeginingChars))
-		pos := e.convertBufferIndexToLineAndColumn(cur.Point)
-		line := e.View.Lines[pos.Line]
-		e.Content = append(e.Content[:line.startIndex], append(e.CommentLineBeginingChars, e.Content[line.startIndex:]...)...)
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
-			Idx:  line.startIndex,
-			Data: e.CommentLineBeginingChars,
-		})
-		e.MoveLeft(cur, len(e.CommentLineBeginingChars))
-	}
-
-	e.SetStateDirty()
-
 }
 
 func (e *Buffer) deleteSelectionsIfAnySelection() {
@@ -1682,13 +1657,6 @@ func init() {
 
 			return nil
 		}),
-
-		Key{K: "/", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.CommentLine()
-
-			return nil
-		}),
-
 		Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
 			e.ScrollToBottom()
 

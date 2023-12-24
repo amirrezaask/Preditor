@@ -42,8 +42,6 @@ func initFileTypes(cfg Colors) {
 				e.Content = newBytes
 				return nil
 			},
-			CommentLineBeginingChars: []byte("//"),
-
 			SyntaxHighlights: SyntaxHighlights{
 				regexp.MustCompile(keywordsPat("break", "case", "const",
 					"continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if",
