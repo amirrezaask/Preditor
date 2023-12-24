@@ -14,25 +14,25 @@ type LocationItem struct {
 }
 
 type FilePicker struct {
-	parent            *Preditor
-	keymaps           []Keymap
-	maxHeight         int32
-	maxWidth          int32
-	UserInput         []byte
-	ZeroLocation      rl.Vector2
-	Idx               int
-	Items             []LocationItem
-	CursorShape       int
-	Selection         int
-	BaseEditorOptions EditorOptions
+	cfg          *Config
+	parent       *Preditor
+	keymaps      []Keymap
+	maxHeight    int32
+	maxWidth     int32
+	UserInput    []byte
+	ZeroLocation rl.Vector2
+	Idx          int
+	Items        []LocationItem
+	CursorShape  int
+	Selection    int
 }
 
 func NewFilePicker(parent *Preditor,
+	cfg *Config,
 	root string,
 	maxH int32,
 	maxW int32,
-	zeroLocation rl.Vector2,
-	baseEditorOpts EditorOptions) *FilePicker {
+	zeroLocation rl.Vector2) *FilePicker {
 	if root == "" {
 		root, _ = os.Getwd()
 	}
@@ -41,15 +41,15 @@ func NewFilePicker(parent *Preditor,
 		panic(err)
 	}
 	return &FilePicker{
-		parent:            parent,
-		keymaps:           []Keymap{filePickerKeymap},
-		maxHeight:         maxH,
-		maxWidth:          maxW,
-		UserInput:         []byte(absRoot),
-		Idx:               len(absRoot),
-		CursorShape:       CURSOR_SHAPE_BLOCK,
-		ZeroLocation:      zeroLocation,
-		BaseEditorOptions: baseEditorOpts,
+		cfg:          cfg,
+		parent:       parent,
+		keymaps:      []Keymap{filePickerKeymap},
+		maxHeight:    maxH,
+		maxWidth:     maxW,
+		UserInput:    []byte(absRoot),
+		Idx:          len(absRoot),
+		CursorShape:  CURSOR_SHAPE_BLOCK,
+		ZeroLocation: zeroLocation,
 	}
 }
 
@@ -245,9 +245,8 @@ func (f *FilePicker) copySelectiontoUserInput() error {
 
 func (f *FilePicker) openUserInput() error {
 	p := f.parent
-	opts := f.BaseEditorOptions
-	opts.Filename = string(f.UserInput)
-	e, err := NewEditor(opts)
+
+	e, err := NewEditor(f.cfg, string(f.UserInput), f.maxHeight, f.maxWidth, f.ZeroLocation)
 	if err != nil {
 		panic(err)
 	}

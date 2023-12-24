@@ -10,6 +10,7 @@ import (
 
 type Config struct {
 	Colors                   Colors
+	LineNumbers              bool
 	FontName                 string
 	FontSize                 int
 	CursorShape              int
@@ -38,6 +39,7 @@ var defaultConfig = Config{
 		SyntaxKeywords:        mustParseHexColor("#cd950c"),
 		SyntaxTypes:           mustParseHexColor("#8cde94"),
 	},
+	LineNumbers:              true,
 	EnableSyntaxHighlighting: true,
 	CursorShape:              CURSOR_SHAPE_BLOCK,
 	CursorBlinking:           false,

@@ -9,6 +9,7 @@ import (
 )
 
 type FileType struct {
+	TabSize          int
 	BeforeSave       func(*Editor) error
 	SyntaxHighlights *SyntaxHighlights
 }
@@ -38,6 +39,7 @@ func keywordsPat(words ...string) string {
 func initFileTypes(cfg Colors) {
 	fileTypeMappings = map[string]FileType{
 		".go": {
+			TabSize: 4,
 			BeforeSave: func(e *Editor) error {
 				newBytes, err := format.Source(e.Content)
 				if err != nil {

@@ -57,29 +57,9 @@ func main() {
 	}
 
 	if stat.IsDir() {
-		editor.Windows = append(editor.Windows, NewFilePicker(&editor, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}, EditorOptions{
-			LineNumbers:        true,
-			TabSize:            4,
-			MaxHeight:          int32(rl.GetRenderHeight()),
-			MaxWidth:           int32(rl.GetRenderWidth()),
-			Colors:             editor.Colors,
-			CursorShape:        cfg.CursorShape,
-			CursorBlinking:     cfg.CursorBlinking,
-			SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
-		}))
+		editor.Windows = append(editor.Windows, NewFilePicker(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
 	} else {
-		e, err := NewEditor(EditorOptions{
-			MaxHeight:          int32(rl.GetRenderHeight()),
-			MaxWidth:           int32(rl.GetRenderWidth()),
-			ZeroPosition:       rl.Vector2{},
-			Colors:             editor.Colors,
-			Filename:           filename,
-			LineNumbers:        true,
-			TabSize:            4,
-			CursorBlinking:     cfg.CursorBlinking,
-			CursorShape:        cfg.CursorShape,
-			SyntaxHighlighting: cfg.EnableSyntaxHighlighting,
-		})
+		e, err := NewEditor(cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{})
 		if err != nil {
 			panic(err)
 		}
