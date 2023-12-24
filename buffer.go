@@ -98,7 +98,6 @@ type Buffer struct {
 	NoStatusbar    bool
 
 	lexerConstructor func(d []byte) lexers.Lexer
-	Lexer            lexers.Lexer
 	Tokens           []lexers.Token
 
 	keymaps []Keymap
@@ -339,14 +338,8 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 }
 
 func (e *Buffer) calculateVisualLines() {
-	e.Lexer = e.lexerConstructor(e.Content)
-	var token lexers.Token
-	var tokens = []lexers.Token{}
-	for token.Type != 3 {
-		token = e.Lexer.Next()
-		tokens = append(tokens, token)
-	}
-	e.Tokens = tokens
+	lexer := e.lexerConstructor(e.Content)
+	e.Tokens = lexer.Tokens()
 	e.View.Lines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -1256,22 +1249,6 @@ func (e *Buffer) MoveBackwardByToken(n int) error {
 	return nil
 }
 
-func (e *Buffer) MoveToPreviousWord() error {
-	for i := range e.Cursors {
-		newidx := byteutils.PreviousWordInBuffer(e.Content, e.Cursors[i].Start())
-		if newidx == -1 {
-			return nil
-		}
-		if newidx < 0 {
-			newidx = 0
-		}
-		e.Cursors[i].SetBoth(newidx)
-		e.ScrollIfNeeded()
-
-	}
-	return nil
-}
-
 func (e *Buffer) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	apprLine := math.Floor(float64((pos.Y) / charSize.Y))
@@ -1412,30 +1389,41 @@ func (e *Buffer) KillLine() error {
 	return nil
 }
 
-func (e *Buffer) DeleteWordBackward() {
+func (e *Buffer) DeleteTokenBackward() {
 	if e.Readonly || len(e.Cursors) > 1 {
 		return
 	}
 	e.deleteSelectionsIfAnySelection()
-	cur := &e.Cursors[0]
-	old := len(e.Content)
-	previousWordEndIdx := byteutils.PreviousWordInBuffer(e.Content, cur.Start())
-	if len(e.Content) > cur.Start()+1 {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  previousWordEndIdx + 1,
-			Data: e.Content[previousWordEndIdx+1 : cur.Start()],
-		})
-		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[cur.Start():]...)
-	} else {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  previousWordEndIdx + 1,
-			Data: e.Content[previousWordEndIdx+1:],
-		})
-		e.Content = e.Content[:previousWordEndIdx+1]
+
+	for i := range e.Cursors {
+		cur := &e.Cursors[i]
+		tokenPos := e.findCursorPositionInTokens(*cur)
+		if tokenPos == -1 {
+			continue
+		}
+		start := e.Tokens[tokenPos].Start
+		if start == cur.Point && tokenPos-1 >= 0 {
+			start = e.Tokens[tokenPos-1].Start
+		}
+		old := len(e.Content)
+		if len(e.Content) > cur.Start()+1 {
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  start,
+				Data: e.Content[start:cur.Start()],
+			})
+			e.Content = append(e.Content[:start], e.Content[cur.Start():]...)
+		} else {
+			e.AddUndoAction(EditorAction{
+				Type: EditorActionType_Delete,
+				Idx:  start,
+				Data: e.Content[start:],
+			})
+			e.Content = e.Content[:start]
+		}
+		cur.SetBoth(cur.Point + (len(e.Content) - old))
 	}
-	cur.SetBoth(cur.Point + (len(e.Content) - old))
+
 	e.SetStateDirty()
 }
 
@@ -1872,7 +1860,7 @@ func init() {
 			return insertChar(e, '\n')
 		}),
 		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.DeleteWordBackward()
+			e.DeleteTokenBackward()
 			return nil
 		}),
 		Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
