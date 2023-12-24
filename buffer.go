@@ -431,6 +431,9 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 	})
 }
 func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
+	if len(e.Cursors) > 1 {
+		RemoveAllCursorsButOne(e)
+	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	apprLine := math.Floor(float64((pos.Y - e.zeroLocation.Y) / charSize.Y))
 	apprColumn := math.Floor(float64((pos.X - e.zeroLocation.X) / charSize.X))
