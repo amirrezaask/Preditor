@@ -1,4 +1,4 @@
-module github.com/amirrezaask/core
+module github.com/amirrezaask/4ed
 
 go 1.21.3
 

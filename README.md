@@ -1,7 +1,7 @@
-# Core Editor
-dead simple text editor written in Golang and using Raylib for rendering
-
-
+# 4ed Editor
+### Less noise, More code 
+Simple text editor implemented in Golang using Raylib.
+ 
 ## Features So far
 
 - reading/writing files
@@ -14,7 +14,6 @@ dead simple text editor written in Golang and using Raylib for rendering
 
 
 ## TODO:
-- Cursor Blinking
 - Zoom in/out (increase/decrease) font size
 - Copy/paste
 - Selecting a section of text (both mouse and keyboard)
