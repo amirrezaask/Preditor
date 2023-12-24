@@ -61,10 +61,3 @@ func nextWordInBuffer(bs []byte, idx int) int {
 	}
 	return idx
 }
-
-func MaxHeightToMaxLine(maxH int32) int32 {
-	return maxH / int32(measureTextSize(font, ' ', fontSize, 0).Y)
-}
-func MaxWidthToMaxColumn(maxW int32) int32 {
-	return maxW / int32(measureTextSize(font, ' ', fontSize, 0).X)
-}
