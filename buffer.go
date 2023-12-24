@@ -611,7 +611,6 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	lineCharCounter := 0
 	var actualLineIndex = 1
 	var start int
-	// TODO: simple stack based paren matching
 	for idx, char := range e.Buffer.Content {
 		lineCharCounter++
 		if char == '\n' {
