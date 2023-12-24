@@ -23,10 +23,10 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Auto format go code using pkg/format
 - Copy/paste
 - Basic Regex syntax highlighting for keywords and types.
+- Undo (still work in progress)
 
 ## TODO:
 - Zoom in/out (increase/decrease) font size
-- Undo
 - Fuzzy file finder
 - Command output buffer ( run a command and see it's result, similar to *Compile Mode* in Emacs)
 
