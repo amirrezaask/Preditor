@@ -6,6 +6,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -315,13 +316,14 @@ type GrepLocationItem struct {
 func NewGrepBuffer(
 	parent *Context,
 	cfg *Config,
+	cwd string,
 
 ) *InteractiveFilterBuffer[GrepLocationItem] {
 	updateList := func(l *components.ListComponent[GrepLocationItem], input string) {
 		if len(input) < 3 {
 			return
 		}
-		c := RipgrepAsync(string(input))
+		c := RipgrepAsync(string(input), cwd)
 		go func() {
 			lines := <-c
 			l.Items = nil
@@ -352,7 +354,7 @@ func NewGrepBuffer(
 
 	}
 	openSelection := func(parent *Context, item GrepLocationItem) error {
-		return SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Filename, &Position{Line: item.Line, Column: item.Col})
+		return SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, path.Join(cwd, item.Filename), &Position{Line: item.Line, Column: item.Col})
 	}
 
 	repr := func(g GrepLocationItem) string {
@@ -373,7 +375,7 @@ type LocationItem struct {
 	Filename string
 }
 
-func NewFuzzyFileBuffer(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[LocationItem]] {
+func NewFuzzyFileBuffer(parent *Context, cfg *Config, cwd string) *InteractiveFilterBuffer[ScoredItem[LocationItem]] {
 	updateList := func(l *components.ListComponent[ScoredItem[LocationItem]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, item.Item.Filename)
@@ -385,7 +387,7 @@ func NewFuzzyFileBuffer(parent *Context, cfg *Config) *InteractiveFilterBuffer[S
 
 	}
 	openSelection := func(parent *Context, item ScoredItem[LocationItem]) error {
-		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Item.Filename, nil)
+		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, path.Join(cwd, item.Item.Filename), nil)
 		if err != nil {
 			panic(err)
 		}
@@ -396,13 +398,24 @@ func NewFuzzyFileBuffer(parent *Context, cfg *Config) *InteractiveFilterBuffer[S
 		return fmt.Sprintf("%s", g.Item.Filename)
 	}
 
+	initialList := func() []ScoredItem[LocationItem] {
+		var locationItems []ScoredItem[LocationItem]
+		files := RipgrepFiles(cwd)
+		for _, file := range files {
+			locationItems = append(locationItems, ScoredItem[LocationItem]{Item: LocationItem{Filename: file}})
+		}
+
+		return locationItems
+
+	}
+
 	return NewInteractiveFilterBuffer[ScoredItem[LocationItem]](
 		parent,
 		cfg,
 		updateList,
 		openSelection,
 		repr,
-		nil,
+		initialList,
 	)
 }
 
