@@ -31,7 +31,7 @@ type Selection struct {
 type TextBuffer struct {
 	BaseBuffer
 	cfg            *Config
-	parent         *Preditor
+	parent         *Context
 	File           string
 	Content        []byte
 	State          int
@@ -156,7 +156,7 @@ const (
 	CURSOR_SHAPE_LINE    = 3
 )
 
-func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string, startingPos *Position) error {
+func SwitchOrOpenFileInTextBuffer(parent *Context, cfg *Config, filename string, startingPos *Position) error {
 	for _, buf := range parent.Buffers {
 		switch t := buf.(type) {
 		case *TextBuffer:
@@ -186,7 +186,7 @@ func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string
 	return nil
 }
 
-func NewTextBuffer(parent *Preditor, cfg *Config, filename string) (*TextBuffer, error) {
+func NewTextBuffer(parent *Context, cfg *Config, filename string) (*TextBuffer, error) {
 	t := TextBuffer{cfg: cfg}
 	t.parent = parent
 	t.File = filename
@@ -1228,14 +1228,14 @@ func (e *TextBuffer) Indent() error {
 }
 
 func (e *TextBuffer) KillLine() error {
-	if e.Readonly {
+	if e.Readonly || len(e.Selections) > 1 {
 		return nil
 	}
 	var lastChange int
 	for i := range e.Selections {
-		old := len(e.Content)
 		cur := &e.Selections[i]
-		e.MoveLeft(cur, -1*lastChange)
+		old := len(e.Content)
+		e.MoveLeft(cur, lastChange)
 		line := e.getIndexVisualLine(cur.Start)
 		writeToClipboard(e.Content[cur.Start:line.endIndex])
 		e.AddUndoAction(EditorAction{
@@ -1244,7 +1244,7 @@ func (e *TextBuffer) KillLine() error {
 			Data: e.Content[cur.Start:line.endIndex],
 		})
 		e.Content = append(e.Content[:cur.Start], e.Content[line.endIndex:]...)
-		lastChange += len(e.Content) - old
+		lastChange += -1 * (len(e.Content) - old)
 	}
 	e.SetStateDirty()
 
@@ -1367,259 +1367,252 @@ func (e *TextBuffer) Paste() error {
 	return nil
 }
 
-func makeCommand(f func(e *TextBuffer) error) Command {
-	return func(preditor *Preditor) error {
-		defer handlePanicAndWriteMessage(preditor)
-		return f(preditor.ActiveBuffer().(*TextBuffer))
-	}
-}
-
 var EditorKeymap = Keymap{
-	Key{K: "=", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "=", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.parent.IncreaseFontSize(10)
 
 		return nil
 	}),
 
-	Key{K: ".", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: ".", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.PlaceSelectionOnNextMatch()
 	}),
-	Key{K: "<lmouse>-click", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
 	}),
-	Key{K: "<lmouse>-hold", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<lmouse>-hold", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherSelectionHere(e, rl.GetMousePosition())
 	}),
-	Key{K: "<up>", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<up>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherCursorPreviousLine(e)
 	}),
 
-	Key{K: "<down>", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<down>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return PlaceAnotherCursorNextLine(e)
 	}),
-	Key{K: "-", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "-", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.parent.DecreaseFontSize(10)
 
 		return nil
 	}),
-	Key{K: "r", Alt: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "r", Alt: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.readFileFromDisk()
 	}),
-	Key{K: "/", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "/", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.PopAndReverseLastAction()
 		return nil
 	}),
-	Key{K: "z", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "z", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.PopAndReverseLastAction()
 		return nil
 	}),
-	Key{K: "f", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "f", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveAllRight(1)
 	}),
-	Key{K: "x", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "x", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Cut()
 	}),
-	Key{K: "v", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "v", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Paste()
 	}),
-	Key{K: "k", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "k", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.KillLine()
 	}),
-	Key{K: "g", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "g", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.keymaps = append(e.keymaps, GotoLineKeymap)
 		e.isGotoLine = true
 
 		return nil
 	}),
-	Key{K: "c", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Copy()
 	}),
 
-	Key{K: "s", Control: true}: makeCommand(func(a *TextBuffer) error {
+	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
 		return nil
 	}),
-	Key{K: "w", Control: true}: makeCommand(func(a *TextBuffer) error {
+	Key{K: "w", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		return a.Write()
 	}),
 
-	Key{K: "<esc>"}: makeCommand(func(p *TextBuffer) error {
+	Key{K: "<esc>"}: MakeCommand(func(p *TextBuffer) error {
 		p.Selections = p.Selections[:1]
 
 		return nil
 	}),
 
 	// navigation
-	Key{K: "<lmouse>-click"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
-	Key{K: "<lmouse>-hold"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<lmouse>-hold"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
 
-	Key{K: "a", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "a", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveToBeginningOfTheLine()
 	}),
-	Key{K: "e", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "e", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveToEndOfTheLine()
 	}),
 
-	Key{K: "p", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "p", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.PreviousLine()
 	}),
 
-	Key{K: "n", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "n", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.NextLine()
 	}),
 
-	Key{K: "<up>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<up>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveUp()
 	}),
-	Key{K: "<down>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<down>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveDown()
 	}),
-	Key{K: "<right>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<right>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveAllRight(1)
 	}),
-	Key{K: "<right>", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<right>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.NextWord()
 	}),
-	Key{K: "<left>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<left>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveAllLeft(1)
 	}),
-	Key{K: "<left>", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<left>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.PreviousWord()
 	}),
 
-	Key{K: "b", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "b", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveAllLeft(1)
 	}),
-	Key{K: "<home>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<home>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveToBeginningOfTheLine()
 	}),
-	Key{K: "<pagedown>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.ScrollDown(1)
 	}),
-	Key{K: "<pageup>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.ScrollUp(1)
 	}),
 
 	//insertion
-	Key{K: "<enter>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '\n') }),
-	Key{K: "<space>"}: makeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
-	Key{K: "<backspace>", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<enter>"}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '\n') }),
+	Key{K: "<space>"}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, ' ') }),
+	Key{K: "<backspace>", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		e.DeleteWordBackward()
 		return nil
 	}),
-	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackward()
 	}),
-	Key{K: "d", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharForward()
 	}),
-	Key{K: "d", Control: true}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharForward()
 	}),
-	Key{K: "<delete>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<delete>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharForward()
 	}),
-	Key{K: "a"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'a') }),
-	Key{K: "b"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'b') }),
-	Key{K: "c"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'c') }),
-	Key{K: "d"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'd') }),
-	Key{K: "e"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'e') }),
-	Key{K: "f"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'f') }),
-	Key{K: "g"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'g') }),
-	Key{K: "h"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'h') }),
-	Key{K: "i"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'i') }),
-	Key{K: "j"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'j') }),
-	Key{K: "k"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'k') }),
-	Key{K: "l"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'l') }),
-	Key{K: "m"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'm') }),
-	Key{K: "n"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'n') }),
-	Key{K: "o"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'o') }),
-	Key{K: "p"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'p') }),
-	Key{K: "q"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'q') }),
-	Key{K: "r"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'r') }),
-	Key{K: "s"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 's') }),
-	Key{K: "t"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 't') }),
-	Key{K: "u"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'u') }),
-	Key{K: "v"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'v') }),
-	Key{K: "w"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'w') }),
-	Key{K: "x"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'x') }),
-	Key{K: "y"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'y') }),
-	Key{K: "z"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, 'z') }),
-	Key{K: "0"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '0') }),
-	Key{K: "1"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '1') }),
-	Key{K: "2"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '2') }),
-	Key{K: "3"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '3') }),
-	Key{K: "4"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '4') }),
-	Key{K: "5"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '5') }),
-	Key{K: "6"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '6') }),
-	Key{K: "7"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '7') }),
-	Key{K: "8"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '8') }),
-	Key{K: "9"}:               makeCommand(func(e *TextBuffer) error { return insertChar(e, '9') }),
-	Key{K: "\\"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '\\') }),
-	Key{K: "\\", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '|') }),
+	Key{K: "a"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'a') }),
+	Key{K: "b"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'b') }),
+	Key{K: "c"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'c') }),
+	Key{K: "d"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'd') }),
+	Key{K: "e"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'e') }),
+	Key{K: "f"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'f') }),
+	Key{K: "g"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'g') }),
+	Key{K: "h"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'h') }),
+	Key{K: "i"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'i') }),
+	Key{K: "j"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'j') }),
+	Key{K: "k"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'k') }),
+	Key{K: "l"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'l') }),
+	Key{K: "m"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'm') }),
+	Key{K: "n"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'n') }),
+	Key{K: "o"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'o') }),
+	Key{K: "p"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'p') }),
+	Key{K: "q"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'q') }),
+	Key{K: "r"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'r') }),
+	Key{K: "s"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 's') }),
+	Key{K: "t"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 't') }),
+	Key{K: "u"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'u') }),
+	Key{K: "v"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'v') }),
+	Key{K: "w"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'w') }),
+	Key{K: "x"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'x') }),
+	Key{K: "y"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'y') }),
+	Key{K: "z"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'z') }),
+	Key{K: "0"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '0') }),
+	Key{K: "1"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '1') }),
+	Key{K: "2"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '2') }),
+	Key{K: "3"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '3') }),
+	Key{K: "4"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '4') }),
+	Key{K: "5"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '5') }),
+	Key{K: "6"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '6') }),
+	Key{K: "7"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '7') }),
+	Key{K: "8"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '8') }),
+	Key{K: "9"}:               MakeCommand(func(e *TextBuffer) error { return insertChar(e, '9') }),
+	Key{K: "\\"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '\\') }),
+	Key{K: "\\", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '|') }),
 
-	Key{K: "0", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, ')') }),
-	Key{K: "1", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '!') }),
-	Key{K: "2", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '@') }),
-	Key{K: "3", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '#') }),
-	Key{K: "4", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '$') }),
-	Key{K: "5", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '%') }),
-	Key{K: "6", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '^') }),
-	Key{K: "7", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '&') }),
-	Key{K: "8", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '*') }),
-	Key{K: "9", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '(') }),
-	Key{K: "a", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'A') }),
-	Key{K: "b", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'B') }),
-	Key{K: "c", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'C') }),
-	Key{K: "d", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'D') }),
-	Key{K: "e", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'E') }),
-	Key{K: "f", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'F') }),
-	Key{K: "g", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'G') }),
-	Key{K: "h", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'H') }),
-	Key{K: "i", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'I') }),
-	Key{K: "j", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'J') }),
-	Key{K: "k", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'K') }),
-	Key{K: "l", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'L') }),
-	Key{K: "m", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'M') }),
-	Key{K: "n", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'N') }),
-	Key{K: "o", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'O') }),
-	Key{K: "p", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'P') }),
-	Key{K: "q", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'Q') }),
-	Key{K: "r", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'R') }),
-	Key{K: "s", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'S') }),
-	Key{K: "t", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'T') }),
-	Key{K: "u", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'U') }),
-	Key{K: "v", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'V') }),
-	Key{K: "w", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'W') }),
-	Key{K: "x", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'X') }),
-	Key{K: "y", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'Y') }),
-	Key{K: "z", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, 'Z') }),
-	Key{K: "["}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '[') }),
-	Key{K: "]"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, ']') }),
-	Key{K: "[", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '{') }),
-	Key{K: "]", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '}') }),
-	Key{K: ";"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, ';') }),
-	Key{K: ";", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, ':') }),
-	Key{K: "'"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '\'') }),
-	Key{K: "'", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '"') }),
-	Key{K: "\""}:             makeCommand(func(e *TextBuffer) error { return insertChar(e, '"') }),
-	Key{K: ","}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, ',') }),
-	Key{K: "."}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '.') }),
-	Key{K: ",", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '<') }),
-	Key{K: ".", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '>') }),
-	Key{K: "/"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '/') }),
-	Key{K: "/", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '?') }),
-	Key{K: "-"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '-') }),
-	Key{K: "="}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '=') }),
-	Key{K: "-", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '_') }),
-	Key{K: "=", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '+') }),
-	Key{K: "`"}:              makeCommand(func(e *TextBuffer) error { return insertChar(e, '`') }),
-	Key{K: "`", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertChar(e, '~') }),
-	Key{K: "<tab>"}:          makeCommand(func(e *TextBuffer) error { return e.Indent() }),
+	Key{K: "0", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, ')') }),
+	Key{K: "1", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '!') }),
+	Key{K: "2", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '@') }),
+	Key{K: "3", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '#') }),
+	Key{K: "4", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '$') }),
+	Key{K: "5", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '%') }),
+	Key{K: "6", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '^') }),
+	Key{K: "7", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '&') }),
+	Key{K: "8", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '*') }),
+	Key{K: "9", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '(') }),
+	Key{K: "a", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'A') }),
+	Key{K: "b", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'B') }),
+	Key{K: "c", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'C') }),
+	Key{K: "d", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'D') }),
+	Key{K: "e", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'E') }),
+	Key{K: "f", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'F') }),
+	Key{K: "g", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'G') }),
+	Key{K: "h", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'H') }),
+	Key{K: "i", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'I') }),
+	Key{K: "j", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'J') }),
+	Key{K: "k", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'K') }),
+	Key{K: "l", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'L') }),
+	Key{K: "m", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'M') }),
+	Key{K: "n", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'N') }),
+	Key{K: "o", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'O') }),
+	Key{K: "p", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'P') }),
+	Key{K: "q", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'Q') }),
+	Key{K: "r", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'R') }),
+	Key{K: "s", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'S') }),
+	Key{K: "t", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'T') }),
+	Key{K: "u", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'U') }),
+	Key{K: "v", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'V') }),
+	Key{K: "w", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'W') }),
+	Key{K: "x", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'X') }),
+	Key{K: "y", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'Y') }),
+	Key{K: "z", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, 'Z') }),
+	Key{K: "["}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '[') }),
+	Key{K: "]"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, ']') }),
+	Key{K: "[", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '{') }),
+	Key{K: "]", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '}') }),
+	Key{K: ";"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, ';') }),
+	Key{K: ";", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, ':') }),
+	Key{K: "'"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '\'') }),
+	Key{K: "'", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '"') }),
+	Key{K: "\""}:             MakeCommand(func(e *TextBuffer) error { return insertChar(e, '"') }),
+	Key{K: ","}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, ',') }),
+	Key{K: "."}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '.') }),
+	Key{K: ",", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '<') }),
+	Key{K: ".", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '>') }),
+	Key{K: "/"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '/') }),
+	Key{K: "/", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '?') }),
+	Key{K: "-"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '-') }),
+	Key{K: "="}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '=') }),
+	Key{K: "-", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '_') }),
+	Key{K: "=", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '+') }),
+	Key{K: "`"}:              MakeCommand(func(e *TextBuffer) error { return insertChar(e, '`') }),
+	Key{K: "`", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertChar(e, '~') }),
+	Key{K: "<tab>"}:          MakeCommand(func(e *TextBuffer) error { return e.Indent() }),
 }
 
 func insertChar(editor *TextBuffer, char byte) error {
@@ -1687,11 +1680,11 @@ func (e *TextBuffer) DeleteCharBackwardFromGotoLine() error {
 }
 
 var SearchTextBufferKeymap = Keymap{
-	Key{K: "<space>"}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ' ') }),
-	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<space>"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ' ') }),
+	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
-	Key{K: "<enter>"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.CurrentMatch++
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
@@ -1700,7 +1693,7 @@ var SearchTextBufferKeymap = Keymap{
 		return nil
 	}),
 
-	Key{K: "<enter>", Control: true}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *TextBuffer) error {
 		editor.CurrentMatch--
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
@@ -1711,7 +1704,7 @@ var SearchTextBufferKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
-	Key{K: "<esc>"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
 		editor.IsSearching = false
 		editor.LastSearchString = ""
@@ -1721,21 +1714,21 @@ var SearchTextBufferKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
-	Key{K: "<lmouse>-click"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
-	Key{K: "<mouse-wheel-up>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
 		e.MovedAwayFromCurrentMatch = true
 		return e.ScrollUp(20)
 
 	}),
-	Key{K: "<mouse-wheel-down>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
 		e.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollDown(20)
 	}),
 
-	Key{K: "<rmouse>-click"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.CurrentMatch++
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
@@ -1746,7 +1739,7 @@ var SearchTextBufferKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
-	Key{K: "<mmouse>-click"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<mmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.CurrentMatch--
 		if editor.CurrentMatch >= len(editor.SearchMatches) {
 			editor.CurrentMatch = 0
@@ -1757,119 +1750,119 @@ var SearchTextBufferKeymap = Keymap{
 		editor.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
-	Key{K: "<pagedown>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
 		e.MovedAwayFromCurrentMatch = true
 		return e.ScrollDown(1)
 	}),
-	Key{K: "<pageup>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
 		e.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollUp(1)
 	}),
 
-	Key{K: "a"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'a') }),
-	Key{K: "b"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'b') }),
-	Key{K: "c"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'c') }),
-	Key{K: "d"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'd') }),
-	Key{K: "e"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'e') }),
-	Key{K: "f"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'f') }),
-	Key{K: "g"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'g') }),
-	Key{K: "h"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'h') }),
-	Key{K: "i"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'i') }),
-	Key{K: "j"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'j') }),
-	Key{K: "k"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'k') }),
-	Key{K: "l"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'l') }),
-	Key{K: "m"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'm') }),
-	Key{K: "n"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'n') }),
-	Key{K: "o"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'o') }),
-	Key{K: "p"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'p') }),
-	Key{K: "q"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'q') }),
-	Key{K: "r"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'r') }),
-	Key{K: "s"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 's') }),
-	Key{K: "t"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 't') }),
-	Key{K: "u"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'u') }),
-	Key{K: "v"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'v') }),
-	Key{K: "w"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'w') }),
-	Key{K: "x"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'x') }),
-	Key{K: "y"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'y') }),
-	Key{K: "z"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'z') }),
-	Key{K: "0"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '0') }),
-	Key{K: "1"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '1') }),
-	Key{K: "2"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '2') }),
-	Key{K: "3"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '3') }),
-	Key{K: "4"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '4') }),
-	Key{K: "5"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '5') }),
-	Key{K: "6"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '6') }),
-	Key{K: "7"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '7') }),
-	Key{K: "8"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '8') }),
-	Key{K: "9"}:               makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '9') }),
-	Key{K: "\\"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '\\') }),
-	Key{K: "\\", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '|') }),
+	Key{K: "a"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'a') }),
+	Key{K: "b"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'b') }),
+	Key{K: "c"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'c') }),
+	Key{K: "d"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'd') }),
+	Key{K: "e"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'e') }),
+	Key{K: "f"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'f') }),
+	Key{K: "g"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'g') }),
+	Key{K: "h"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'h') }),
+	Key{K: "i"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'i') }),
+	Key{K: "j"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'j') }),
+	Key{K: "k"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'k') }),
+	Key{K: "l"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'l') }),
+	Key{K: "m"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'm') }),
+	Key{K: "n"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'n') }),
+	Key{K: "o"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'o') }),
+	Key{K: "p"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'p') }),
+	Key{K: "q"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'q') }),
+	Key{K: "r"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'r') }),
+	Key{K: "s"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 's') }),
+	Key{K: "t"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 't') }),
+	Key{K: "u"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'u') }),
+	Key{K: "v"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'v') }),
+	Key{K: "w"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'w') }),
+	Key{K: "x"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'x') }),
+	Key{K: "y"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'y') }),
+	Key{K: "z"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'z') }),
+	Key{K: "0"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '0') }),
+	Key{K: "1"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '1') }),
+	Key{K: "2"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '2') }),
+	Key{K: "3"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '3') }),
+	Key{K: "4"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '4') }),
+	Key{K: "5"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '5') }),
+	Key{K: "6"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '6') }),
+	Key{K: "7"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '7') }),
+	Key{K: "8"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '8') }),
+	Key{K: "9"}:               MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '9') }),
+	Key{K: "\\"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '\\') }),
+	Key{K: "\\", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '|') }),
 
-	Key{K: "0", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ')') }),
-	Key{K: "1", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '!') }),
-	Key{K: "2", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '@') }),
-	Key{K: "3", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '#') }),
-	Key{K: "4", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '$') }),
-	Key{K: "5", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '%') }),
-	Key{K: "6", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '^') }),
-	Key{K: "7", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '&') }),
-	Key{K: "8", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '*') }),
-	Key{K: "9", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '(') }),
-	Key{K: "a", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'A') }),
-	Key{K: "b", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'B') }),
-	Key{K: "c", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'C') }),
-	Key{K: "d", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'D') }),
-	Key{K: "e", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'E') }),
-	Key{K: "f", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'F') }),
-	Key{K: "g", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'G') }),
-	Key{K: "h", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'H') }),
-	Key{K: "i", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'I') }),
-	Key{K: "j", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'J') }),
-	Key{K: "k", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'K') }),
-	Key{K: "l", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'L') }),
-	Key{K: "m", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'M') }),
-	Key{K: "n", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'N') }),
-	Key{K: "o", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'O') }),
-	Key{K: "p", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'P') }),
-	Key{K: "q", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Q') }),
-	Key{K: "r", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'R') }),
-	Key{K: "s", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'S') }),
-	Key{K: "t", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'T') }),
-	Key{K: "u", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'U') }),
-	Key{K: "v", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'V') }),
-	Key{K: "w", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'W') }),
-	Key{K: "x", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'X') }),
-	Key{K: "y", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Y') }),
-	Key{K: "z", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Z') }),
-	Key{K: "["}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '[') }),
-	Key{K: "]"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ']') }),
-	Key{K: "[", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '{') }),
-	Key{K: "]", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '}') }),
-	Key{K: ";"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ';') }),
-	Key{K: ";", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ':') }),
-	Key{K: "'"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '\'') }),
-	Key{K: "'", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '"') }),
-	Key{K: "\""}:             makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '"') }),
-	Key{K: ","}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ',') }),
-	Key{K: "."}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '.') }),
-	Key{K: ",", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '<') }),
-	Key{K: ".", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '>') }),
-	Key{K: "/"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '/') }),
-	Key{K: "/", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '?') }),
-	Key{K: "-"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '-') }),
-	Key{K: "="}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '=') }),
-	Key{K: "-", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '_') }),
-	Key{K: "=", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '+') }),
-	Key{K: "`"}:              makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '`') }),
-	Key{K: "`", Shift: true}: makeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '~') }),
+	Key{K: "0", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ')') }),
+	Key{K: "1", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '!') }),
+	Key{K: "2", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '@') }),
+	Key{K: "3", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '#') }),
+	Key{K: "4", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '$') }),
+	Key{K: "5", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '%') }),
+	Key{K: "6", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '^') }),
+	Key{K: "7", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '&') }),
+	Key{K: "8", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '*') }),
+	Key{K: "9", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '(') }),
+	Key{K: "a", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'A') }),
+	Key{K: "b", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'B') }),
+	Key{K: "c", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'C') }),
+	Key{K: "d", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'D') }),
+	Key{K: "e", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'E') }),
+	Key{K: "f", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'F') }),
+	Key{K: "g", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'G') }),
+	Key{K: "h", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'H') }),
+	Key{K: "i", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'I') }),
+	Key{K: "j", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'J') }),
+	Key{K: "k", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'K') }),
+	Key{K: "l", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'L') }),
+	Key{K: "m", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'M') }),
+	Key{K: "n", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'N') }),
+	Key{K: "o", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'O') }),
+	Key{K: "p", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'P') }),
+	Key{K: "q", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Q') }),
+	Key{K: "r", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'R') }),
+	Key{K: "s", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'S') }),
+	Key{K: "t", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'T') }),
+	Key{K: "u", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'U') }),
+	Key{K: "v", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'V') }),
+	Key{K: "w", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'W') }),
+	Key{K: "x", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'X') }),
+	Key{K: "y", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Y') }),
+	Key{K: "z", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, 'Z') }),
+	Key{K: "["}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '[') }),
+	Key{K: "]"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ']') }),
+	Key{K: "[", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '{') }),
+	Key{K: "]", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '}') }),
+	Key{K: ";"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ';') }),
+	Key{K: ";", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ':') }),
+	Key{K: "'"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '\'') }),
+	Key{K: "'", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '"') }),
+	Key{K: "\""}:             MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '"') }),
+	Key{K: ","}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, ',') }),
+	Key{K: "."}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '.') }),
+	Key{K: ",", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '<') }),
+	Key{K: ".", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '>') }),
+	Key{K: "/"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '/') }),
+	Key{K: "/", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '?') }),
+	Key{K: "-"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '-') }),
+	Key{K: "="}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '=') }),
+	Key{K: "-", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '_') }),
+	Key{K: "=", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '+') }),
+	Key{K: "`"}:              MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '`') }),
+	Key{K: "`", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertCharAtSearchString(e, '~') }),
 }
 
 var GotoLineKeymap = Keymap{
-	Key{K: "<backspace>"}: makeCommand(func(e *TextBuffer) error {
+	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
-	Key{K: "<enter>"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
 		number, err := strconv.Atoi(string(editor.GotoLineUserInput))
 		if err != nil {
 			return nil
@@ -1898,20 +1891,20 @@ var GotoLineKeymap = Keymap{
 		return nil
 	}),
 
-	Key{K: "<esc>"}: makeCommand(func(editor *TextBuffer) error {
+	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-1]
 		editor.isGotoLine = false
 		return nil
 	}),
 
-	Key{K: "0"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '0') }),
-	Key{K: "1"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '1') }),
-	Key{K: "2"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '2') }),
-	Key{K: "3"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '3') }),
-	Key{K: "4"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '4') }),
-	Key{K: "5"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '5') }),
-	Key{K: "6"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '6') }),
-	Key{K: "7"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '7') }),
-	Key{K: "8"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
-	Key{K: "9"}: makeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
+	Key{K: "0"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '0') }),
+	Key{K: "1"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '1') }),
+	Key{K: "2"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '2') }),
+	Key{K: "3"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '3') }),
+	Key{K: "4"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '4') }),
+	Key{K: "5"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '5') }),
+	Key{K: "6"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '6') }),
+	Key{K: "7"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '7') }),
+	Key{K: "8"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
+	Key{K: "9"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
 }

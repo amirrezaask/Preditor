@@ -19,13 +19,13 @@ type ScoredItem[T any] struct {
 type InteractiveFilterBuffer[T any] struct {
 	BaseBuffer
 	cfg                     *Config
-	parent                  *Preditor
+	parent                  *Context
 	keymaps                 []Keymap
 	List                    components.ListComponent[T]
 	UserInputComponent      *components.UserInputComponent
 	LastInputWeRanUpdateFor string
 	UpdateList              func(list *components.ListComponent[T], input string)
-	OpenSelection           func(preditor *Preditor, t T) error
+	OpenSelection           func(preditor *Context, t T) error
 	ItemRepr                func(item T) string
 }
 
@@ -38,10 +38,10 @@ func (i InteractiveFilterBuffer[T]) String() string {
 }
 
 func NewInteractiveFilterBuffer[T any](
-	parent *Preditor,
+	parent *Context,
 	cfg *Config,
 	updateList func(list *components.ListComponent[T], input string),
-	openSelection func(preditor *Preditor, t T) error,
+	openSelection func(preditor *Context, t T) error,
 	repr func(t T) string,
 	initialList func() []T,
 ) *InteractiveFilterBuffer[T] {
@@ -97,193 +97,185 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH int32,
 	}
 }
 
-func MakeInteractiveFilterBufferCommand[T any](f func(e *InteractiveFilterBuffer[T]) error) Command {
-	return func(preditor *Preditor) error {
-		defer handlePanicAndWriteMessage(preditor)
-		buffer := preditor.ActiveBuffer().(*InteractiveFilterBuffer[T])
-		return f(buffer)
-	}
-}
-
 func makeKeymap[T any]() Keymap {
 	return Keymap{
-		Key{K: "=", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "=", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.parent.IncreaseFontSize(5)
 
 			return nil
 		}),
-		Key{K: "-", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "-", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.parent.DecreaseFontSize(5)
 
 			return nil
 		}),
-		Key{K: "f", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "f", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.CursorRight(1)
 		}),
-		Key{K: "v", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "v", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.Paste()
 		}),
-		Key{K: "c", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "c", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.Copy()
 		}),
-		Key{K: "s", Control: true}: MakeInteractiveFilterBufferCommand(func(a *InteractiveFilterBuffer[T]) error {
+		Key{K: "s", Control: true}: MakeCommand(func(a *InteractiveFilterBuffer[T]) error {
 			a.keymaps = append(a.keymaps, SearchTextBufferKeymap)
 			return nil
 		}),
 
-		Key{K: "a", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "a", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.BeginningOfTheLine()
 		}),
-		Key{K: "e", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "e", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.EndOfTheLine()
 		}),
 
-		Key{K: "<right>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<right>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.CursorRight(1)
 		}),
-		Key{K: "<right>", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<right>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.NextWordStart()
 		}),
-		Key{K: "<left>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<left>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.CursorLeft(1)
 		}),
-		Key{K: "<left>", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<left>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.PreviousWord()
 		}),
 
-		Key{K: "p", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "p", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.List.PrevItem()
 			return nil
 		}),
-		Key{K: "n", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "n", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.List.NextItem()
 			return nil
 		}),
-		Key{K: "<up>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<up>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.List.PrevItem()
 
 			return nil
 		}),
-		Key{K: "<down>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<down>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			e.List.NextItem()
 			return nil
 		}),
-		Key{K: "b", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "b", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.CursorLeft(1)
 		}),
-		Key{K: "<home>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<home>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.BeginningOfTheLine()
 		}),
 
 		//insertion
-		Key{K: "<enter>"}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error {
+		Key{K: "<enter>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.OpenSelection(e.parent, e.List.Items[e.List.Selection])
 		}),
-		Key{K: "<space>"}:                    MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.InsertCharAtBuffer(' ') }),
-		Key{K: "<backspace>"}:                MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharBackward() }),
-		Key{K: "<backspace>", Control: true}: MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordBackward() }),
-		Key{K: "d", Control: true}:           MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
-		Key{K: "d", Alt: true}:               MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordForward() }),
-		Key{K: "<delete>"}:                   MakeInteractiveFilterBufferCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
-		Key{K: "a"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('a') }),
-		Key{K: "b"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('b') }),
-		Key{K: "c"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('c') }),
-		Key{K: "d"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('d') }),
-		Key{K: "e"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('e') }),
-		Key{K: "f"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('f') }),
-		Key{K: "g"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('g') }),
-		Key{K: "h"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('h') }),
-		Key{K: "i"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('i') }),
-		Key{K: "j"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('j') }),
-		Key{K: "k"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('k') }),
-		Key{K: "l"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('l') }),
-		Key{K: "m"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('m') }),
-		Key{K: "n"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('n') }),
-		Key{K: "o"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('o') }),
-		Key{K: "p"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('p') }),
-		Key{K: "q"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('q') }),
-		Key{K: "r"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('r') }),
-		Key{K: "s"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('s') }),
-		Key{K: "t"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('t') }),
-		Key{K: "u"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('u') }),
-		Key{K: "v"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('v') }),
-		Key{K: "w"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('w') }),
-		Key{K: "x"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('x') }),
-		Key{K: "y"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('y') }),
-		Key{K: "z"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('z') }),
-		Key{K: "0"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('0') }),
-		Key{K: "1"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('1') }),
-		Key{K: "2"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('2') }),
-		Key{K: "3"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('3') }),
-		Key{K: "4"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('4') }),
-		Key{K: "5"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('5') }),
-		Key{K: "6"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('6') }),
-		Key{K: "7"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('7') }),
-		Key{K: "8"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('8') }),
-		Key{K: "9"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('9') }),
-		Key{K: "\\"}:                         MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('\\') }),
-		Key{K: "\\", Shift: true}:            MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('|') }),
-		Key{K: "0", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(')') }),
-		Key{K: "1", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('!') }),
-		Key{K: "2", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('@') }),
-		Key{K: "3", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('#') }),
-		Key{K: "4", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('$') }),
-		Key{K: "5", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('%') }),
-		Key{K: "6", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('^') }),
-		Key{K: "7", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('&') }),
-		Key{K: "8", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('*') }),
-		Key{K: "9", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('(') }),
-		Key{K: "a", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('A') }),
-		Key{K: "b", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('B') }),
-		Key{K: "c", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('C') }),
-		Key{K: "d", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('D') }),
-		Key{K: "e", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('E') }),
-		Key{K: "f", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('F') }),
-		Key{K: "g", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('G') }),
-		Key{K: "h", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('H') }),
-		Key{K: "i", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('I') }),
-		Key{K: "j", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('J') }),
-		Key{K: "k", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('K') }),
-		Key{K: "l", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('L') }),
-		Key{K: "m", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('M') }),
-		Key{K: "n", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('N') }),
-		Key{K: "o", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('O') }),
-		Key{K: "p", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('P') }),
-		Key{K: "q", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Q') }),
-		Key{K: "r", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('R') }),
-		Key{K: "s", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('S') }),
-		Key{K: "t", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('T') }),
-		Key{K: "u", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('U') }),
-		Key{K: "v", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('V') }),
-		Key{K: "w", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('W') }),
-		Key{K: "x", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('X') }),
-		Key{K: "y", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Y') }),
-		Key{K: "z", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Z') }),
-		Key{K: "["}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('[') }),
-		Key{K: "]"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(']') }),
-		Key{K: "[", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('{') }),
-		Key{K: "]", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('}') }),
-		Key{K: ";"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(';') }),
-		Key{K: ";", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(':') }),
-		Key{K: "'"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('\'') }),
-		Key{K: "'", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('"') }),
-		Key{K: "\""}:                         MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('"') }),
-		Key{K: ","}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(',') }),
-		Key{K: "."}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('.') }),
-		Key{K: ",", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('<') }),
-		Key{K: ".", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('>') }),
-		Key{K: "/"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('/') }),
-		Key{K: "/", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('?') }),
-		Key{K: "-"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('-') }),
-		Key{K: "="}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('=') }),
-		Key{K: "-", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('_') }),
-		Key{K: "=", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('+') }),
-		Key{K: "`"}:                          MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('`') }),
-		Key{K: "`", Shift: true}:             MakeInteractiveFilterBufferCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('~') }),
+		Key{K: "<space>"}:                    MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.InsertCharAtBuffer(' ') }),
+		Key{K: "<backspace>"}:                MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharBackward() }),
+		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordBackward() }),
+		Key{K: "d", Control: true}:           MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
+		Key{K: "d", Alt: true}:               MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordForward() }),
+		Key{K: "<delete>"}:                   MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharForward() }),
+		Key{K: "a"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('a') }),
+		Key{K: "b"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('b') }),
+		Key{K: "c"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('c') }),
+		Key{K: "d"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('d') }),
+		Key{K: "e"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('e') }),
+		Key{K: "f"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('f') }),
+		Key{K: "g"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('g') }),
+		Key{K: "h"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('h') }),
+		Key{K: "i"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('i') }),
+		Key{K: "j"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('j') }),
+		Key{K: "k"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('k') }),
+		Key{K: "l"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('l') }),
+		Key{K: "m"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('m') }),
+		Key{K: "n"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('n') }),
+		Key{K: "o"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('o') }),
+		Key{K: "p"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('p') }),
+		Key{K: "q"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('q') }),
+		Key{K: "r"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('r') }),
+		Key{K: "s"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('s') }),
+		Key{K: "t"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('t') }),
+		Key{K: "u"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('u') }),
+		Key{K: "v"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('v') }),
+		Key{K: "w"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('w') }),
+		Key{K: "x"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('x') }),
+		Key{K: "y"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('y') }),
+		Key{K: "z"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('z') }),
+		Key{K: "0"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('0') }),
+		Key{K: "1"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('1') }),
+		Key{K: "2"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('2') }),
+		Key{K: "3"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('3') }),
+		Key{K: "4"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('4') }),
+		Key{K: "5"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('5') }),
+		Key{K: "6"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('6') }),
+		Key{K: "7"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('7') }),
+		Key{K: "8"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('8') }),
+		Key{K: "9"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('9') }),
+		Key{K: "\\"}:                         MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('\\') }),
+		Key{K: "\\", Shift: true}:            MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('|') }),
+		Key{K: "0", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(')') }),
+		Key{K: "1", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('!') }),
+		Key{K: "2", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('@') }),
+		Key{K: "3", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('#') }),
+		Key{K: "4", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('$') }),
+		Key{K: "5", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('%') }),
+		Key{K: "6", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('^') }),
+		Key{K: "7", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('&') }),
+		Key{K: "8", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('*') }),
+		Key{K: "9", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('(') }),
+		Key{K: "a", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('A') }),
+		Key{K: "b", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('B') }),
+		Key{K: "c", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('C') }),
+		Key{K: "d", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('D') }),
+		Key{K: "e", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('E') }),
+		Key{K: "f", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('F') }),
+		Key{K: "g", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('G') }),
+		Key{K: "h", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('H') }),
+		Key{K: "i", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('I') }),
+		Key{K: "j", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('J') }),
+		Key{K: "k", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('K') }),
+		Key{K: "l", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('L') }),
+		Key{K: "m", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('M') }),
+		Key{K: "n", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('N') }),
+		Key{K: "o", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('O') }),
+		Key{K: "p", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('P') }),
+		Key{K: "q", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Q') }),
+		Key{K: "r", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('R') }),
+		Key{K: "s", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('S') }),
+		Key{K: "t", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('T') }),
+		Key{K: "u", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('U') }),
+		Key{K: "v", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('V') }),
+		Key{K: "w", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('W') }),
+		Key{K: "x", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('X') }),
+		Key{K: "y", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Y') }),
+		Key{K: "z", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('Z') }),
+		Key{K: "["}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('[') }),
+		Key{K: "]"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(']') }),
+		Key{K: "[", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('{') }),
+		Key{K: "]", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('}') }),
+		Key{K: ";"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(';') }),
+		Key{K: ";", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(':') }),
+		Key{K: "'"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('\'') }),
+		Key{K: "'", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('"') }),
+		Key{K: "\""}:                         MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('"') }),
+		Key{K: ","}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer(',') }),
+		Key{K: "."}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('.') }),
+		Key{K: ",", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('<') }),
+		Key{K: ".", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('>') }),
+		Key{K: "/"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('/') }),
+		Key{K: "/", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('?') }),
+		Key{K: "-"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('-') }),
+		Key{K: "="}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('=') }),
+		Key{K: "-", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('_') }),
+		Key{K: "=", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('+') }),
+		Key{K: "`"}:                          MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('`') }),
+		Key{K: "`", Shift: true}:             MakeCommand(func(f *InteractiveFilterBuffer[T]) error { return f.UserInputComponent.InsertCharAtBuffer('~') }),
 	}
 }
 
-func NewBufferSwitcher(parent *Preditor, cfg *Config) *InteractiveFilterBuffer[ScoredItem[Buffer]] {
+func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[Buffer]] {
 	updateList := func(l *components.ListComponent[ScoredItem[Buffer]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, fmt.Sprint(item.Item))
@@ -294,7 +286,7 @@ func NewBufferSwitcher(parent *Preditor, cfg *Config) *InteractiveFilterBuffer[S
 		})
 
 	}
-	openSelection := func(parent *Preditor, item ScoredItem[Buffer]) error {
+	openSelection := func(parent *Context, item ScoredItem[Buffer]) error {
 		parent.KillBuffer(parent.ActiveBuffer().GetID())
 		parent.MarkBufferAsActive(item.Item.GetID())
 
@@ -330,7 +322,7 @@ type GrepLocationItem struct {
 }
 
 func NewGrepBuffer(
-	parent *Preditor,
+	parent *Context,
 	cfg *Config,
 
 ) *InteractiveFilterBuffer[GrepLocationItem] {
@@ -368,7 +360,7 @@ func NewGrepBuffer(
 		}()
 
 	}
-	openSelection := func(parent *Preditor, item GrepLocationItem) error {
+	openSelection := func(parent *Context, item GrepLocationItem) error {
 		return SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Filename, &Position{Line: item.Line, Column: item.Col})
 	}
 
@@ -390,7 +382,7 @@ type LocationItem struct {
 	Filename string
 }
 
-func NewFuzzyFileBuffer(parent *Preditor, cfg *Config) *InteractiveFilterBuffer[ScoredItem[LocationItem]] {
+func NewFuzzyFileBuffer(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[LocationItem]] {
 	updateList := func(l *components.ListComponent[ScoredItem[LocationItem]], input string) {
 		for idx, item := range l.Items {
 			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, item.Item.Filename)
@@ -401,7 +393,7 @@ func NewFuzzyFileBuffer(parent *Preditor, cfg *Config) *InteractiveFilterBuffer[
 		})
 
 	}
-	openSelection := func(parent *Preditor, item ScoredItem[LocationItem]) error {
+	openSelection := func(parent *Context, item ScoredItem[LocationItem]) error {
 		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Item.Filename, nil)
 		if err != nil {
 			panic(err)
@@ -423,7 +415,7 @@ func NewFuzzyFileBuffer(parent *Preditor, cfg *Config) *InteractiveFilterBuffer[
 	)
 }
 
-func NewFilePickerBuffer(parent *Preditor, cfg *Config, initialInput string) *InteractiveFilterBuffer[LocationItem] {
+func NewFilePickerBuffer(parent *Context, cfg *Config, initialInput string) *InteractiveFilterBuffer[LocationItem] {
 	updateList := func(l *components.ListComponent[LocationItem], input string) {
 		matches, err := filepath.Glob(string(input) + "*")
 		if err != nil {
@@ -454,14 +446,14 @@ func NewFilePickerBuffer(parent *Preditor, cfg *Config, initialInput string) *In
 		return
 
 	}
-	openUserInput := func(parent *Preditor, userInput string) {
+	openUserInput := func(parent *Context, userInput string) {
 		parent.KillBuffer(parent.ActiveBufferID)
 		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, userInput, nil)
 		if err != nil {
 			panic(err)
 		}
 	}
-	openSelection := func(parent *Preditor, item LocationItem) error {
+	openSelection := func(parent *Context, item LocationItem) error {
 		parent.KillBuffer(parent.ActiveBufferID)
 		err := SwitchOrOpenFileInTextBuffer(parent, parent.Cfg, item.Filename, nil)
 		if err != nil {
@@ -504,12 +496,12 @@ func NewFilePickerBuffer(parent *Preditor, cfg *Config, initialInput string) *In
 		nil,
 	)
 
-	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Preditor) error {
+	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Context) error {
 		input := preditor.ActiveBuffer().(*InteractiveFilterBuffer[LocationItem]).UserInputComponent.UserInput
 		openUserInput(preditor, string(input))
 		return nil
 	}
-	ifb.keymaps[0][Key{K: "<tab>"}] = MakeInteractiveFilterBufferCommand(tryComplete)
+	ifb.keymaps[0][Key{K: "<tab>"}] = MakeCommand(tryComplete)
 	var absRoot string
 	var err error
 	if initialInput == "" {
