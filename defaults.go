@@ -196,7 +196,7 @@ func setupDefaults() {
 		CompileAskForCommand(a)
 	}))
 	BufferKeymap.BindKey(Key{K: "s", Control: true}, MakeCommand(func(a *BufferView) {
-		ISearchActivate(a)
+		SearchActivate(a)
 	}))
 	BufferKeymap.BindKey(Key{K: "w", Control: true}, MakeCommand(func(a *BufferView) {
 		Write(a)
@@ -289,52 +289,6 @@ func setupDefaults() {
 	}))
 	BufferKeymap.BindKey(Key{K: "<tab>"}, MakeCommand(func(e *BufferView) { Indent(e) }))
 
-	ISearchKeymap.SetKeys(MakeInsertionKeys(func(c *Context, b byte) {
-		c.GetDrawable(c.ActiveDrawableID()).(*BufferView).ISearch.SearchString += string(b)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<backspace>"}, MakeCommand(func(e *BufferView) {
-		ISearchDeleteBackward(e)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<enter>"}, MakeCommand(func(editor *BufferView) {
-		ISearchNextMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "s", Control: true}, MakeCommand(func(editor *BufferView) {
-		ISearchNextMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(func(editor *BufferView) {
-		ISearchPreviousMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<enter>", Control: true}, MakeCommand(func(editor *BufferView) {
-		ISearchPreviousMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<esc>"}, MakeCommand(func(editor *BufferView) {
-		ISearchExit(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<lmouse>-click"}, MakeCommand(func(e *BufferView) {
-		e.moveCursorTo(rl.GetMousePosition())
-	}))
-	ISearchKeymap.BindKey(Key{K: "<mouse-wheel-up>"}, MakeCommand(func(e *BufferView) {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		ScrollUp(e, 30)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<mouse-wheel-down>"}, MakeCommand(func(e *BufferView) {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		ScrollDown(e, 30)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<rmouse>-click"}, MakeCommand(func(editor *BufferView) {
-		ISearchNextMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<mmouse>-click"}, MakeCommand(func(editor *BufferView) {
-		ISearchPreviousMatch(editor)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<pagedown>"}, MakeCommand(func(e *BufferView) {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		ScrollDown(e, 1)
-	}))
-	ISearchKeymap.BindKey(Key{K: "<pageup>"}, MakeCommand(func(e *BufferView) {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		ScrollUp(e, 1)
-	}))
 
 	CompileKeymap.BindKey(Key{K: "<enter>"}, BufferOpenLocationInCurrentLine)
 
@@ -354,6 +308,45 @@ func setupDefaults() {
 	GlobalKeymap.BindKey(Key{K: "=", Control: true}, func(c *Context) { c.IncreaseFontSize(2) })
 	GlobalKeymap.BindKey(Key{K: "-", Control: true}, func(c *Context) { c.DecreaseFontSize(2) })
 	GlobalKeymap.BindKey(Key{K: "w", Alt: true}, func(c *Context) { c.OtherWindow() })
+
+	// Search
+	SearchKeymap.BindKey(Key{K: "<enter>"}, MakeCommand(func(editor *BufferView) {
+		SearchNextMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "s", Control: true}, MakeCommand(func(editor *BufferView) {
+		SearchNextMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(func(editor *BufferView) {
+		SearchPreviousMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "<enter>", Control: true}, MakeCommand(func(editor *BufferView) {
+		SearchPreviousMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "<esc>"}, MakeCommand(func(editor *BufferView) {
+		SearchExit(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "<mouse-wheel-up>"}, MakeCommand(func(e *BufferView) {
+		e.Search.MovedAwayFromCurrentMatch = true
+		ScrollUp(e, 30)
+	}))
+	SearchKeymap.BindKey(Key{K: "<mouse-wheel-down>"}, MakeCommand(func(e *BufferView) {
+		e.Search.MovedAwayFromCurrentMatch = true
+		ScrollDown(e, 30)
+	}))
+	SearchKeymap.BindKey(Key{K: "<rmouse>-click"}, MakeCommand(func(editor *BufferView) {
+		SearchNextMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "<mmouse>-click"}, MakeCommand(func(editor *BufferView) {
+		SearchPreviousMatch(editor)
+	}))
+	SearchKeymap.BindKey(Key{K: "<pagedown>"}, MakeCommand(func(e *BufferView) {
+		e.Search.MovedAwayFromCurrentMatch = true
+		ScrollDown(e, 1)
+	}))
+	SearchKeymap.BindKey(Key{K: "<pageup>"}, MakeCommand(func(e *BufferView) {
+		e.Search.MovedAwayFromCurrentMatch = true
+		ScrollUp(e, 1)
+	}))
 
 
 	// Query replace
