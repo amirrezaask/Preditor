@@ -261,8 +261,8 @@ func (t *TextEditorBuffer) ScrollUp(n int) error {
 	if t.VisibleStart <= 0 {
 		return nil
 	}
-	t.VisibleEnd--
-	t.VisibleStart--
+	t.VisibleEnd+=int32(-1*n)
+	t.VisibleStart+=int32(-1*n)
 	if t.VisibleStart < 0 {
 		t.VisibleStart = 0
 	}
@@ -364,7 +364,7 @@ func (t *TextEditorBuffer) BeginingOfTheLine() error {
 
 func (t *TextEditorBuffer) EndOfTheLine() error {
 	newPosition := t.Cursor
-	newPosition.Column = t.visualLines[t.Cursor.Line].endIndex - t.visualLines[t.Cursor.Line].startIndex - 1
+	newPosition.Column = t.visualLines[t.Cursor.Line].Length
 	t.fixCursorColumnIfNeeded(&newPosition)
 	if t.isValidCursorPosition(newPosition) {
 		t.Cursor = newPosition

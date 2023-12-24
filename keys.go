@@ -63,6 +63,18 @@ func getMouseKey() Key {
 		key = "<rmouse>"
 	}
 
+	if wheel := rl.GetMouseWheelMoveV(); wheel.X !=0 || wheel.Y != 0 {
+		if wheel.Y != 0 {
+			if wheel.Y < 0 {
+				key = "<mouse-wheel-down>"
+			}
+			if wheel.Y > 0 {
+				key = "<mouse-wheel-up>"
+			}
+			
+		}
+	}
+
 	if key == "" {
 		return Key{}
 	}
