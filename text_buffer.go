@@ -1760,6 +1760,10 @@ var EditorKeymap = Keymap{
 	Key{K: "<backspace>"}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharBackward()
 	}),
+	Key{K: "<backspace>", Shift: true}: MakeCommand(func(e *TextBuffer) error {
+		return e.DeleteCharBackward()
+	}),
+
 	Key{K: "d", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.DeleteCharForward()
 	}),
