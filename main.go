@@ -49,6 +49,11 @@ func main() {
 	filename := ""
 	if len(flag.Args()) > 0 {
 		filename = flag.Args()[0]
+	} else {
+		filename, err = os.Getwd()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	stat, err := os.Stat(filename)
@@ -57,7 +62,7 @@ func main() {
 	}
 
 	if stat.IsDir() {
-		editor.Windows = append(editor.Windows, NewFilePicker(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
+		editor.Windows = append(editor.Windows, NewOpenFileBuffer(&editor, cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{}))
 	} else {
 		e, err := NewEditor(cfg, filename, int32(rl.GetRenderHeight()), int32(rl.GetRenderWidth()), rl.Vector2{})
 		if err != nil {

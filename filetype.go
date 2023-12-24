@@ -10,7 +10,7 @@ import (
 
 type FileType struct {
 	TabSize          int
-	BeforeSave       func(*Editor) error
+	BeforeSave       func(*TextBuffer) error
 	SyntaxHighlights *SyntaxHighlights
 }
 
@@ -40,7 +40,7 @@ func initFileTypes(cfg Colors) {
 	fileTypeMappings = map[string]FileType{
 		".go": {
 			TabSize: 4,
-			BeforeSave: func(e *Editor) error {
+			BeforeSave: func(e *TextBuffer) error {
 				newBytes, err := format.Source(e.Content)
 				if err != nil {
 					return err
