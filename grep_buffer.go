@@ -73,7 +73,7 @@ func (f *GrepBuffer) String() string {
 }
 
 func (f *GrepBuffer) calculateLocationItems() error {
-	c := runRipgrep(string(f.UserInputBox.UserInput))
+	c := RipgrepAsync(string(f.UserInputBox.UserInput))
 	go func() {
 		lines := <-c
 		f.Items = nil
