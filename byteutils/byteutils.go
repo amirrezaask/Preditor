@@ -110,7 +110,7 @@ func FindMatchingClosedForward(data []byte, idx int) int {
 	} else if in == '{' {
 		matching = '}'
 	} else {
-		return 0
+		return -1
 	}
 
 	getCharDelta := func(c byte) int {
@@ -144,7 +144,7 @@ func FindMatchingOpenBackward(data []byte, idx int) int {
 	} else if in == '}' {
 		matching = '{'
 	} else {
-		return 0
+		return -1
 	}
 
 	getCharDelta := func(c byte) int {
@@ -167,4 +167,18 @@ func FindMatchingOpenBackward(data []byte, idx int) int {
 	}
 
 	return -1
+}
+
+func FindMatching(data []byte, idx int) int {
+	if len(data) == 0 {
+		return -1
+	}
+	switch data[idx] {
+	case '{', '[', '(':
+		return FindMatchingClosedForward(data, idx)
+	case '}', ']', ')':
+		return FindMatchingOpenBackward(data, idx)
+	default:
+		return -1
+	}
 }

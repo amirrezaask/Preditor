@@ -65,6 +65,7 @@ type Config struct {
 	CursorShape                CursorShape
 	CursorBlinking             bool
 	EnableSyntaxHighlighting   bool
+	HighlightMatchingParen     bool
 	CursorLineHighlight        bool
 	BuildWindowNormalHeight    float64
 	BuildWindowMaximizedHeight float64
@@ -207,6 +208,7 @@ var defaultConfig = Config{
 	CursorShape:                CURSOR_SHAPE_BLOCK,
 	CursorBlinking:             false,
 	FontName:                   "LiberationMono-Regular",
+	HighlightMatchingParen:     true,
 	FontSize:                   17,
 	BuildWindowNormalHeight:    0.2,
 	BuildWindowMaximizedHeight: 0.5,
@@ -246,7 +248,10 @@ func addToConfig(cfg *Config, key string, value string) error {
 		cfg.FontName = value
 	case "cursor_line_highlight":
 		cfg.CursorLineHighlight = value == "true"
+	case "hl_matching_char":
+		cfg.HighlightMatchingParen = value == "true"
 	case "font_size":
+
 		var err error
 		cfg.FontSize, err = strconv.Atoi(value)
 		if err != nil {
