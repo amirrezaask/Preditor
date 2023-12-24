@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*TextBuffer, error) {
-	tb, err := NewTextBuffer(parent, cfg, "*Compilation*")
+func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*Buffer, error) {
+	tb, err := NewBuffer(parent, cfg, "*Compilation*")
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*TextBu
 		}()
 
 	}
-	tb.keymaps[1].SetKeyCommand(Key{K: "g"}, MakeCommand(func(b *TextBuffer) error {
+	tb.keymaps[1].SetKeyCommand(Key{K: "g"}, MakeCommand(func(b *Buffer) error {
 		runCompileCommand()
 
 		return nil
