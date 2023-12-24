@@ -3,8 +3,17 @@ package main
 import (
 	"fmt"
 	rl "github.com/gen2brain/raylib-go/raylib"
-	"time"
 )
+
+var charSizeCache = map[byte]rl.Vector2{} //TODO: if font size or font changes this is fucked
+func measureTextSize(font rl.Font, s byte, size float32, spacing float32) rl.Vector2 {
+	if charSize, exists := charSizeCache[s]; exists {
+		return charSize
+	}
+	charSize := rl.MeasureTextEx(font, string(s), size, spacing)
+	charSizeCache[s] = charSize
+	return charSize
+}
 
 type BufferID int64
 type Buffer struct {
@@ -84,13 +93,13 @@ func renderBufferOnWindow(e *Editor, buffer *Buffer, window *Window) {
 	var start int
 	windowMaxColumn := window.Width / int(charSize.X)
 	windowMaxLine := window.Height / int(charSize.Y)
-	loopStart := time.Now()
+	//loopStart := time.Now()
 	if window.VisiblePartEndLine == 0 {
 		// just initialized the editor so we set it to default value which is maximum line number that it can show
 		window.VisiblePartEndLine = windowMaxLine
 	}
 
-	fmt.Printf("window visible part: %d %d\n", window.VisiblePartStartLine, window.VisiblePartEndLine)
+	//	fmt.Printf("window visible part: %d %d\n", window.VisiblePartStartLine, window.VisiblePartEndLine)
 	for idx, char := range buffer.Content {
 		lineCharCounter++
 		if char == '\n' {
@@ -123,15 +132,15 @@ func renderBufferOnWindow(e *Editor, buffer *Buffer, window *Window) {
 		
 		}
 	}
-	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
-	loopStart = time.Now()
+	//	fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
+	//	loopStart = time.Now()
 	visibleView := windowVisibleLines(window)
 	for idx, line := range visibleView {
 		if visualLineShouldBeRendered(e, window, line) {
 			renderVisualLine(e, window, buffer, line, idx)
 		}
 	}
-	fmt.Printf("Render buffer in window: render Loop took: %s\n", time.Since(loopStart))
+	//fmt.Printf("Render buffer in window: render Loop took: %s\n", time.Since(loopStart))
 	rl.DrawRectangleLines(int32(window.Cursor.Column)*int32(charSize.X), int32(window.Cursor.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
 }
 
@@ -153,6 +162,17 @@ func windowVisibleLines(window *Window) []visualLine {
 func cursorToBufferIndex(e *Editor, window *Window, buffer *Buffer) int {
 	return windowVisibleLines(window)[window.Cursor.Line].startIndex + window.Cursor.Column
 }
+
+func fixCursorColumnIfNeeded(window *Window, newPosition *Position) {
+	line := windowVisibleLines(window)[newPosition.Line]
+	if newPosition.Column > (line.endIndex - line.startIndex) {
+		newPosition.Column = line.endIndex - line.startIndex - 1
+	}
+	if newPosition.Column < 0 {
+		newPosition.Column = 0
+	}
+}
+
 func visualLineShouldBeRendered(e *Editor, window *Window, line visualLine) bool {
 	if window.VisiblePartStartLine <= line.Index && line.Index <= window.VisiblePartEndLine {
 		return true
@@ -227,6 +247,8 @@ func ScrollUp(e *Editor) error {
 	if window.VisiblePartStartLine < 0 {
 		window.VisiblePartStartLine = 0
 	}
+	fixCursorColumnIfNeeded(window, &window.Cursor)
+
 	return nil
 
 }
@@ -240,6 +262,7 @@ func ScrollDown(e *Editor) error {
 	if window.VisiblePartEndLine >= len(window.VisualLines) {
 		window.VisiblePartEndLine = len(window.VisualLines) - 1
 	}
+	fixCursorColumnIfNeeded(window, &window.Cursor)
 
 	return nil
 }
@@ -272,9 +295,13 @@ func CursorUp(e *Editor) error {
 	buffer := CurrentBuffer(e)
 	newPosition := window.Cursor
 	newPosition.Line--
+
+	fixCursorColumnIfNeeded(window, &newPosition)
 	if isValidCursorPosition(e, window, buffer, newPosition) {
-		window.Cursor.Line = window.Cursor.Line - 1
+		window.Cursor = newPosition
 	}
+	fmt.Println("up")
+	fmt.Printf("%+v\n", window.Cursor)
 
 	return nil
 }
@@ -283,9 +310,11 @@ func CursorDown(e *Editor) error {
 	buffer := CurrentBuffer(e)
 	newPosition := window.Cursor
 	newPosition.Line++
+	fixCursorColumnIfNeeded(window, &newPosition)
 	if isValidCursorPosition(e, window, buffer, newPosition) {
-		window.Cursor.Line = window.Cursor.Line + 1
+		window.Cursor = newPosition
 	}
+	fmt.Println("down")
+	fmt.Printf("%+v\n", window.Cursor)
 	return nil
-
 }
