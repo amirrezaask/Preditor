@@ -107,24 +107,30 @@ func MakeInsertionKeys(insertor func(c *Context, b byte)) Keymap {
 func setupDefaults() {
 	PromptKeymap.SetKeys(MakeInsertionKeys(func(c *Context, b byte) {
 		c.Prompt.UserInput += string(b)
+		if c.Prompt.ChangeHook != nil {
+			c.Prompt.ChangeHook(c.Prompt.UserInput, c)
+		}
 	}))
 	PromptKeymap.BindKey(Key{K: "<enter>"}, func(c *Context) {
-		c.Prompt.IsActive = false
 		userInput := c.Prompt.UserInput
-		c.Prompt.UserInput = ""
-		doneHook := c.Prompt.DoneHook
-		c.Prompt.DoneHook = nil
-		doneHook(userInput, c)
+		if c.Prompt.DoneHook != nil {
+			c.Prompt.IsActive = false
+			c.Prompt.UserInput = ""
+			hook := c.Prompt.DoneHook
+			c.Prompt.DoneHook = nil
+			hook(userInput, c)
+		}
 	})
 
 	PromptKeymap.BindKey(Key{K: "<backspace>"}, func(c *Context) {
 		c.Prompt.UserInput = c.Prompt.UserInput[:len(c.Prompt.UserInput)-1]
+		if c.Prompt.ChangeHook != nil {
+			c.Prompt.ChangeHook(c.Prompt.UserInput, c)
+		}
 	})
 
 	PromptKeymap.BindKey(Key{K: "<esc>"}, func(c *Context) {
-		c.Prompt.IsActive = false
-		c.Prompt.UserInput = ""
-		c.Prompt.DoneHook = nil
+		c.ResetPrompt()
 	})
 
 	BufferKeymap.SetKeys(MakeInsertionKeys(func(c *Context, b byte) {
@@ -289,7 +295,6 @@ func setupDefaults() {
 	}))
 	BufferKeymap.BindKey(Key{K: "<tab>"}, MakeCommand(func(e *BufferView) { Indent(e) }))
 
-
 	CompileKeymap.BindKey(Key{K: "<enter>"}, BufferOpenLocationInCurrentLine)
 
 	GlobalKeymap.BindKey(Key{K: "\\", Alt: true}, func(c *Context) { VSplit(c) })
@@ -347,7 +352,6 @@ func setupDefaults() {
 		e.Search.MovedAwayFromCurrentMatch = true
 		ScrollUp(e, 1)
 	}))
-
 
 	// Query replace
 	QueryReplaceKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(func(editor *BufferView) {

@@ -96,6 +96,8 @@ type Prompt struct {
 	UserInput  string
 	Keymap     Keymap
 	DoneHook   func(userInput string, c *Context)
+	ChangeHook func(userInput string, c *Context)
+	NoRender   bool
 }
 
 const (
@@ -187,7 +189,13 @@ func (c *Context) BuildWindowToggleState() {
 		c.BuildWindow.State = 0
 	}
 }
+func (c *Context) ResetPrompt() {
+	c.Prompt.IsActive = false
+	c.Prompt.UserInput = ""
+	c.Prompt.DoneHook = nil
+	c.Prompt.ChangeHook = nil
 
+}
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context),
 	doneHook func(userInput string, c *Context), keymap *Keymap, defaultValue string) {
@@ -195,6 +203,7 @@ func (c *Context) SetPrompt(text string,
 	c.Prompt.Text = text
 	c.Prompt.DoneHook = doneHook
 	c.Prompt.UserInput = defaultValue
+	c.Prompt.ChangeHook = changeHook
 	if keymap != nil {
 		c.Prompt.Keymap = *keymap
 	} else {
@@ -484,7 +493,7 @@ func (c *Context) Render() {
 		buildWindowHeightRatio = 0
 	}
 	charsize := measureTextSize(c.Font, ' ', c.FontSize, 0)
-	if c.Prompt.IsActive {
+	if c.Prompt.IsActive && !c.Prompt.NoRender {
 		height -= float64(charsize.Y)
 	}
 	if c.BuildWindowIsVisible() {
@@ -523,7 +532,7 @@ func (c *Context) Render() {
 		buf.Render(rl.Vector2{X: float32(c.BuildWindow.ZeroLocationX), Y: float32(c.BuildWindow.ZeroLocationY)}, c.BuildWindow.Height, c.BuildWindow.Width)
 	}
 
-	if c.Prompt.IsActive {
+	if c.Prompt.IsActive && !c.Prompt.NoRender {
 		rl.DrawRectangle(0, int32(height), int32(c.OSWindowWidth), int32(charsize.Y), c.Cfg.CurrentThemeColors().Prompts.ToColorRGBA())
 		rl.DrawTextEx(c.Font, fmt.Sprintf("%s: %s", c.Prompt.Text, c.Prompt.UserInput), rl.Vector2{
 			X: 0,
