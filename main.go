@@ -43,7 +43,7 @@ func main() {
 	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()
-
+		editor.HandleMouseEvents()
 		editor.HandleKeyEvents()
 		editor.Render()
 	}

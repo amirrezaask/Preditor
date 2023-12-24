@@ -23,6 +23,7 @@ type Buffer interface {
 	SetMaxHeight(h int32)
 	Render()
 	Destroy() error
+	MoveCursorTo(rl.Vector2) error
 }
 
 type Colors struct {
@@ -131,5 +132,15 @@ func (e *Editor) HandleWindowResize() {
 	for _, buffer := range e.Buffers {
 		buffer.SetMaxWidth(int32(width))
 		buffer.SetMaxHeight(int32(height))
+	}
+}
+
+func (e *Editor) HandleMouseEvents() {
+	key := getMouseKey()
+	if !key.IsEmpty() {
+		cmd := defaultKeymap[key]
+		if cmd != nil {
+			cmd(e)
+		}
 	}
 }

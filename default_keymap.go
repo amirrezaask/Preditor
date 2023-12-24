@@ -1,10 +1,22 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
+)
 
 var defaultKeymap = Keymap{
 
 	// navigation
+	Key{K: "<lmouse>" }: func(e *Editor) error {
+		if e.ActiveBuffer().Type() == "text_editor_buffer" {
+			return e.ActiveBuffer().(*TextEditorBuffer).MoveCursorTo(rl.GetMousePosition())
+		}
+
+		return nil
+	
+	},
 	Key{K: "a", Control: true}: func(e *Editor) error {
 		if e.ActiveBuffer().Type() == "text_editor_buffer" {
 			return e.ActiveBuffer().(*TextEditorBuffer).BeginingOfTheLine()

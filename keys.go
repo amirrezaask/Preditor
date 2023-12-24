@@ -50,6 +50,40 @@ func getKey() Key {
 	return k
 }
 
+
+func getMouseKey() Key {
+	modifierState:= getModifierKeyState()
+	var key string
+	switch {
+	case rl.IsMouseButtonPressed(rl.MouseButtonLeft):
+		key = "<lmouse>"
+	case rl.IsMouseButtonPressed(rl.MouseButtonMiddle):
+		key = "<mmouse>"
+	case rl.IsMouseButtonPressed(rl.MouseButtonRight):
+		key = "<rmouse>"
+	}
+
+	if key == "" {
+		return Key{}
+	}
+
+	k := Key{
+		Control: modifierState.control,
+		Alt: modifierState.alt,
+		Super: modifierState.super,
+		Shift: modifierState.shift,
+		K: key,
+	}
+	// if !k.IsEmpty() {
+	// 	fmt.Println("=================================")
+	// 	fmt.Printf("key: %+v\n", k)
+	// 	fmt.Println("=================================")
+	// }
+
+	return k
+
+}
+
 func isPressed(key int32) bool {
 	return rl.IsKeyPressed(key) || rl.IsKeyPressedRepeat(key)
 }
