@@ -36,6 +36,9 @@ type EditorBuffer struct {
 	State             int
 	CursorBlinking    bool
 	RenderLineNumbers bool
+	HasSelection      bool
+	SelectionStart    Position
+	SelectionEnd      Position
 }
 
 func (t *EditorBuffer) replaceTabsWithSpaces() {
@@ -596,7 +599,7 @@ var editorBufferKeymap = Keymap{
 		return e.ActiveEditor().Write()
 	},
 	// navigation
-	Key{K: "<lmouse>"}: func(e *Application) error {
+	Key{K: "<lmouse>-click"}: func(e *Application) error {
 		return e.ActiveEditor().MoveCursorTo(rl.GetMousePosition())
 	},
 	Key{K: "<mouse-wheel-up>"}: func(e *Application) error {
@@ -607,10 +610,10 @@ var editorBufferKeymap = Keymap{
 		return e.ActiveEditor().ScrollDown(10)
 	},
 
-	Key{K: "<rmouse>"}: func(e *Application) error {
+	Key{K: "<rmouse>-click"}: func(e *Application) error {
 		return e.ActiveEditor().ScrollDown(10)
 	},
-	Key{K: "<mmouse>"}: func(e *Application) error {
+	Key{K: "<mmouse>-click"}: func(e *Application) error {
 		return e.ActiveEditor().ScrollUp(10)
 	},
 

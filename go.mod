@@ -1,4 +1,4 @@
-module github.com/amirrezaask/4ed
+module github.com/amirrezaask/preditor
 
 go 1.21.3
 
