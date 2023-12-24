@@ -169,3 +169,10 @@ func MakeInsertionKeys(insertor func(b byte) error) Keymap {
 		Key{K: "<space>", Shift: true}: MakeCommand(func(e *TextBuffer) error { return insertor(' ') }),
 	}
 }
+
+func MergeKeymaps(k1 Keymap, k2 Keymap) Keymap {
+	for k, v := range k2 {
+		k1[k] = v
+	}
+	return k1
+}

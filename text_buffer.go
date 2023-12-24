@@ -73,7 +73,7 @@ type View struct {
 	Lines     []visualLine
 }
 
-type IncrementalSearch struct {
+type ISearch struct {
 	IsSearching               bool
 	LastSearchString          string
 	SearchString              *string
@@ -107,7 +107,7 @@ type TextBuffer struct {
 	Cursors []Cursor
 
 	// Searching
-	IncrementalSearch IncrementalSearch
+	ISearch ISearch
 
 	UndoStack Stack[EditorAction]
 
@@ -544,8 +544,8 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 
 	//var searchString string
-	//if e.IncrementalSearch.SearchString != nil {
-	//	searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.IncrementalSearch.SearchString, e.IncrementalSearch.CurrentMatch, len(e.IncrementalSearch.SearchMatches)-1)
+	//if e.ISearch.SearchString != nil {
+	//	searchString = fmt.Sprintf("Searching: \"%s\" %d of %d matches", *e.ISearch.SearchString, e.ISearch.CurrentMatch, len(e.ISearch.SearchMatches)-1)
 	//	sections = append(sections, searchString)
 	//}
 	//
@@ -667,25 +667,25 @@ func (e *TextBuffer) convertBufferIndexToLineAndColumn(idx int) *Position {
 	return nil
 }
 func (e *TextBuffer) findMatches(pattern string) error {
-	e.IncrementalSearch.SearchMatches = [][]int{}
-	matchPatternAsync(&e.IncrementalSearch.SearchMatches, e.Content, []byte(pattern))
+	e.ISearch.SearchMatches = [][]int{}
+	matchPatternAsync(&e.ISearch.SearchMatches, e.Content, []byte(pattern))
 	return nil
 }
 
 func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vector2) error {
-	if pattern != e.IncrementalSearch.LastSearchString {
+	if pattern != e.ISearch.LastSearchString {
 		if err := e.findMatches(pattern); err != nil {
 			return err
 		}
 	}
-	for idx, match := range e.IncrementalSearch.SearchMatches {
+	for idx, match := range e.ISearch.SearchMatches {
 		c := e.cfg.Colors.Selection
 		_ = c
-		if idx == e.IncrementalSearch.CurrentMatch {
+		if idx == e.ISearch.CurrentMatch {
 			c = rl.Fade(rl.Red, 0.5)
 			matchStartLine := e.getIndexPosition(match[0])
 			matchEndLine := e.getIndexPosition(match[0])
-			if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.IncrementalSearch.MovedAwayFromCurrentMatch {
+			if !(e.View.StartLine < int32(matchStartLine.Line) && e.View.EndLine > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
 				// current match is not in view
 				// move the view
 				oldStart := e.View.StartLine
@@ -700,23 +700,35 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vec
 		}
 		e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], c)
 	}
-	e.IncrementalSearch.LastSearchString = pattern
+	e.ISearch.LastSearchString = pattern
 
 	return nil
 }
 func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	if e.IncrementalSearch.SearchString == nil || len(*e.IncrementalSearch.SearchString) < 1 {
+	if e.ISearch.SearchString == nil || len(*e.ISearch.SearchString) < 1 {
 		return
 	}
-	e.findMatchesAndHighlight(*e.IncrementalSearch.SearchString, zeroLocation)
-	if len(e.IncrementalSearch.SearchMatches) > 0 {
+	e.findMatchesAndHighlight(*e.ISearch.SearchString, zeroLocation)
+	if len(e.ISearch.SearchMatches) > 0 {
 		e.Cursors = e.Cursors[:1]
-		e.Cursors[0].Point = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
-		e.Cursors[0].Mark = e.IncrementalSearch.SearchMatches[e.IncrementalSearch.CurrentMatch][0]
+		e.Cursors[0].Point = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
+		e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
-	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", *e.IncrementalSearch.SearchString), rl.Vector2{
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", *e.ISearch.SearchString), rl.Vector2{
+		X: zeroLocation.X,
+		Y: zeroLocation.Y,
+	}, float32(e.parent.FontSize), 0, rl.White)
+}
+
+func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+	if !e.isGotoLine {
+		return
+	}
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Goto: %s", string(e.GotoLineUserInput)), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
 	}, float32(e.parent.FontSize), 0, rl.White)
@@ -726,7 +738,7 @@ func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.updateMaxLineAndColumn(maxH, maxW)
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
-	//e.renderGoto()
+	e.renderGoto(zeroLocation, maxH, maxW)
 	e.renderSelections(zeroLocation, maxH, maxW)
 	e.renderStatusBar(zeroLocation, maxH, maxW)
 }
@@ -1587,11 +1599,11 @@ var EditorKeymap = Keymap{
 
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(b byte) error {
-			if a.IncrementalSearch.SearchString == nil {
-				a.IncrementalSearch.SearchString = new(string)
+			if a.ISearch.SearchString == nil {
+				a.ISearch.SearchString = new(string)
 			}
 
-			*a.IncrementalSearch.SearchString += string(b)
+			*a.ISearch.SearchString += string(b)
 
 			return nil
 		}))
@@ -1706,11 +1718,11 @@ func writeToClipboard(bs []byte) {
 }
 
 func insertCharAtSearchString(editor *TextBuffer, char byte) error {
-	if editor.IncrementalSearch.SearchString == nil {
-		editor.IncrementalSearch.SearchString = new(string)
+	if editor.ISearch.SearchString == nil {
+		editor.ISearch.SearchString = new(string)
 	}
 
-	*editor.IncrementalSearch.SearchString += string(char)
+	*editor.ISearch.SearchString += string(char)
 
 	return nil
 }
@@ -1734,16 +1746,16 @@ func (e *TextBuffer) readFileFromDisk() error {
 }
 
 func (e *TextBuffer) DeleteCharBackwardFromActiveSearch() error {
-	if e.IncrementalSearch.SearchString == nil {
+	if e.ISearch.SearchString == nil {
 		return nil
 	}
-	s := []byte(*e.IncrementalSearch.SearchString)
+	s := []byte(*e.ISearch.SearchString)
 	if len(s) < 1 {
 		return nil
 	}
 	s = s[:len(s)-1]
 
-	e.IncrementalSearch.SearchString = &[]string{string(s)}[0]
+	e.ISearch.SearchString = &[]string{string(s)}[0]
 
 	return nil
 }
@@ -1763,77 +1775,77 @@ var SearchTextBufferKeymap = Keymap{
 		return e.DeleteCharBackwardFromActiveSearch()
 	}),
 	Key{K: "<enter>"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.IncrementalSearch.CurrentMatch++
-		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
-			editor.IncrementalSearch.CurrentMatch = 0
+		editor.ISearch.CurrentMatch++
+		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+			editor.ISearch.CurrentMatch = 0
 		}
-		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
+		editor.ISearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 
 	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *TextBuffer) error {
-		editor.IncrementalSearch.CurrentMatch--
-		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
-			editor.IncrementalSearch.CurrentMatch = 0
+		editor.ISearch.CurrentMatch--
+		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+			editor.ISearch.CurrentMatch = 0
 		}
-		if editor.IncrementalSearch.CurrentMatch < 0 {
-			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
+		if editor.ISearch.CurrentMatch < 0 {
+			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
 		}
-		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
+		editor.ISearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<esc>"}: MakeCommand(func(editor *TextBuffer) error {
 		editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
-		editor.IncrementalSearch.IsSearching = false
-		editor.IncrementalSearch.LastSearchString = ""
-		editor.IncrementalSearch.SearchString = nil
-		editor.IncrementalSearch.SearchMatches = nil
-		editor.IncrementalSearch.CurrentMatch = 0
-		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
+		editor.ISearch.IsSearching = false
+		editor.ISearch.LastSearchString = ""
+		editor.ISearch.SearchString = nil
+		editor.ISearch.SearchMatches = nil
+		editor.ISearch.CurrentMatch = 0
+		editor.ISearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<lmouse>-click"}: MakeCommand(func(e *TextBuffer) error {
 		return e.MoveCursorTo(rl.GetMousePosition())
 	}),
 	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *TextBuffer) error {
-		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
+		e.ISearch.MovedAwayFromCurrentMatch = true
 		return e.ScrollUp(20)
 
 	}),
 	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *TextBuffer) error {
-		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
+		e.ISearch.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollDown(20)
 	}),
 
 	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.IncrementalSearch.CurrentMatch++
-		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
-			editor.IncrementalSearch.CurrentMatch = 0
+		editor.ISearch.CurrentMatch++
+		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+			editor.ISearch.CurrentMatch = 0
 		}
-		if editor.IncrementalSearch.CurrentMatch < 0 {
-			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
+		if editor.ISearch.CurrentMatch < 0 {
+			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
 		}
-		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
+		editor.ISearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<mmouse>-click"}: MakeCommand(func(editor *TextBuffer) error {
-		editor.IncrementalSearch.CurrentMatch--
-		if editor.IncrementalSearch.CurrentMatch >= len(editor.IncrementalSearch.SearchMatches) {
-			editor.IncrementalSearch.CurrentMatch = 0
+		editor.ISearch.CurrentMatch--
+		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
+			editor.ISearch.CurrentMatch = 0
 		}
-		if editor.IncrementalSearch.CurrentMatch < 0 {
-			editor.IncrementalSearch.CurrentMatch = len(editor.IncrementalSearch.SearchMatches) - 1
+		if editor.ISearch.CurrentMatch < 0 {
+			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
 		}
-		editor.IncrementalSearch.MovedAwayFromCurrentMatch = false
+		editor.ISearch.MovedAwayFromCurrentMatch = false
 		return nil
 	}),
 	Key{K: "<pagedown>"}: MakeCommand(func(e *TextBuffer) error {
-		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
+		e.ISearch.MovedAwayFromCurrentMatch = true
 		return e.ScrollDown(1)
 	}),
 	Key{K: "<pageup>"}: MakeCommand(func(e *TextBuffer) error {
-		e.IncrementalSearch.MovedAwayFromCurrentMatch = true
+		e.ISearch.MovedAwayFromCurrentMatch = true
 
 		return e.ScrollUp(1)
 	}),
@@ -1851,21 +1863,10 @@ var GotoLineKeymap = Keymap{
 
 		for _, line := range editor.View.Lines {
 			if line.Index == number {
-				if !(editor.View.StartLine < int32(line.Index)) || !(editor.View.EndLine > int32(line.Index)) {
-					editor.View.StartLine = int32(int32(line.Index) - editor.maxLine/2)
-					if editor.View.StartLine < 0 {
-						editor.View.StartLine = 0
-					}
-
-					editor.View.EndLine = int32(int32(line.Index) + editor.maxLine/2)
-					if editor.View.EndLine > int32(len(editor.View.Lines)) {
-						editor.View.EndLine = int32(len(editor.View.Lines))
-					}
-
-					editor.isGotoLine = false
-					editor.GotoLineUserInput = nil
-					editor.Cursors[0].SetBoth(line.startIndex)
-				}
+				editor.isGotoLine = false
+				editor.GotoLineUserInput = nil
+				editor.Cursors[0].SetBoth(line.startIndex)
+				editor.ScrollIfNeeded()
 			}
 		}
 
