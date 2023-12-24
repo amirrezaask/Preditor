@@ -20,7 +20,6 @@ type Colors struct {
 	Cursor                color.RGBA
 	SyntaxKeywords        color.RGBA
 	SyntaxTypes           color.RGBA
-	SyntaxIdentifiers     color.RGBA
 }
 
 type Preditor struct {

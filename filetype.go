@@ -14,9 +14,8 @@ type FileType struct {
 }
 
 type SyntaxHighlights struct {
-	Keywords    SyntaxHighlight
-	Types       SyntaxHighlight
-	Identifiers SyntaxHighlight
+	Keywords SyntaxHighlight
+	Types    SyntaxHighlight
 }
 
 type SyntaxHighlight struct {
@@ -58,10 +57,6 @@ func initFileTypes(cfg Colors) {
 				Types: SyntaxHighlight{
 					Regex: regexp.MustCompile(keywordsPat("u*int8", "u*int16", "u*int32", "u*int64", "u*int", "float(32|64)")),
 					Color: cfg.SyntaxTypes,
-				},
-				Identifiers: SyntaxHighlight{
-					Regex: regexp.MustCompile("\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"),
-					Color: cfg.SyntaxIdentifiers,
 				},
 			},
 		},
