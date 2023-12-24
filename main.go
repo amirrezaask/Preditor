@@ -32,7 +32,7 @@ func main() {
 	})
 	editor.Buffers = append(editor.Buffers, textEditorBuffer)
 
-	font = rl.LoadFontEx("FiraCode.ttf", int32(fontSize), nil)
+	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
 	for !rl.WindowShouldClose() {
 		
 		key := getKey()
