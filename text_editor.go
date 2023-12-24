@@ -465,8 +465,12 @@ func (t *TextEditor) NextLine() error {
 func (t *TextEditor) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
-	apprColumn := pos.X / charSize.X
 	apprLine := pos.Y / charSize.Y
+	apprColumn := pos.X / charSize.X
+	if t.RenderLineNumbers {
+		apprColumn -= float32((len(fmt.Sprint(t.visualLines[int(apprLine)].ActualLine)) + 1))
+
+	}
 
 	if len(t.visualLines) < 1 {
 		return nil
