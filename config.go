@@ -183,9 +183,9 @@ var defaultConfig = Config{
 				SyntaxColors: SyntaxColors{
 					"ident":    mustParseHexColor("#eedd82"),
 					"type":     mustParseHexColor("#8cde94"),
-					"keywords": mustParseHexColor("#cd950c"),
-					"string":   mustParseHexColor("#118a1a"),
-					"comment":  mustParseHexColor("#118a1a"),
+					"keywords": mustParseHexColor("#f0c674"),
+					"string":   mustParseHexColor("#ffa900"),
+					"comment":  mustParseHexColor("#666666"),
 				},
 			},
 		},
