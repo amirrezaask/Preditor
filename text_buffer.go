@@ -1678,6 +1678,7 @@ var EditorKeymap = Keymap{
 
 	Key{K: "<esc>"}: MakeCommand(func(p *TextBuffer) error {
 		p.Cursors = p.Cursors[:1]
+		p.Cursors[0].Point = p.Cursors[0].Mark
 
 		return nil
 	}),
