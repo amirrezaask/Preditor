@@ -274,7 +274,9 @@ type BufferView struct {
 	keymaps *Stack[Keymap]
 
 	// Cursor
-	Cursors []Cursor
+	Cursors        []Cursor
+	lastCursorTime time.Time
+	showCursors    bool
 
 	// Searching
 	Search Search
@@ -966,6 +968,12 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	// render cursors
+	cursorBlinkDeltaTime := time.Since(e.lastCursorTime)
+	if cursorBlinkDeltaTime > time.Millisecond*800 {
+		e.showCursors = !e.showCursors
+		e.lastCursorTime = time.Now()
+	}
+
 	if e.parent.ActiveDrawableID() == e.ID {
 		for _, sel := range e.Cursors {
 			if sel.Start() == sel.End() {
@@ -983,17 +991,19 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 					continue
 				}
-				switch e.cfg.CursorShape {
-				case CURSOR_SHAPE_OUTLINE:
-					rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-				case CURSOR_SHAPE_BLOCK:
-					rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-					if len(e.Buffer.Content)-1 >= sel.Point {
-						rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
-					}
+				if e.showCursors {
+					switch e.cfg.CursorShape {
+					case CURSOR_SHAPE_OUTLINE:
+						rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+					case CURSOR_SHAPE_BLOCK:
+						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+						if len(e.Buffer.Content)-1 >= sel.Point {
+							rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
+						}
 
-				case CURSOR_SHAPE_LINE:
-					rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+					case CURSOR_SHAPE_LINE:
+						rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+					}
 				}
 				if e.cfg.CursorLineHighlight {
 					rl.DrawRectangle(int32(textZeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(textZeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
