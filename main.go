@@ -6,13 +6,22 @@ import (
 
 func main() {
 	// basic setup
+	rl.SetConfigFlags(rl.FlagWindowResizable | rl.FlagWindowMaximized)
 	rl.InitWindow(1920, 1080, "core editor")
+	
 	defer rl.CloseWindow()
-	rl.SetTargetFPS(60)
+	rl.SetTargetFPS(30)
+
+	editorBackground, _ := parseHexColor("#062329")
+	editorForeground, _ := parseHexColor("#d3b58d")
 
 	// create editor
 	editor := Editor{
 		LineWrapping: true,
+		Colors: Colors{
+			Background: editorBackground,
+			Foreground: editorForeground,
+		},
 	}
 
 	fontSize = 20
@@ -20,36 +29,23 @@ func main() {
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
 		Content: []byte(loremIpsum),
-		File: "test.txt",
+		File:    "test.txt",
 	}
 
 	textEditorBuffer.Initialize(BufferOptions{
 		MaxHeight:    int32(rl.GetRenderHeight()),
 		MaxWidth:     int32(rl.GetRenderWidth()),
-		ZeroPosition: rl.Vector2{
-			
-		},
+		Colors:       editor.Colors,
+		ZeroPosition: rl.Vector2{},
 	})
 	editor.Buffers = append(editor.Buffers, textEditorBuffer)
 
 	font = rl.LoadFontEx("Consolas.ttf", int32(fontSize), nil)
 	for !rl.WindowShouldClose() {
-		
-		key := getKey()
-		if !key.IsEmpty() {
-			cmd := defaultKeymap[key]
-			if cmd != nil {
-				cmd(&editor)
-			}
-		}
-		
-		// Render
-		rl.BeginDrawing()
-		rl.ClearBackground(rl.Black)
+		editor.HandleWindowResize()
 
-		editor.ActiveBuffer().Render()
-
-		rl.EndDrawing()
+		editor.HandleKeyEvents()
+		editor.Render()
 	}
 
 }
