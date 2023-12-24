@@ -175,8 +175,13 @@ func (e *Editor) InsertCharAtCursor(char byte) error {
 	window := e.CurrentWindow()
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
-	if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
-		window.Cursor.Column = window.Cursor.Column + 1
+	if char == '\n' {
+		window.Cursor.Column = 0
+		window.Cursor.Line ++
+	} else {
+		if window.Cursor.Column+1 < (window.Width / int(charSize.X)) {
+			window.Cursor.Column = window.Cursor.Column + 1
+		}
 	}
 	return nil
 }
