@@ -99,16 +99,7 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 
 func makeKeymap[T any]() Keymap {
 	return Keymap{
-		Key{K: "=", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
-			e.parent.IncreaseFontSize(5)
 
-			return nil
-		}),
-		Key{K: "-", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
-			e.parent.DecreaseFontSize(5)
-
-			return nil
-		}),
 		Key{K: "f", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
 			return e.UserInputComponent.CursorRight(1)
 		}),

@@ -86,12 +86,20 @@ func (c *Context) ActiveWindow() *Window {
 }
 
 func (c *Context) ActiveBuffer() Buffer {
-	bufferid := c.GetWindow(c.ActiveWindowIndex).BufferID
-	return c.Buffers[bufferid]
+	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
+		bufferid := win.BufferID
+		return c.Buffers[bufferid]
+	}
+
+	return nil
 }
 func (c *Context) ActiveBufferID() int {
-	bufferid := c.GetWindow(c.ActiveWindowIndex).BufferID
-	return bufferid
+	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
+		bufferid := win.BufferID
+		return bufferid
+	}
+
+	return -1
 }
 
 var charSizeCache = map[byte]rl.Vector2{}
