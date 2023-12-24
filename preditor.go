@@ -1,6 +1,7 @@
 package preditor
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -598,7 +599,17 @@ func New() (*Preditor, error) {
 			p.AddBuffer(tb)
 			p.MarkBufferAsActive(tb.ID)
 			tb.Readonly = true
-			//TODO: read from stdin stream here
+			go func() {
+				r := bufio.NewReader(os.Stdin)
+				for {
+					b, err := r.ReadByte()
+					if err != nil {
+						p.WriteMessage(err.Error())
+						break
+					}
+					tb.Content = append(tb.Content, b)
+				}
+			}()
 		} else {
 			err = SwitchOrOpenFileInTextBuffer(p, cfg, filename, nil)
 			if err != nil {
