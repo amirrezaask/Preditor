@@ -159,7 +159,11 @@ func makeKeymap[T any]() Keymap {
 		}),
 
 		Key{K: "<enter>"}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error {
-			return e.OpenSelection(e.parent, e.List.Items[e.List.Selection])
+			if len(e.List.Items) > 0 && len(e.List.Items) > e.List.Selection {
+				return e.OpenSelection(e.parent, e.List.Items[e.List.Selection])
+			}
+
+			return nil
 		}),
 		Key{K: "<backspace>"}:                MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteCharBackward() }),
 		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *InteractiveFilterBuffer[T]) error { return e.UserInputComponent.DeleteWordBackward() }),
