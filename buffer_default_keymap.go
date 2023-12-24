@@ -175,7 +175,7 @@ func init() {
 			return e.readFileFromDisk()
 		}),
 		Key{K: "z", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.PopAndReverseLastAction()
+			e.RevertLastBufferAction()
 			return nil
 		}),
 		Key{K: "f", Control: true}: MakeCommand(func(e *Buffer) error {

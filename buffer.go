@@ -55,7 +55,7 @@ func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 		return InsertChar(&t, b)
 	}))
-	t.UndoStack = NewStack[EditorAction](1000)
+	t.ActionStack = NewStack[BufferAction](1000)
 	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
 	var err error
 	if t.File != "" {
@@ -174,19 +174,18 @@ type Buffer struct {
 
 	LastCompileCommand string
 
-	UndoStack Stack[EditorAction]
+	ActionStack Stack[BufferAction]
 }
 
 const (
-	EditorActionType_Insert = iota + 1
-	EditorActionType_Delete
+	BufferActionType_Insert = iota + 1
+	BufferActionType_Delete
 )
 
-type EditorAction struct {
-	Type       int
-	Idx        int
-	Selections []Cursor
-	Data       []byte
+type BufferAction struct {
+	Type int
+	Idx  int
+	Data []byte
 }
 
 func (e *Buffer) String() string {
@@ -201,24 +200,22 @@ func (e *Buffer) IsSpecial() bool {
 	return e.File == "" || e.File[0] == '*'
 }
 
-func (e *Buffer) AddUndoAction(a EditorAction) {
-	a.Selections = e.Cursors
+func (e *Buffer) AddBufferAction(a BufferAction) {
 	a.Data = bytes.Clone(a.Data)
-	e.UndoStack.Push(a)
+	e.ActionStack.Push(a)
 }
-func (e *Buffer) PopAndReverseLastAction() {
-	last, err := e.UndoStack.Pop()
+func (e *Buffer) RevertLastBufferAction() {
+	last, err := e.ActionStack.Pop()
 	if err != nil {
 		if errors.Is(err, EmptyStack) {
 			e.SetStateClean()
 		}
 		return
 	}
-
 	switch last.Type {
-	case EditorActionType_Insert:
-		e.Content = append(e.Content[:last.Idx], e.Content[last.Idx+len(last.Data):]...)
-	case EditorActionType_Delete:
+	case BufferActionType_Insert:
+		e.RemoveRange(last.Idx, last.Idx+len(last.Data), false)
+	case BufferActionType_Delete:
 		e.Content = append(e.Content[:last.Idx], append(last.Data, e.Content[last.Idx:]...)...)
 	}
 	e.SetStateDirty()
@@ -675,6 +672,45 @@ func (e *Buffer) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, ma
 	}
 }
 
+func (e *Buffer) AddBytesAtIndex(data []byte, idx int, addBufferAction bool) {
+	if idx >= len(e.Content) {
+		e.Content = append(e.Content, data...)
+	} else {
+		e.Content = append(e.Content[:idx], append(data, e.Content[idx:]...)...)
+	}
+	if addBufferAction {
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Insert,
+			Idx:  idx,
+			Data: data,
+		})
+	}
+}
+
+func (e *Buffer) RemoveRange(start int, end int, addBufferAction bool) {
+	if start < 0 {
+		start = 0
+	}
+	if end >= len(e.Content) {
+		end = len(e.Content)
+	}
+	rangeData := e.Content[start:end]
+	if len(e.Content) <= end {
+		e.Content = e.Content[:start]
+	} else {
+		e.Content = append(e.Content[:start], e.Content[end:]...)
+	}
+	if addBufferAction {
+
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Delete,
+			Idx:  start,
+			Data: rangeData,
+		})
+	}
+
+}
+
 func (e *Buffer) getLineNumbersMaxLength() int {
 	return len(fmt.Sprint(len(e.View.Lines))) + 1
 }
@@ -712,7 +748,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 		if e.cfg.LineNumbers {
 			posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 		}
-		
+
 		posY := int32(i-int(e.View.StartLine))*int32(charSize.Y) + int32(zeroLocation.Y)
 		if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 			continue
@@ -889,8 +925,8 @@ func (e *Buffer) deleteSelectionsIfAnySelection() {
 		if sel.Start() == sel.End() {
 			continue
 		}
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Delete,
 			Idx:  sel.Start(),
 			Data: e.Content[sel.Start() : sel.End()+1],
 		})
@@ -922,7 +958,20 @@ func (e *Buffer) findIndexPositionInTokens(idx int) int {
 	return -1
 }
 
-func (e *Buffer) sortSelections() {
+func (e *Buffer) findClosestLeftTokenToIndex(idx int) int {
+	var closestTokenIndex int
+	for i, t := range e.Tokens {
+		if t.Start <= idx && t.End <= idx {
+			if t.Start > e.Tokens[closestTokenIndex].Start {
+				closestTokenIndex = i
+			}
+		}
+	}
+
+	return closestTokenIndex
+}
+
+func (e *Buffer) sortCursors() {
 	sortme(e.Cursors, func(t1 Cursor, t2 Cursor) bool {
 		return t1.Start() < t2.Start()
 	})
@@ -945,7 +994,7 @@ func (e *Buffer) removeDuplicateSelectionsAndSort() {
 		e.Cursors = append(e.Cursors, Cursor{Point: start, Mark: end})
 	}
 
-	e.sortSelections()
+	e.sortCursors()
 }
 
 func (e *Buffer) moveRight(s *Cursor, n int) {

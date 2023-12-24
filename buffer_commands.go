@@ -17,19 +17,7 @@ func InsertChar(e *Buffer, char byte) error {
 	e.deleteSelectionsIfAnySelection()
 	for i := range e.Cursors {
 		e.moveRight(&e.Cursors[i], i*1)
-
-		if e.Cursors[i].Start() >= len(e.Content) { // end of file, appending
-			e.Content = append(e.Content, char)
-
-		} else {
-			e.Content = append(e.Content[:e.Cursors[i].Start()+1], e.Content[e.Cursors[i].End():]...)
-			e.Content[e.Cursors[i].Start()] = char
-		}
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
-			Idx:  e.Cursors[i].Start(),
-			Data: []byte{char},
-		})
+		e.AddBytesAtIndex([]byte{char}, e.Cursors[i].Point, true)
 		e.moveRight(&e.Cursors[i], 1)
 	}
 	e.SetStateDirty()
@@ -42,34 +30,12 @@ func DeleteCharBackward(e *Buffer) error {
 		return nil
 	}
 	e.removeDuplicateSelectionsAndSort()
-
 	e.deleteSelectionsIfAnySelection()
 	for i := range e.Cursors {
 		e.moveLeft(&e.Cursors[i], i*1)
-
-		switch {
-		case e.Cursors[i].Start() == 0:
-			continue
-		case e.Cursors[i].Start() < len(e.Content):
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  e.Cursors[i].Start() - 1,
-				Data: []byte{e.Content[e.Cursors[i].Start()-1]},
-			})
-			e.Content = append(e.Content[:e.Cursors[i].Start()-1], e.Content[e.Cursors[i].Start():]...)
-		case e.Cursors[i].Start() == len(e.Content):
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  e.Cursors[i].Start() - 1,
-				Data: []byte{e.Content[e.Cursors[i].Start()-1]},
-			})
-			e.Content = e.Content[:e.Cursors[i].Start()-1]
-		}
-
+		e.RemoveRange(e.Cursors[i].Point-1, e.Cursors[i].Point, true)
 		e.moveLeft(&e.Cursors[i], 1)
-
 	}
-
 	e.SetStateDirty()
 	return nil
 }
@@ -81,18 +47,11 @@ func DeleteCharForward(e *Buffer) error {
 	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
 	for i := range e.Cursors {
-		if len(e.Content) > e.Cursors[i].Start()+1 {
-			e.moveLeft(&e.Cursors[i], i*1)
-			//e.AddUndoAction(EditorAction{
-			//	Type: EditorActionType_Delete,
-			//	Idx:  e.Cursors[i].Start(),
-			//	Data: []byte{e.Content[e.Cursors[i].Start()]},
-			//})
-			e.Content = append(e.Content[:e.Cursors[i].Start()], e.Content[e.Cursors[i].Start()+1:]...)
-			e.SetStateDirty()
-		}
+		e.moveLeft(&e.Cursors[i], i*1)
+		e.RemoveRange(e.Cursors[i].Point, e.Cursors[i].Point+1, true)
 	}
 
+	e.SetStateDirty()
 	return nil
 }
 
@@ -104,7 +63,7 @@ func DeleteWordBackward(e *Buffer) {
 
 	for i := range e.Cursors {
 		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Point)
+		tokenPos := e.findClosestLeftTokenToIndex(cur.Point)
 		if tokenPos == -1 {
 			continue
 		}
@@ -113,21 +72,7 @@ func DeleteWordBackward(e *Buffer) {
 			start = e.Tokens[tokenPos-1].Start
 		}
 		old := len(e.Content)
-		if len(e.Content) > cur.Start()+1 {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  start,
-				Data: e.Content[start:cur.Start()],
-			})
-			e.Content = append(e.Content[:start], e.Content[cur.Start():]...)
-		} else {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  start,
-				Data: e.Content[start:],
-			})
-			e.Content = e.Content[:start]
-		}
+		e.RemoveRange(start, cur.Point, true)
 		cur.SetBoth(cur.Point + (len(e.Content) - old))
 	}
 
@@ -510,26 +455,10 @@ func Write(e *Buffer) error {
 
 func Indent(e *Buffer) error {
 	e.removeDuplicateSelectionsAndSort()
-
 	for i := range e.Cursors {
 		e.moveRight(&e.Cursors[i], i*e.fileType.TabSize)
-		if e.Cursors[i].Start() >= len(e.Content) { // end of file, appending
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Insert,
-				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
-			})
-			e.Content = append(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize))...)
-		} else {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Insert,
-				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
-			})
-			e.Content = append(e.Content[:e.Cursors[i].Start()], append([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Content[e.Cursors[i].Start():]...)...)
-		}
+		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Cursors[i].Point, true)
 		e.moveRight(&e.Cursors[i], e.fileType.TabSize)
-
 	}
 	e.SetStateDirty()
 
@@ -546,13 +475,7 @@ func KillLine(e *Buffer) error {
 		old := len(e.Content)
 		e.moveLeft(cur, lastChange)
 		line := e.getBufferLineForIndex(cur.Start())
-		WriteToClipboard(e.Content[cur.Start():line.endIndex])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  cur.Start(),
-			Data: e.Content[cur.Start():line.endIndex],
-		})
-		e.Content = append(e.Content[:cur.Start()], e.Content[line.endIndex:]...)
+		e.RemoveRange(cur.Point, line.endIndex, true)
 		lastChange += -1 * (len(e.Content) - old)
 	}
 	e.SetStateDirty()
@@ -584,8 +507,8 @@ func Cut(e *Buffer) error {
 	if cur.Start() != cur.End() {
 		// Copy selection
 		WriteToClipboard(e.Content[cur.Start():cur.End()])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Delete,
 			Idx:  cur.Start(),
 			Data: e.Content[cur.Start():cur.End()],
 		})
@@ -593,8 +516,8 @@ func Cut(e *Buffer) error {
 	} else {
 		line := e.getBufferLineForIndex(cur.Start())
 		WriteToClipboard(e.Content[line.startIndex : line.endIndex+1])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Delete,
 			Idx:  line.startIndex,
 			Data: e.Content[line.startIndex:line.endIndex],
 		})
@@ -613,15 +536,15 @@ func Paste(e *Buffer) error {
 	contentToPaste := GetClipboardContent()
 	cur := e.Cursors[0]
 	if cur.Start() >= len(e.Content) { // end of file, appending
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Insert,
 			Idx:  cur.Start(),
 			Data: contentToPaste,
 		})
 		e.Content = append(e.Content, contentToPaste...)
 	} else {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
+		e.AddBufferAction(BufferAction{
+			Type: BufferActionType_Insert,
 			Idx:  cur.Start(),
 			Data: contentToPaste,
 		})
