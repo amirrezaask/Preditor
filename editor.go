@@ -161,7 +161,7 @@ func (t *Editor) calculateHighlights(bs []byte, offset int) []highlight {
 		for _, index := range indexes {
 			highlights = append(highlights, highlight{
 				start: index[0] + offset,
-				end:   index[1] + offset,
+				end:   index[1] + offset - 1,
 				Color: c,
 			})
 		}
@@ -186,7 +186,7 @@ func (t *Editor) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 		for i, h := range hs {
 			if i == len(hs)-1 && h.end != end {
 				missing = append(missing, highlight{
-					start: h.end,
+					start: h.end + 1,
 					end:   end,
 					Color: t.Colors.Foreground,
 				})
@@ -448,15 +448,14 @@ func (t *Editor) renderText() {
 			}
 
 			if t.EnableSyntaxHighlighting {
-				var last float32
 				for _, h := range line.Highlights {
+
 					rl.DrawTextEx(font,
-						string(t.Content[h.start:h.end]),
-						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + last*charSize.X, Y: float32(idx) * charSize.Y},
+						string(t.Content[h.start:h.end+1]),
+						rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
 						fontSize,
 						0,
 						h.Color)
-					last = float32(h.end - h.start)
 				}
 			} else {
 				rl.DrawTextEx(font,
@@ -932,8 +931,6 @@ func (t *Editor) MoveCursorTo(pos rl.Vector2) error {
 	if t.Cursor.Column > t.visualLines[t.Cursor.Line].Length {
 		t.Cursor.Column = t.visualLines[t.Cursor.Line].Length
 	}
-
-	fmt.Printf("moving cursor to: %+v\n", t.Cursor)
 
 	return nil
 }

@@ -24,7 +24,7 @@ func initFileTypes(cfg Colors) {
 				return nil
 			},
 			ColorGroups: map[*regexp.Regexp]color.RGBA{
-				regexp.MustCompile("(func|if|package|import)"): cfg.SyntaxKeyword,
+				regexp.MustCompile("(func|if|package|import|type|struct)"): cfg.SyntaxKeyword,
 			},
 		},
 	}
