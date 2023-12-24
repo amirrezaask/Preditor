@@ -1174,6 +1174,68 @@ func DeleteWordBackward(e *Buffer) {
 	e.SetStateDirty()
 }
 
+func Indent(e *Buffer) error {
+	e.removeDuplicateSelectionsAndSort()
+	for i := range e.Cursors {
+		e.moveRight(&e.Cursors[i], i*e.fileType.TabSize)
+		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Cursors[i].Point, true)
+		e.moveRight(&e.Cursors[i], e.fileType.TabSize)
+	}
+	e.SetStateDirty()
+
+	return nil
+}
+
+func KillLine(e *Buffer) error {
+	if e.Readonly || len(e.Cursors) > 1 {
+		return nil
+	}
+	var lastChange int
+	for i := range e.Cursors {
+		cur := &e.Cursors[i]
+		old := len(e.Content)
+		e.moveLeft(cur, lastChange)
+		line := e.getBufferLineForIndex(cur.Start())
+		e.RemoveRange(cur.Point, line.endIndex, true)
+		lastChange += -1 * (len(e.Content) - old)
+	}
+	e.SetStateDirty()
+
+	return nil
+}
+func Cut(e *Buffer) error {
+	if e.Readonly || len(e.Cursors) > 1 {
+		return nil
+	}
+	cur := &e.Cursors[0]
+	if cur.Start() != cur.End() {
+		// Copy selection
+		WriteToClipboard(e.Content[cur.Start():cur.End()])
+		e.RemoveRange(cur.Start(), cur.End(), true)
+		cur.Mark = cur.Point
+	} else {
+		line := e.getBufferLineForIndex(cur.Start())
+		WriteToClipboard(e.Content[line.startIndex : line.endIndex+1])
+		e.RemoveRange(line.startIndex, line.endIndex, true)
+	}
+	e.SetStateDirty()
+
+	return nil
+}
+
+func Paste(e *Buffer) error {
+	if e.Readonly || len(e.Cursors) > 1 {
+		return nil
+	}
+	e.deleteSelectionsIfAnySelection()
+	contentToPaste := GetClipboardContent()
+	cur := e.Cursors[0]
+	e.AddBytesAtIndex(contentToPaste, cur.Start(), true)
+	e.SetStateDirty()
+	PointRight(e, len(contentToPaste))
+	return nil
+}
+
 func InteractiveGotoLine(e *Buffer) error {
 	doneHook := func(userInput string, c *Context) error {
 		number, err := strconv.Atoi(userInput)
@@ -1548,36 +1610,6 @@ func Write(e *Buffer) error {
 	return nil
 }
 
-func Indent(e *Buffer) error {
-	e.removeDuplicateSelectionsAndSort()
-	for i := range e.Cursors {
-		e.moveRight(&e.Cursors[i], i*e.fileType.TabSize)
-		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Cursors[i].Point, true)
-		e.moveRight(&e.Cursors[i], e.fileType.TabSize)
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-
-func KillLine(e *Buffer) error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	var lastChange int
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		old := len(e.Content)
-		e.moveLeft(cur, lastChange)
-		line := e.getBufferLineForIndex(cur.Start())
-		e.RemoveRange(cur.Point, line.endIndex, true)
-		lastChange += -1 * (len(e.Content) - old)
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-
 func Copy(e *Buffer) error {
 	if len(e.Cursors) > 1 {
 		return nil
@@ -1595,64 +1627,6 @@ func Copy(e *Buffer) error {
 		WriteToClipboard(e.Content[line.startIndex : line.endIndex+1])
 	}
 
-	return nil
-}
-
-func Cut(e *Buffer) error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	cur := &e.Cursors[0]
-	if cur.Start() != cur.End() {
-		// Copy selection
-		WriteToClipboard(e.Content[cur.Start():cur.End()])
-		e.AddBufferAction(BufferAction{
-			Type: BufferActionType_Delete,
-			Idx:  cur.Start(),
-			Data: e.Content[cur.Start():cur.End()],
-		})
-		e.Content = append(e.Content[:cur.Start()], e.Content[cur.End()+1:]...)
-	} else {
-		line := e.getBufferLineForIndex(cur.Start())
-		WriteToClipboard(e.Content[line.startIndex : line.endIndex+1])
-		e.AddBufferAction(BufferAction{
-			Type: BufferActionType_Delete,
-			Idx:  line.startIndex,
-			Data: e.Content[line.startIndex:line.endIndex],
-		})
-		e.Content = append(e.Content[:line.startIndex], e.Content[line.endIndex+1:]...)
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-
-func Paste(e *Buffer) error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	e.deleteSelectionsIfAnySelection()
-	contentToPaste := GetClipboardContent()
-	cur := e.Cursors[0]
-	if cur.Start() >= len(e.Content) { // end of file, appending
-		e.AddBufferAction(BufferAction{
-			Type: BufferActionType_Insert,
-			Idx:  cur.Start(),
-			Data: contentToPaste,
-		})
-		e.Content = append(e.Content, contentToPaste...)
-	} else {
-		e.AddBufferAction(BufferAction{
-			Type: BufferActionType_Insert,
-			Idx:  cur.Start(),
-			Data: contentToPaste,
-		})
-		e.Content = append(e.Content[:cur.Start()], append(contentToPaste, e.Content[cur.Start():]...)...)
-	}
-
-	e.SetStateDirty()
-
-	PointRight(e, len(contentToPaste))
 	return nil
 }
 
