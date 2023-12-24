@@ -143,11 +143,11 @@ const (
 )
 
 func SwitchOrOpenFileInTextBuffer(parent *Preditor, cfg *Config, filename string, startingPos *Position) error {
-	for idx, buf := range parent.Buffers {
+	for _, buf := range parent.Buffers {
 		switch t := buf.(type) {
 		case *TextBuffer:
 			if t.File == filename {
-				parent.ActiveBufferID = idx
+				parent.MarkBufferAsActive(t.ID)
 				if startingPos != nil {
 					t.bufferIndex = t.positionToBufferIndex(*startingPos)
 					t.ScrollIfNeeded()

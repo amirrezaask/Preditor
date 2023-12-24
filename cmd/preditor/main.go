@@ -1,41 +1,11 @@
 package main
 
 import (
-	"flag"
 	"github.com/amirrezaask/preditor"
-	"os"
-	"path"
 )
 
 func main() {
-	var configPath string
-	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".preditor"), "path to config file, defaults to: ~/.preditor")
-	flag.Parse()
-
-	// read config file
-	cfg, err := preditor.ReadConfig(configPath)
-	if err != nil {
-		panic(err)
-	}
-
-	// create editor
-	editor, err := preditor.New(cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	// handle command line argument
-	filename := ""
-	if len(flag.Args()) > 0 {
-		filename = flag.Args()[0]
-	} else {
-		filename, err = os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	err = preditor.SwitchOrOpenFileInTextBuffer(editor, cfg, filename, nil)
+	editor, err := preditor.New()
 	if err != nil {
 		panic(err)
 	}

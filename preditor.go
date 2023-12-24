@@ -2,6 +2,7 @@ package preditor
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/flopp/go-findfont"
@@ -533,7 +534,18 @@ func setupRaylib(cfg *Config) {
 	rl.SetExitKey(0)
 }
 
-func New(cfg *Config) (*Preditor, error) {
+func New() (*Preditor, error) {
+	var configPath string
+	flag.StringVar(&configPath, "cfg", path.Join(os.Getenv("HOME"), ".preditor"), "path to config file, defaults to: ~/.preditor")
+	flag.Parse()
+
+	// read config file
+	cfg, err := ReadConfig(configPath)
+	if err != nil {
+		panic(err)
+	}
+
+	// create editor
 	setupRaylib(cfg)
 	initFileTypes(cfg.Colors)
 
@@ -546,7 +558,8 @@ func New(cfg *Config) (*Preditor, error) {
 		OSWindowHeight: int32(rl.GetRenderHeight()),
 		OSWindowWidth:  int32(rl.GetRenderWidth()),
 	}
-	err := p.LoadFont(cfg.FontName, int32(cfg.FontSize))
+
+	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
 	if err != nil {
 		return nil, err
 	}
@@ -564,6 +577,29 @@ func New(cfg *Config) (*Preditor, error) {
 
 	p.MarkBufferAsActive(scratch.ID)
 	p.GlobalKeymap = GlobalKeymap
+
+	// handle command line argument
+	filename := ""
+	if len(flag.Args()) > 0 {
+		filename = flag.Args()[0]
+		if filename == "-" {
+			//stdin
+			tb, err := NewTextBuffer(p, cfg, "stdin")
+			if err != nil {
+				panic(err)
+			}
+
+			p.AddBuffer(tb)
+			p.MarkBufferAsActive(tb.ID)
+			tb.Readonly = true
+			//TODO: read from stdin stream here
+		} else {
+			err = SwitchOrOpenFileInTextBuffer(p, cfg, filename, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 
 	return p, nil
 }
