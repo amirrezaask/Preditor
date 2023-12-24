@@ -200,6 +200,7 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	t.keymaps = append([]Keymap{}, EditorKeymap)
 	t.SelectionStart = -1
 	t.UndoStack = NewStack[EditorAction](1000)
+	t.TabSize = t.cfg.TabSize
 	var err error
 	if t.File != "" {
 		if _, err = os.Stat(t.File); err == nil {
@@ -1174,7 +1175,17 @@ func (e *TextBuffer) openFileBuffer() {
 	e.parent.Buffers = append(e.parent.Buffers, ofb)
 	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
 }
+func (e *TextBuffer) openFuzzyFilePicker() {
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Cannot get wd: ", err.Error())
+		return
+	}
+	ofb := NewFuzzyFilePickerBuffer(e.parent, e.cfg, dir, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
+	e.parent.Buffers = append(e.parent.Buffers, ofb)
+	e.parent.ActiveBufferIndex = len(e.parent.Buffers) - 1
+}
 func (e *TextBuffer) openBufferSwitcher() {
 	ofb := NewBufferSwitcherBuffer(e.parent, e.cfg, e.MaxHeight, e.MaxWidth, e.ZeroPosition)
 
@@ -1279,6 +1290,11 @@ var EditorKeymap = Keymap{
 	}),
 	Key{K: "o", Alt: true}: makeCommand(func(a *TextBuffer) error {
 		a.openFileBuffer()
+
+		return nil
+	}),
+	Key{K: "o", Alt: true, Shift: true}: makeCommand(func(a *TextBuffer) error {
+		a.openFuzzyFilePicker()
 
 		return nil
 	}),
