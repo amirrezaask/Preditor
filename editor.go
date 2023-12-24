@@ -938,6 +938,7 @@ func (t *Editor) NextLine() error {
 	return t.CursorDown()
 }
 func (t *Editor) indexOfFirstNonLetter(bs []byte) int {
+
 	for idx, b := range bs {
 		if !unicode.IsLetter(rune(b)) {
 			return idx
