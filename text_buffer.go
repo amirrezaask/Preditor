@@ -701,9 +701,7 @@ func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, ma
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
-	if len(e.View.Lines) == 0 {
-		e.calculateVisualLines()
-	}
+	e.calculateVisualLines()
 
 	e.renderStatusbar(zeroLocation, maxH, maxW)
 	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
