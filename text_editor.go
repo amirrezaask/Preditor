@@ -15,23 +15,24 @@ const (
 )
 
 type TextEditor struct {
-	File         string
-	Content      []byte
-	Keymaps      []Keymap
-	Variables    Variables
-	Commands     Commands
-	MaxHeight    int32
-	MaxWidth     int32
-	ZeroPosition rl.Vector2
-	TabSize      int
-	VisibleStart int32
-	VisibleEnd   int32
-	visualLines  []visualLine
-	Cursor       Position
-	maxLine      int32
-	maxColumn    int32
-	Colors       Colors
-	State        int
+	File              string
+	Content           []byte
+	Keymaps           []Keymap
+	Variables         Variables
+	Commands          Commands
+	MaxHeight         int32
+	MaxWidth          int32
+	ZeroPosition      rl.Vector2
+	TabSize           int
+	VisibleStart      int32
+	VisibleEnd        int32
+	visualLines       []visualLine
+	Cursor            Position
+	maxLine           int32
+	maxColumn         int32
+	Colors            Colors
+	State             int
+	RenderLineNumbers bool
 }
 
 func (t *TextEditor) replaceTabsWithSpaces() {
@@ -143,7 +144,7 @@ func (t *TextEditor) calculateVisualLines() {
 				Length:     idx - start,
 				ActualLine: actualLineIndex,
 			}
-	
+
 			t.visualLines = append(t.visualLines, line)
 			totalVisualLines++
 			lineCharCounter = 0
@@ -198,9 +199,21 @@ func (t *TextEditor) visualLineShouldBeRendered(line visualLine) bool {
 
 func (t *TextEditor) renderVisualLine(line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
+	var lineNumberWidth int
+	if t.RenderLineNumbers {
+		lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
+		rl.DrawTextEx(font,
+			fmt.Sprintf("%d", line.ActualLine),
+			rl.Vector2{X: t.ZeroPosition.X, Y: float32(index) * charSize.Y},
+			fontSize,
+			0,
+			t.Colors.LineNumbersForeground)
+
+	}
+
 	rl.DrawTextEx(font,
-		string(t.Content[line.startIndex:line.endIndex+1]),
-		rl.Vector2{X: t.ZeroPosition.X, Y: float32(index) * charSize.Y},
+		fmt.Sprintf("%s", string(t.Content[line.startIndex:line.endIndex+1])),
+		rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(index) * charSize.Y},
 		fontSize,
 		0,
 		t.Colors.Foreground)
