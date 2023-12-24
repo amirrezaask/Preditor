@@ -12,8 +12,7 @@ type BufferSwitcherBuffer struct {
 	maxHeight    int32
 	maxWidth     int32
 	ZeroLocation rl.Vector2
-	Items        []Buffer
-	Selection    int
+	List         ListComponent[Buffer]
 }
 
 func NewBufferSwitcherBuffer(parent *Preditor,
@@ -28,25 +27,53 @@ func NewBufferSwitcherBuffer(parent *Preditor,
 		maxHeight:    maxH,
 		maxWidth:     maxW,
 		ZeroLocation: zeroLocation,
+		List: ListComponent[Buffer]{
+			MaxLine:      int(parent.MaxHeightToMaxLine(maxH)),
+			VisibleStart: 0,
+			VisibleEnd:   int(parent.MaxHeightToMaxLine(maxH)),
+		},
 	}
-	bufferSwitcher.Items = parent.Buffers
 	return bufferSwitcher
 }
 
 func (b *BufferSwitcherBuffer) HandleFontChange() {
+	charSize := measureTextSize(b.parent.Font, ' ', b.parent.FontSize, 0)
+	startOfListY := int32(b.ZeroLocation.Y) + int32(3*(charSize.Y))
+	oldEnd := b.List.VisibleEnd
+	oldStart := b.List.VisibleStart
+	b.List.MaxLine = int(b.parent.MaxHeightToMaxLine(b.maxHeight - startOfListY))
+	b.List.VisibleEnd = int(b.parent.MaxHeightToMaxLine(b.maxHeight - startOfListY))
+	b.List.VisibleStart += (b.List.VisibleEnd - oldEnd)
+
+	if int(b.List.VisibleEnd) >= len(b.List.Items) {
+		b.List.VisibleEnd = len(b.List.Items) - 1
+		b.List.VisibleStart = b.List.VisibleEnd - b.List.MaxLine
+	}
+
+	if b.List.VisibleStart < 0 {
+		b.List.VisibleStart = 0
+		b.List.VisibleEnd = b.List.MaxLine
+	}
+	if b.List.VisibleEnd < 0 {
+		b.List.VisibleStart = 0
+		b.List.VisibleEnd = b.List.MaxLine
+	}
+
+	diff := b.List.VisibleStart - oldStart
+	b.List.Selection += diff
 }
 
 func (b *BufferSwitcherBuffer) Render() {
 	charSize := measureTextSize(b.parent.Font, ' ', b.parent.FontSize, 0)
 
 	//draw list of items
-	for idx, item := range b.Items {
+	for idx, item := range b.List.Items {
 		rl.DrawTextEx(b.parent.Font, item.String(), rl.Vector2{
 			X: b.ZeroLocation.X, Y: b.ZeroLocation.Y + float32(idx)*charSize.Y,
 		}, float32(b.parent.FontSize), 0, b.cfg.Colors.Foreground)
 	}
 	//draw selection
-	rl.DrawRectangle(int32(b.ZeroLocation.X), int32(b.ZeroLocation.Y+float32(float32(b.Selection)*charSize.Y)), b.maxWidth, int32(charSize.Y), rl.Fade(b.cfg.Colors.Selection, 0.3))
+	rl.DrawRectangle(int32(b.ZeroLocation.X), int32(b.ZeroLocation.Y+float32(float32(b.List.Selection)*charSize.Y)), b.maxWidth, int32(charSize.Y), rl.Fade(b.cfg.Colors.Selection, 0.3))
 }
 
 func (b *BufferSwitcherBuffer) String() string {
@@ -55,10 +82,12 @@ func (b *BufferSwitcherBuffer) String() string {
 
 func (b *BufferSwitcherBuffer) SetMaxWidth(w int32) {
 	b.maxWidth = w
+	b.HandleFontChange()
 }
 
 func (b *BufferSwitcherBuffer) SetMaxHeight(h int32) {
 	b.maxHeight = h
+	b.HandleFontChange()
 }
 
 func (b *BufferSwitcherBuffer) GetMaxWidth() int32 {
@@ -76,16 +105,16 @@ func (b *BufferSwitcherBuffer) Keymaps() []Keymap {
 var bufferSwitcherKeymap = Keymap{
 	Key{K: "<enter>"}: func(preditor *Preditor) error {
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
-		preditor.ActiveBufferIndex = buffer.Selection
+		preditor.ActiveBufferIndex = buffer.List.Selection
 
 		return nil
 	},
 	Key{K: "<up>"}: func(preditor *Preditor) error {
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
 
-		buffer.Selection--
-		if buffer.Selection < 0 {
-			buffer.Selection = 0
+		buffer.List.Selection--
+		if buffer.List.Selection < 0 {
+			buffer.List.Selection = 0
 		}
 
 		return nil
@@ -93,9 +122,9 @@ var bufferSwitcherKeymap = Keymap{
 	Key{K: "<down>"}: func(preditor *Preditor) error {
 		buffer := preditor.ActiveBuffer().(*BufferSwitcherBuffer)
 
-		buffer.Selection++
-		if buffer.Selection >= len(buffer.Items) {
-			buffer.Selection = len(buffer.Items) - 1
+		buffer.List.Selection++
+		if buffer.List.Selection >= len(buffer.List.Items) {
+			buffer.List.Selection = len(buffer.List.Items) - 1
 		}
 
 		return nil

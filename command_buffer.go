@@ -64,6 +64,7 @@ func NewCommandBuffer(parent *Preditor,
 }
 
 func (f *CommandBuffer) HandleFontChange() {
+
 }
 
 func (f *CommandBuffer) String() string {
