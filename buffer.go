@@ -19,6 +19,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
+// this a nother test
 func SwitchOrOpenFileInCurrentWindow(parent *Context, cfg *Config, filename string, startingPos *Position) error {
 	return SwitchOrOpenFileInWindow(parent, cfg, filename, startingPos, parent.ActiveWindow())
 }
@@ -26,21 +27,26 @@ func SwitchOrOpenFileInCurrentWindow(parent *Context, cfg *Config, filename stri
 var EditorKeymap Keymap
 var SearchTextBufferKeymap Keymap
 
-func NewBuffer(parent *Context, cfg *Config, filename string) (*BufferView, error) {
+func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *BufferView {
+	buffer := parent.GetBufferByFilename(filename)
+	if buffer == nil {
+		buffer = parent.OpenFileAsBuffer(filename)
+	}
+
+	return NewBufferView(parent, cfg, buffer)
+}
+
+func NewBufferView(parent *Context, cfg *Config, buffer *Buffer) *BufferView {
 	t := BufferView{cfg: cfg}
 	t.parent = parent
-	t.Buffer = parent.GetBufferByFilename(filename)
-	if t.Buffer == nil {
-		t.Buffer = parent.OpenFileAsBuffer(filename)
-	}
+	t.Buffer = buffer
 	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
 		return BufferInsertChar(&t, b)
 	}))
 	t.ActionStack = NewStack[BufferAction](1000)
 	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
 	t.replaceTabsWithSpaces()
-	return &t, nil
-
+	return &t
 }
 
 const (
@@ -114,6 +120,8 @@ type Buffer struct {
 	needParsing bool
 	fileType    FileType
 }
+
+// this is a test
 
 type BufferView struct {
 	BaseDrawable

@@ -79,11 +79,6 @@ type Window struct {
 	Height        float64
 }
 
-type Overlay struct {
-	Active bool
-	*Window
-}
-
 func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
 	if buf := c.GetDrawable(w.DrawableID); buf != nil {
 		buf.Render(zeroLocation, maxHeight, maxWidth)
@@ -921,14 +916,8 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	scratch, err := NewBuffer(p, p.Cfg, "*Scratch*")
-	if err != nil {
-		return nil, err
-	}
-	message, err := NewBuffer(p, p.Cfg, "*Messages*")
-	if err != nil {
-		return nil, err
-	}
+	scratch := NewBufferViewFromFilename(p, p.Cfg, "*Scratch*")
+	message := NewBufferViewFromFilename(p, p.Cfg, "*Messages*")
 	message.Buffer.Readonly = true
 	message.Buffer.Content = append(message.Buffer.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
 
@@ -957,11 +946,7 @@ func New() (*Context, error) {
 		filename = flag.Args()[0]
 		if filename == "-" {
 			//stdin
-			tb, err := NewBuffer(p, cfg, "stdin")
-			if err != nil {
-				panic(err)
-			}
-
+			tb := NewBufferViewFromFilename(p, cfg, "stdin")
 			p.AddDrawable(tb)
 			p.MarkDrawableAsActive(tb.ID)
 			tb.Buffer.Readonly = true
@@ -1054,25 +1039,16 @@ func (c *Context) openThemeSwitcher() {
 }
 
 func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, startingPos *Position, window *Window) error {
-	for _, buf := range parent.Drawables {
-		switch t := buf.(type) {
-		case *BufferView:
-			if t.Buffer.File == filename {
-				window.DrawableID = t.ID
-				t.MoveToPositionInNextRender = startingPos
-				return nil
-			}
-		}
+	buffer := parent.GetBufferByFilename(filename)
+	if buffer == nil {
+		buffer = parent.OpenFileAsBuffer(filename)
 	}
 
-	tb, err := NewBuffer(parent, cfg, filename)
-	if err != nil {
-		return nil
-	}
 
-	parent.AddDrawable(tb)
-	window.DrawableID = tb.ID
-	tb.MoveToPositionInNextRender = startingPos
+	bufferView := NewBufferView(parent, cfg, buffer)
+	parent.AddDrawable(bufferView)
+	window.DrawableID = bufferView.ID
+	bufferView.MoveToPositionInNextRender = startingPos
 	return nil
 }
 

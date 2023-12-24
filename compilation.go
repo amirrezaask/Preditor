@@ -63,17 +63,14 @@ func OpenLocationInCurrentLine(c *Context) error {
 }
 
 func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
-	tb, err := NewBuffer(parent, cfg, bufferName)
-	if err != nil {
-		return nil, err
-	}
+	bufferView := NewBufferViewFromFilename(parent, cfg, bufferName)
 	cwd := parent.getCWD()
 
-	tb.Buffer.Readonly = true
+	bufferView.Buffer.Readonly = true
 	runCompileCommand := func() {
-		tb.Buffer.Content = nil
-		tb.Buffer.Content = append(tb.Buffer.Content, []byte(fmt.Sprintf("Command: %s\n", command))...)
-		tb.Buffer.Content = append(tb.Buffer.Content, []byte(fmt.Sprintf("Dir: %s\n", cwd))...)
+		bufferView.Buffer.Content = nil
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Command: %s\n", command))...)
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Dir: %s\n", cwd))...)
 		go func() {
 			segs := strings.Split(command, " ")
 			var args []string
@@ -86,25 +83,25 @@ func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string,
 			since := time.Now()
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				tb.Buffer.Content = []byte(err.Error())
-				tb.Buffer.Content = append(tb.Buffer.Content, '\n')
+				bufferView.Buffer.Content = []byte(err.Error())
+				bufferView.Buffer.Content = append(bufferView.Buffer.Content, '\n')
 			}
-			tb.Buffer.Content = append(tb.Buffer.Content, output...)
-			tb.Buffer.Content = append(tb.Buffer.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, output...)
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
 
 		}()
 
 	}
 
-	tb.keymaps[1].BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) error {
+	bufferView.keymaps[1].BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) error {
 		runCompileCommand()
 
 		return nil
 	}))
-	tb.keymaps[1].BindKey(Key{K: "<enter>"}, OpenLocationInCurrentLine)
+	bufferView.keymaps[1].BindKey(Key{K: "<enter>"}, OpenLocationInCurrentLine)
 
 	runCompileCommand()
-	return tb, nil
+	return bufferView, nil
 }
 
 func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
