@@ -1323,7 +1323,9 @@ func (e *Buffer) Write() error {
 		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize)), []byte("\t"), -1)
 	}
 
-	_ = e.fileType.BeforeSave(e)
+	if e.fileType.BeforeSave != nil {
+		_ = e.fileType.BeforeSave(e)
+	}
 
 	if err := os.WriteFile(e.File, e.Content, 0644); err != nil {
 		return err
@@ -1331,7 +1333,10 @@ func (e *Buffer) Write() error {
 	e.SetStateClean()
 	e.replaceTabsWithSpaces()
 	e.calculateVisualLines()
-	_ = e.fileType.AfterSave(e)
+	if e.fileType.AfterSave != nil {
+		_ = e.fileType.AfterSave(e)
+
+	}
 
 	return nil
 }
