@@ -242,15 +242,33 @@ func (t *EditorBuffer) renderSelection() {
 		return
 	}
 
-	fmt.Println("rendering selection ===============")
-	startLine := min(t.SelectionStart.Line, t.Cursor.Line)
-	startColumn := min(t.SelectionStart.Column, t.Cursor.Column)
-	endLine := max(t.SelectionStart.Line, t.Cursor.Line)
-	endColumn := max(t.SelectionStart.Column, t.Cursor.Column)
-	fmt.Println("startline", startLine)
-	fmt.Println("startcol", startColumn)
-	fmt.Println("endline", endLine)
-	fmt.Println("endcol", endColumn)
+	var startLine int
+	var startColumn int
+	var endLine int
+	var endColumn int
+	switch {
+	case t.SelectionStart.Line < t.Cursor.Line:
+		startLine = t.SelectionStart.Line
+		startColumn = t.SelectionStart.Column
+		endLine = t.Cursor.Line
+		endColumn = t.Cursor.Column
+	case t.Cursor.Line < t.SelectionStart.Line:
+		startLine = t.Cursor.Line
+		startColumn = t.Cursor.Column
+		endLine = t.SelectionStart.Line
+		endColumn = t.SelectionStart.Column
+	case t.Cursor.Line == t.SelectionStart.Line:
+		startLine = t.Cursor.Line
+		endLine = t.Cursor.Line
+		if t.SelectionStart.Column > t.Cursor.Column {
+			startColumn = t.Cursor.Column
+			endColumn = t.SelectionStart.Column
+		} else {
+			startColumn = t.SelectionStart.Column
+			endColumn = t.Cursor.Column
+		}
+
+	}
 
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
@@ -261,28 +279,31 @@ func (t *EditorBuffer) renderSelection() {
 		var thisLineEnd int
 		var thisLineStart int
 		line := t.visualLines[i]
-		if startLine == endLine {
-			thisLineEnd = endColumn
+		if i == startLine {
 			thisLineStart = startColumn
 		} else {
+			thisLineStart = 0
+		}
+
+		if i < endLine {
 			thisLineEnd = line.Length - 1
+		} else {
+			thisLineEnd = endColumn
 		}
 		for j := thisLineStart; j <= thisLineEnd; j++ {
-			posX := int32(j-line.startIndex)*int32(charSize.X) + int32(t.ZeroPosition.X)
+			posX := int32(j)*int32(charSize.X) + int32(t.ZeroPosition.X)
 			if t.RenderLineNumbers {
-				if len(t.visualLines) > t.Cursor.Line {
-					posX += int32((len(fmt.Sprint(t.visualLines[t.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
+				if len(t.visualLines) > i {
+					posX += int32((len(fmt.Sprint(t.visualLines[i].ActualLine)) + 1) * int(charSize.X))
 				} else {
 					posX += int32(charSize.X)
 
 				}
 			}
-			fmt.Printf("highlighting line: %d col: %d\n", i, j)
-			rl.DrawRectangle(posX, int32(i)*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.White, 0.5))
+			rl.DrawRectangle(posX, int32(i-int(t.VisibleStart))*int32(charSize.Y)+int32(t.ZeroPosition.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(rl.White, 0.5))
 		}
 	}
 
-	fmt.Println("========================================")
 }
 
 func (t *EditorBuffer) Render() {
@@ -652,7 +673,6 @@ var editorBufferKeymap = Keymap{
 		if editor.HasSelection {
 			editor.HasSelection = !editor.HasSelection
 			editor.SelectionStart = nil
-			fmt.Println("selection", !e.ActiveEditor().HasSelection)
 
 		} else {
 			editor.HasSelection = !editor.HasSelection
@@ -660,7 +680,6 @@ var editorBufferKeymap = Keymap{
 				Line:   editor.Cursor.Line,
 				Column: editor.Cursor.Column,
 			}
-			fmt.Printf("selection : %+v\n", e.ActiveEditor().SelectionStart)
 
 		}
 		return nil

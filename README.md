@@ -11,12 +11,12 @@ Simple text editor implemented in Golang using Raylib with the goal of being a s
 - basic emacs bindings for movements
 - Line numbers
 - Basic status bar to show file name, file state
+- Selecting text
 
 
 ## TODO:
 - Zoom in/out (increase/decrease) font size
 - Copy/paste
-- Selecting a section of text (both mouse and keyboard)
 - Undo
 - Incremental in buffer search
 - Fuzzy file finder
