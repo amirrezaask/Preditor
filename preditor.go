@@ -76,22 +76,21 @@ type Context struct {
 	FontSize          int32
 	OSWindowHeight    float64
 	OSWindowWidth     float64
-	Windows           []*Window
-	WindowLayout      [][]int
+	Windows           [][]*Window
 	ActiveWindowIndex int
 }
 
 func (c *Context) ActiveWindow() *Window {
-	w := c.Windows[c.ActiveWindowIndex]
+	w := c.GetWindow(c.ActiveWindowIndex)
 	return w
 }
 
 func (c *Context) ActiveBuffer() Buffer {
-	bufferid := c.Windows[c.ActiveWindowIndex].BufferID
+	bufferid := c.GetWindow(c.ActiveWindowIndex).BufferID
 	return c.Buffers[bufferid]
 }
 func (c *Context) ActiveBufferID() int {
-	bufferid := c.Windows[c.ActiveWindowIndex].BufferID
+	bufferid := c.GetWindow(c.ActiveWindowIndex).BufferID
 	return bufferid
 }
 
@@ -123,10 +122,20 @@ func (c *Context) AddBuffer(b Buffer) {
 	b.SetID(id)
 }
 
+func (c *Context) windowCount() int {
+	var count int
+	for _, col := range c.Windows {
+		for range col {
+			count++
+		}
+	}
+
+	return count
+}
+
 func (c *Context) AddWindow(w *Window) {
-	c.Windows = append(c.Windows, w)
-	id := len(c.Windows) - 1
-	c.Windows[id].ID = id
+	c.Windows = append(c.Windows, []*Window{w})
+	w.ID = c.windowCount()
 }
 
 func (c *Context) MarkWindowAsActive(id int) {
@@ -250,21 +259,24 @@ func (c *Context) HandleKeyEvents() {
 }
 
 func (c *Context) GetWindow(id int) *Window {
-	if id < 0 || id >= len(c.Windows) {
-		return nil
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if win.ID == id {
+				return win
+			}
+		}
 	}
 
-	return c.Windows[id]
+	return nil
 }
 
 func (c *Context) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(c.Cfg.Colors.Background)
-	for i, column := range c.WindowLayout {
-		columnWidth := c.OSWindowWidth / float64(len(c.WindowLayout))
+	for i, column := range c.Windows {
+		columnWidth := c.OSWindowWidth / float64(len(c.Windows))
 		columnZeroX := float64(i) * float64(columnWidth)
-		for j, winid := range column {
-			win := c.GetWindow(winid)
+		for j, win := range column {
 			if win == nil {
 				continue
 			}
@@ -635,8 +647,7 @@ func New() (*Context, error) {
 		Buffers:        map[int]Buffer{},
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
-		Windows:        []*Window{},
-		WindowLayout:   [][]int{},
+		Windows:        [][]*Window{},
 	}
 
 	err = p.LoadFont(cfg.FontName, int32(cfg.FontSize))
@@ -665,9 +676,6 @@ func New() (*Context, error) {
 
 	p.MarkBufferAsActive(scratch.ID)
 
-	p.WindowLayout = [][]int{
-		{mainWindow.ID},
-	}
 	p.GlobalKeymap = GlobalKeymap
 
 	// handle command line argument
@@ -769,24 +777,17 @@ func (c *Context) openGrepBuffer() {
 func (c *Context) VSplit() {
 	win := &Window{}
 	c.AddWindow(win)
-	activeColID := -1
-	for colid, col := range c.WindowLayout {
-		for _, winid := range col {
-			if winid == c.ActiveWindowIndex {
-				activeColID = colid
-				break
-			}
-		}
-	}
-	if activeColID != -1 {
-		c.WindowLayout = append(c.WindowLayout[:activeColID+1], append([][]int{{win.ID}}, c.WindowLayout[activeColID+1:]...)...)
-	}
+
 }
 
 func (c *Context) OtherWindow() {
-	c.ActiveWindowIndex++
-	if c.ActiveWindowIndex >= len(c.Windows) {
-		c.ActiveWindowIndex = 0
+	for _, col := range c.Windows {
+		for _, win := range col {
+			if win.ID != c.ActiveWindowIndex {
+				c.ActiveWindowIndex = win.ID
+				return
+			}
+		}
 	}
 }
 
@@ -805,18 +806,18 @@ func (c *Context) CloseWindow(id int) {
 	if c.ActiveWindowIndex == id {
 		c.ActiveWindowIndex = 0
 	}
-	for i := 0; i < len(c.WindowLayout); i++ {
+	for i := 0; i < len(c.Windows); i++ {
 		checkCol := -1
-		for j := 0; j < len(c.WindowLayout[i]); j++ {
-			if c.WindowLayout[i][j] == id {
-				c.WindowLayout[i] = removeSliceIndex(c.WindowLayout[i], j)
+		for j := 0; j < len(c.Windows[i]); j++ {
+			if c.Windows[i][j].ID == id {
+				c.Windows[i] = removeSliceIndex(c.Windows[i], j)
 				checkCol = i
 				break
 			}
 		}
 
-		if checkCol != -1 && len(c.WindowLayout[checkCol]) == 0 {
-			c.WindowLayout = removeSliceIndex(c.WindowLayout, checkCol)
+		if checkCol != -1 && len(c.Windows[checkCol]) == 0 {
+			c.Windows = removeSliceIndex(c.Windows, checkCol)
 		}
 
 	}
