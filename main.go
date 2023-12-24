@@ -24,7 +24,7 @@ func main() {
 	editorStatusbarForeground, _ := parseHexColor("#000000")
 
 	// create editor
-	editor := Editor{
+	editor := Application{
 		LineWrapping: true,
 		Colors: Colors{
 			Background:          editorBackground,
@@ -47,7 +47,7 @@ func main() {
 	}
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
-	textEditorBuffer := &TextEditorBuffer{
+	textEditorBuffer := &TextEditor{
 		File:    filename,
 		TabSize: 4,
 	}
@@ -58,7 +58,7 @@ func main() {
 		Colors:       editor.Colors,
 		ZeroPosition: rl.Vector2{},
 	})
-	editor.Buffers = append(editor.Buffers, textEditorBuffer)
+	editor.Editors = append(editor.Editors, textEditorBuffer)
 
 	for !rl.WindowShouldClose() {
 		editor.HandleWindowResize()

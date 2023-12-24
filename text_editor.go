@@ -9,7 +9,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-type TextEditorBuffer struct {
+type TextEditor struct {
 	File         string
 	Content      []byte
 	Keymaps      []Keymap
@@ -28,19 +28,19 @@ type TextEditorBuffer struct {
 	Colors       Colors
 }
 
-func (t *TextEditorBuffer) replaceTabsWithSpaces() {
+func (t *TextEditor) replaceTabsWithSpaces() {
 	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
 }
 
-func (t *TextEditorBuffer) SetMaxWidth(w int32) {
+func (t *TextEditor) SetMaxWidth(w int32) {
 	t.MaxWidth = w
 	t.updateMaxLineAndColumn()
 }
-func (t *TextEditorBuffer) SetMaxHeight(h int32) {
+func (t *TextEditor) SetMaxHeight(h int32) {
 	t.MaxHeight = h
 	t.updateMaxLineAndColumn()
 }
-func (t *TextEditorBuffer) updateMaxLineAndColumn() {
+func (t *TextEditor) updateMaxLineAndColumn() {
 	oldMaxLine := t.maxLine
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	t.maxColumn = t.MaxWidth / int32(charSize.X)
@@ -52,11 +52,11 @@ func (t *TextEditorBuffer) updateMaxLineAndColumn() {
 	diff := t.maxLine - oldMaxLine
 	t.VisibleEnd += diff
 }
-func (t *TextEditorBuffer) Type() string {
+func (t *TextEditor) Type() string {
 	return "text_editor_buffer"
 }
 
-func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
+func (t *TextEditor) Initialize(opts BufferOptions) error {
 	t.MaxHeight = opts.MaxHeight
 	t.MaxWidth = opts.MaxWidth
 	t.ZeroPosition = opts.ZeroPosition
@@ -73,7 +73,7 @@ func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
 	return nil
 }
 
-func (t *TextEditorBuffer) Destroy() error {
+func (t *TextEditor) Destroy() error {
 	return nil
 }
 
@@ -85,7 +85,7 @@ type visualLine struct {
 	Length     int
 }
 
-func (t *TextEditorBuffer) calculateVisualLines(){
+func (t *TextEditor) calculateVisualLines() {
 	t.visualLines = []visualLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
@@ -158,10 +158,22 @@ func (t *TextEditorBuffer) calculateVisualLines(){
 
 }
 
-func (t *TextEditorBuffer) Render() {
+func (t *TextEditor) renderCursor() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
+	// render cursor
+	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
+	cursorView := Position{
+		Line:   t.Cursor.Line - int(t.VisibleStart),
+		Column: t.Cursor.Column,
+	}
+	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X), int32(cursorView.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
+}
+
+func (t *TextEditor) Render() {
+
 	t.calculateVisualLines()
+
 	// fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
 	// loopStart = time.Now()
 	var visibleLines []visualLine
@@ -175,35 +187,12 @@ func (t *TextEditorBuffer) Render() {
 			t.renderVisualLine(line, idx)
 		}
 	}
-	// render cursor
-	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
-	cursorView := Position{
-		Line:   t.Cursor.Line - int(t.VisibleStart),
-		Column: t.Cursor.Column,
-	}
-	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X), int32(cursorView.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
-	//render status bar
-	rl.DrawRectangle(
-		int32(t.ZeroPosition.X),
-		int32(float32(t.maxLine)*charSize.Y),
-		t.MaxWidth,
-		int32(charSize.Y),
-		t.Colors.StatusBarBackground,
-	)
-	file := t.File
-	if file == "" {
-		file = "*scratch*"
-	}
 
-	rl.DrawTextEx(font,
-		string(fmt.Sprintf("%s %d:%d", file, t.Cursor.Line, t.Cursor.Column)),
-		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
-		fontSize,
-		0,
-		t.Colors.StatusBarForeground)
+	t.renderCursor()
+
 }
 
-func (t *TextEditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
+func (t *TextEditor) visualLineShouldBeRendered(line visualLine) bool {
 	if t.VisibleStart <= int32(line.Index) && line.Index <= int(t.VisibleEnd) {
 		return true
 	}
@@ -211,7 +200,7 @@ func (t *TextEditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
 	return false
 }
 
-func (t *TextEditorBuffer) renderVisualLine(line visualLine, index int) {
+func (t *TextEditor) renderVisualLine(line visualLine, index int) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 	rl.DrawTextEx(font,
 		string(t.Content[line.startIndex:line.endIndex+1]),
@@ -222,14 +211,14 @@ func (t *TextEditorBuffer) renderVisualLine(line visualLine, index int) {
 
 }
 
-func (t *TextEditorBuffer) cursorToBufferIndex() int {
+func (t *TextEditor) cursorToBufferIndex() int {
 	if t.Cursor.Line >= len(t.visualLines) {
 		return 0
 	}
 	return t.visualLines[t.Cursor.Line].startIndex + t.Cursor.Column
 }
 
-func (t *TextEditorBuffer) isValidCursorPosition(newPosition Position) bool {
+func (t *TextEditor) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
 	}
@@ -247,7 +236,7 @@ func (t *TextEditorBuffer) isValidCursorPosition(newPosition Position) bool {
 	return true
 }
 
-func (t *TextEditorBuffer) InsertCharAtCursor(char byte) error {
+func (t *TextEditor) InsertCharAtCursor(char byte) error {
 	idx := t.cursorToBufferIndex()
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, char)
@@ -266,7 +255,7 @@ func (t *TextEditorBuffer) InsertCharAtCursor(char byte) error {
 
 }
 
-func (t *TextEditorBuffer) DeleteCharBackward() error {
+func (t *TextEditor) DeleteCharBackward() error {
 	idx := t.cursorToBufferIndex()
 	if idx <= 0 {
 		return nil
@@ -283,7 +272,7 @@ func (t *TextEditorBuffer) DeleteCharBackward() error {
 
 }
 
-func (t *TextEditorBuffer) DeleteCharForeward() error {
+func (t *TextEditor) DeleteCharForeward() error {
 	idx := t.cursorToBufferIndex()
 	if idx < 0 || t.Cursor.Column < 0 {
 		return nil
@@ -293,7 +282,7 @@ func (t *TextEditorBuffer) DeleteCharForeward() error {
 	return nil
 }
 
-func (t *TextEditorBuffer) ScrollUp(n int) error {
+func (t *TextEditor) ScrollUp(n int) error {
 	if t.VisibleStart <= 0 {
 		return nil
 	}
@@ -311,7 +300,7 @@ func (t *TextEditorBuffer) ScrollUp(n int) error {
 
 }
 
-func (t *TextEditorBuffer) ScrollDown(n int) error {
+func (t *TextEditor) ScrollDown(n int) error {
 	if int(t.VisibleEnd) >= len(t.visualLines) {
 		return nil
 	}
@@ -327,7 +316,7 @@ func (t *TextEditorBuffer) ScrollDown(n int) error {
 
 }
 
-func (t *TextEditorBuffer) CursorLeft() error {
+func (t *TextEditor) CursorLeft() error {
 	newPosition := t.Cursor
 	newPosition.Column--
 	if t.Cursor.Column <= 0 {
@@ -350,7 +339,7 @@ func (t *TextEditorBuffer) CursorLeft() error {
 
 }
 
-func (t *TextEditorBuffer) CursorRight() error {
+func (t *TextEditor) CursorRight() error {
 	newPosition := t.Cursor
 	newPosition.Column++
 	lineColumns := t.visualLines[t.Cursor.Line].Length + 1
@@ -370,7 +359,7 @@ func (t *TextEditorBuffer) CursorRight() error {
 
 }
 
-func (t *TextEditorBuffer) CursorUp() error {
+func (t *TextEditor) CursorUp() error {
 	newPosition := t.Cursor
 	newPosition.Line--
 
@@ -390,7 +379,7 @@ func (t *TextEditorBuffer) CursorUp() error {
 
 }
 
-func (t *TextEditorBuffer) CursorDown() error {
+func (t *TextEditor) CursorDown() error {
 	newPosition := t.Cursor
 	newPosition.Line++
 
@@ -411,7 +400,7 @@ func (t *TextEditorBuffer) CursorDown() error {
 
 }
 
-func (t *TextEditorBuffer) BeginingOfTheLine() error {
+func (t *TextEditor) BeginingOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = 0
 	if t.isValidCursorPosition(newPosition) {
@@ -421,7 +410,7 @@ func (t *TextEditorBuffer) BeginingOfTheLine() error {
 
 }
 
-func (t *TextEditorBuffer) EndOfTheLine() error {
+func (t *TextEditor) EndOfTheLine() error {
 	newPosition := t.Cursor
 	newPosition.Column = t.visualLines[t.Cursor.Line].Length
 	if int32(newPosition.Column) < t.maxColumn {
@@ -434,15 +423,15 @@ func (t *TextEditorBuffer) EndOfTheLine() error {
 
 }
 
-func (t *TextEditorBuffer) PreviousLine() error {
+func (t *TextEditor) PreviousLine() error {
 	return t.CursorUp()
 }
 
-func (t *TextEditorBuffer) NextLine() error {
+func (t *TextEditor) NextLine() error {
 	return t.CursorDown()
 }
 
-func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
+func (t *TextEditor) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
 
 	apprColumn := pos.X / charSize.X
@@ -455,9 +444,8 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	t.Cursor.Line = int(apprLine) + int(t.VisibleStart)
 	t.Cursor.Column = int(apprColumn)
 
-
-	if t.Cursor.Line > len(t.visualLines) {
-		t.Cursor.Line = len(t.visualLines)
+	if t.Cursor.Line >= len(t.visualLines) {
+		t.Cursor.Line = len(t.visualLines) - 1
 	}
 
 	// check if cursor should be moved back
@@ -470,7 +458,7 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 
-func (t *TextEditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
+func (t *TextEditor) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
 	t.Cursor = pos
 
 	if t.Cursor.Line == int(t.VisibleStart-1) {
@@ -486,7 +474,7 @@ func (t *TextEditorBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) e
 	return nil
 }
 
-func (t *TextEditorBuffer) Write() error {
+func (t *TextEditor) Write() error {
 	if t.File == "" {
 		return nil
 	}
@@ -498,5 +486,5 @@ func (t *TextEditorBuffer) Write() error {
 	return nil
 }
 
-func (t *TextEditorBuffer) GetMaxHeight() int32 { return t.MaxHeight }
-func (t *TextEditorBuffer) GetMaxWidth() int32  { return t.MaxWidth }
+func (t *TextEditor) GetMaxHeight() int32 { return t.MaxHeight }
+func (t *TextEditor) GetMaxWidth() int32  { return t.MaxWidth }

@@ -16,18 +16,6 @@ type BufferOptions struct {
 	Colors       Colors
 }
 
-type Buffer interface {
-	Type() string
-	Initialize(BufferOptions) error
-	SetMaxWidth(w int32)
-	GetMaxWidth() int32
-	SetMaxHeight(h int32)
-	GetMaxHeight() int32
-	Render()
-	Destroy() error
-	MoveCursorTo(rl.Vector2) error
-}
-
 type Colors struct {
 	Background          color.RGBA
 	Foreground          color.RGBA
@@ -37,9 +25,9 @@ type Colors struct {
 	StatusBarForeground color.RGBA
 }
 
-type Editor struct {
-	Buffers           []Buffer
-	ActiveBufferIndex int
+type Application struct {
+	Editors           []*TextEditor
+	ActiveEditorIndex int
 	GlobalKeymaps     []Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -47,11 +35,11 @@ type Editor struct {
 	Colors            Colors
 }
 
-func (e *Editor) ActiveBuffer() Buffer {
-	return e.Buffers[e.ActiveBufferIndex]
+func (e *Application) ActiveEditor() *TextEditor {
+	return e.Editors[e.ActiveEditorIndex]
 }
 
-type Command func(*Editor) error
+type Command func(*Application) error
 type Variables map[string]any
 type Key struct {
 	Control bool
@@ -102,8 +90,7 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 	return
 }
 
-
-func (e *Editor) HandleKeyEvents() {
+func (e *Application) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
 		cmd := defaultKeymap[key]
@@ -114,24 +101,48 @@ func (e *Editor) HandleKeyEvents() {
 
 }
 
-func (e *Editor) Render() {
+func (e *Application) renderStatusBar() {
+	t := e.ActiveEditor()
+	charSize := measureTextSize(font, ' ', fontSize, 0)
+
+	//render status bar
+	rl.DrawRectangle(
+		int32(t.ZeroPosition.X),
+		t.maxLine*int32(charSize.Y),
+		t.MaxWidth,
+		int32(charSize.Y),
+		t.Colors.StatusBarBackground,
+	)
+	file := t.File
+	if file == "" {
+		file = "*scratch*"
+	}
+
+	rl.DrawTextEx(font,
+		fmt.Sprintf("%s %d:%d", file, t.Cursor.Line, t.Cursor.Column),
+		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
+		fontSize,
+		0,
+		t.Colors.StatusBarForeground)
+}
+
+func (e *Application) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
 
-	e.ActiveBuffer().Render()
+	e.ActiveEditor().Render()
+	e.renderStatusBar()
 
 	rl.EndDrawing()
 
 }
 
-
-func (e *Editor) HandleWindowResize() {
+func (e *Application) HandleWindowResize() {
 	height := rl.GetRenderHeight()
 	width := rl.GetRenderWidth()
 
-	
 	// window is resized
-	for _, buffer := range e.Buffers {
+	for _, buffer := range e.Editors {
 		if buffer.GetMaxWidth() != int32(width) {
 			buffer.SetMaxWidth(int32(width))
 		}
@@ -143,7 +154,7 @@ func (e *Editor) HandleWindowResize() {
 	}
 }
 
-func (e *Editor) HandleMouseEvents() {
+func (e *Application) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
 		cmd := defaultKeymap[key]
