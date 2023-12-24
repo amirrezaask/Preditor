@@ -27,6 +27,7 @@ import (
 
 var BufferKeymap = Keymap{}
 var ISearchKeymap = Keymap{}
+var QueryReplaceKeymap = Keymap{}
 var CompileKeymap = Keymap{}
 
 func BufferOpenLocationInCurrentLine(c *Context) {
@@ -292,6 +293,15 @@ type Buffer struct {
 	fileType    FileType
 }
 
+type QueryReplace struct {
+	IsQueryReplace            bool
+	SearchString              string
+	ReplaceString             string
+	SearchMatches             [][]int
+	CurrentMatch              int
+	MovedAwayFromCurrentMatch bool
+}
+
 type BufferView struct {
 	BaseDrawable
 	Buffer                     *Buffer
@@ -313,6 +323,8 @@ type BufferView struct {
 
 	// Searching
 	ISearch ISearch
+
+	QueryReplace QueryReplace
 
 	LastCompileCommand string
 
@@ -563,17 +575,6 @@ func (e *BufferView) RemoveRange(start int, end int, addBufferAction bool) {
 	}
 
 }
-func (e *BufferView) WordAtPoint(curIndex int) (int, int) {
-	return -1, -1
-}
-
-func (e *BufferView) WordLeftEnd(cursor int) int {
-	return -1
-}
-
-func (e *BufferView) WordRightStart(cursor int) int {
-	return -1
-}
 
 func (e *BufferView) getLineNumbersMaxLength() int {
 	return len(fmt.Sprint(len(e.bufferLines))) + 1
@@ -714,10 +715,6 @@ func matchPatternAsync(dst *[][]int, data []byte, pattern []byte) {
 	}()
 }
 
-func (e *BufferView) findMatches(pattern string) {
-	e.ISearch.SearchMatches = [][]int{}
-	matchPatternAsync(&e.ISearch.SearchMatches, e.Buffer.Content, []byte(pattern))
-}
 func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
 	var highlights []highlight
 	parser := sitter.NewParser()
@@ -778,7 +775,10 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.maxColumn = int32(maxW / float64(charSize.X))
 	e.maxLine = int32(maxH / float64(charSize.Y))
 	e.maxLine-- //reserve one line of screen for statusbar
-
+	textZeroLocation := zeroLocation
+	if e.ISearch.IsSearching || e.QueryReplace.IsQueryReplace {
+		textZeroLocation.Y += charSize.Y
+	}
 	if e.Buffer.needParsing || len(e.Buffer.Content) != oldBufferContentLen || (e.maxLine != oldMaxLine) || (e.maxColumn != oldMaxColumn) {
 		e.bufferLines = []BufferLine{}
 		totalVisualLines := 0
@@ -891,6 +891,8 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			float32(e.parent.FontSize),
 			0,
 			fg)
+
+		textZeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 		zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 
 	}
@@ -910,52 +912,9 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.Buffer.needParsing = false
 	}
 
-	var visibleLines []BufferLine
-	if e.VisibleStart < 0 {
-		e.VisibleStart = 0
-	}
-
-	if e.VisibleEnd() > int32(len(e.bufferLines)) {
-		visibleLines = e.bufferLines[e.VisibleStart:]
-	} else {
-		visibleLines = e.bufferLines[e.VisibleStart:e.VisibleEnd()]
-	}
-
-	//TODO: @Perf we should check and re render if view has changed or buffer lines has changed
-	for idx, line := range visibleLines {
-		if e.cfg.LineNumbers {
-			rl.DrawTextEx(e.parent.Font,
-				fmt.Sprintf("%d", line.ActualLine),
-				rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
-				float32(e.parent.FontSize),
-				0,
-				e.cfg.CurrentThemeColors().LineNumbersForeground.ToColorRGBA())
-		}
-		e.renderTextRange(zeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
-	}
-	if e.cfg.EnableSyntaxHighlighting {
-		if len(e.bufferLines) > 0 {
-			visibleStartChar := e.bufferLines[e.VisibleStart].startIndex
-
-			var visibleEndChar int
-			if len(e.bufferLines) > int(e.VisibleEnd()) {
-				visibleEndChar = e.bufferLines[e.VisibleEnd()].endIndex
-			} else {
-				visibleEndChar = len(e.Buffer.Content)
-			}
-
-			for _, h := range e.Buffer.highlights {
-				if visibleStartChar <= h.start && visibleEndChar >= h.end {
-					e.renderTextRange(zeroLocation, h.start, h.end, maxH, maxW, h.Color)
-				}
-			}
-		}
-	}
-
 	if e.ISearch.IsSearching {
-
 		if e.ISearch.SearchString != e.ISearch.LastSearchString && e.ISearch.SearchString != "" {
-			e.findMatches(e.ISearch.SearchString)
+			matchPatternAsync(&e.ISearch.SearchMatches, e.Buffer.Content, []byte(e.ISearch.SearchString))
 		}
 		for idx, match := range e.ISearch.SearchMatches {
 			if idx == e.ISearch.CurrentMatch {
@@ -971,7 +930,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 
 				}
 			}
-			e.highlightBetweenTwoIndexes(zeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
+			e.highlightBetweenTwoIndexes(textZeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
 		e.ISearch.LastSearchString = e.ISearch.SearchString
 		if len(e.ISearch.SearchMatches) > 0 {
@@ -988,6 +947,80 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 
 	}
 
+	//QueryReplace
+	if e.QueryReplace.IsQueryReplace {
+		for idx, match := range e.QueryReplace.SearchMatches {
+			if idx == e.QueryReplace.CurrentMatch {
+				matchStartLine := e.BufferIndexToPosition(match[0])
+				matchEndLine := e.BufferIndexToPosition(match[0])
+				if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd() > int32(matchEndLine.Line)) && !e.ISearch.MovedAwayFromCurrentMatch {
+					// current match is not in view
+					// move the view
+					e.VisibleStart = int32(matchStartLine.Line) - e.maxLine/2
+					if e.VisibleStart < 0 {
+						e.VisibleStart = int32(matchStartLine.Line)
+					}
+
+				}
+			}
+			e.highlightBetweenTwoIndexes(textZeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
+		}
+		if len(e.QueryReplace.SearchMatches) > 0 {
+			e.Cursors = e.Cursors[:1]
+			e.Cursors[0].Point = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
+			e.Cursors[0].Mark = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
+		}
+
+		rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
+		rl.DrawTextEx(e.parent.Font, fmt.Sprintf("QueryReplace: %s -> %s", e.QueryReplace.SearchString, e.QueryReplace.ReplaceString), rl.Vector2{
+			X: zeroLocation.X,
+			Y: zeroLocation.Y,
+		}, float32(e.parent.FontSize), 0, rl.White)
+
+	}
+
+	var visibleLines []BufferLine
+	if e.VisibleStart < 0 {
+		e.VisibleStart = 0
+	}
+
+	if e.VisibleEnd() > int32(len(e.bufferLines)) {
+		visibleLines = e.bufferLines[e.VisibleStart:]
+	} else {
+		visibleLines = e.bufferLines[e.VisibleStart:e.VisibleEnd()]
+	}
+
+	//TODO: @Perf we should check and re render if view has changed or buffer lines has changed
+	for idx, line := range visibleLines {
+		if e.cfg.LineNumbers {
+			rl.DrawTextEx(e.parent.Font,
+				fmt.Sprintf("%d", line.ActualLine),
+				rl.Vector2{X: textZeroLocation.X, Y: textZeroLocation.Y + float32(idx)*charSize.Y},
+				float32(e.parent.FontSize),
+				0,
+				e.cfg.CurrentThemeColors().LineNumbersForeground.ToColorRGBA())
+		}
+		e.renderTextRange(textZeroLocation, line.startIndex, line.endIndex, maxH, maxW, e.cfg.CurrentThemeColors().Foreground.ToColorRGBA())
+	}
+	if e.cfg.EnableSyntaxHighlighting {
+		if len(e.bufferLines) > 0 {
+			visibleStartChar := e.bufferLines[e.VisibleStart].startIndex
+
+			var visibleEndChar int
+			if len(e.bufferLines) > int(e.VisibleEnd()) {
+				visibleEndChar = e.bufferLines[e.VisibleEnd()].endIndex
+			} else {
+				visibleEndChar = len(e.Buffer.Content)
+			}
+
+			for _, h := range e.Buffer.highlights {
+				if visibleStartChar <= h.start && visibleEndChar >= h.end {
+					e.renderTextRange(textZeroLocation, h.start, h.end, maxH, maxW, h.Color)
+				}
+			}
+		}
+	}
+
 	// render cursors
 	if e.parent.ActiveDrawableID() == e.ID {
 		for _, sel := range e.Cursors {
@@ -997,11 +1030,11 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 					Line:   cursor.Line - int(e.VisibleStart),
 					Column: cursor.Column,
 				}
-				posX := int32(cursorView.Column)*int32(charSize.X) + int32(zeroLocation.X)
+				posX := int32(cursorView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
 				if e.cfg.LineNumbers {
 					posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 				}
-				posY := int32(cursorView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
+				posY := int32(cursorView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
 
 				if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
 					continue
@@ -1019,7 +1052,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 					rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
 				}
 				if e.cfg.CursorLineHighlight {
-					rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
+					rl.DrawRectangle(int32(textZeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(textZeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
 				}
 
 				// highlight matching char
@@ -1031,18 +1064,18 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 							Line:   idxPosition.Line - int(e.VisibleStart),
 							Column: idxPosition.Column,
 						}
-						posX := int32(idxPositionView.Column)*int32(charSize.X) + int32(zeroLocation.X)
+						posX := int32(idxPositionView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
 						if e.cfg.LineNumbers {
 							posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
 						}
-						posY := int32(idxPositionView.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
+						posY := int32(idxPositionView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
 
 						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().HighlightMatching.ToColorRGBA(), 0.4))
 					}
 				}
 
 			} else {
-				e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
+				e.highlightBetweenTwoIndexes(textZeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 			}
 		}
 	}
@@ -1866,7 +1899,6 @@ func ISearchExit(editor *BufferView) error {
 	editor.ISearch.MovedAwayFromCurrentMatch = false
 	return nil
 }
-
 func ISearchNextMatch(editor *BufferView) error {
 	editor.ISearch.CurrentMatch++
 	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
@@ -1886,7 +1918,45 @@ func ISearchPreviousMatch(editor *BufferView) error {
 	}
 	editor.ISearch.MovedAwayFromCurrentMatch = false
 	return nil
+}
 
+func QueryReplaceActivate(bufferView *BufferView) {
+	bufferView.parent.SetPrompt("Query", nil, func(query string, c *Context) {
+		bufferView.parent.SetPrompt("Replace", nil, func(replace string, c *Context) {
+			bufferView.QueryReplace.IsQueryReplace = true
+			bufferView.QueryReplace.SearchString = query
+			bufferView.QueryReplace.ReplaceString = replace
+			bufferView.keymaps.Push(QueryReplaceKeymap)
+			matchPatternAsync(&bufferView.QueryReplace.SearchMatches, bufferView.Buffer.Content, []byte(query))
+		}, nil, "")
+	}, nil, "")
+}
+
+func QueryReplaceReplaceThisMatch(bufferView *BufferView) {
+	match := bufferView.QueryReplace.SearchMatches[bufferView.QueryReplace.CurrentMatch]
+	bufferView.RemoveRange(match[0], match[1]+1, false)
+	bufferView.AddBytesAtIndex([]byte(bufferView.QueryReplace.ReplaceString), match[0], false)
+	bufferView.QueryReplace.CurrentMatch++
+	bufferView.QueryReplace.MovedAwayFromCurrentMatch = false
+	if bufferView.QueryReplace.CurrentMatch >= len(bufferView.QueryReplace.SearchMatches) {
+		QueryReplaceExit(bufferView)
+	}
+}
+func QueryReplaceIgnoreThisMatch(bufferView *BufferView) {
+	bufferView.QueryReplace.CurrentMatch++
+	bufferView.QueryReplace.MovedAwayFromCurrentMatch = false
+	if bufferView.QueryReplace.CurrentMatch >= len(bufferView.QueryReplace.SearchMatches) {
+		QueryReplaceExit(bufferView)
+	}
+}
+func QueryReplaceExit(bufferView *BufferView) {
+	bufferView.QueryReplace.IsQueryReplace = false
+	bufferView.QueryReplace.SearchString = ""
+	bufferView.QueryReplace.ReplaceString = ""
+	bufferView.QueryReplace.SearchMatches = nil
+	bufferView.QueryReplace.CurrentMatch = 0
+	bufferView.QueryReplace.MovedAwayFromCurrentMatch = false
+	bufferView.keymaps.Pop()
 }
 
 func GetClipboardContent() []byte {
