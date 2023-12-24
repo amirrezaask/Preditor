@@ -58,6 +58,7 @@ type Window struct {
 }
 
 func (w *Window) Render(c *Context) {
+
 	c.Buffers[w.BufferID].Render(w.ZeroLocation, w.MaxHeight, w.MaxWidth)
 }
 
@@ -236,6 +237,9 @@ func (c *Context) Render() {
 	rl.ClearBackground(c.Cfg.Colors.Background)
 	for _, win := range c.Windows {
 		win.Render(c)
+		if win.ID == c.ActiveWindowIndex {
+			rl.DrawRectangleLines(int32(win.ZeroLocation.X), int32(win.ZeroLocation.Y), int32(win.MaxWidth), int32(win.MaxHeight), rl.Red)
+		}
 	}
 	rl.EndDrawing()
 }
