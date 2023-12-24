@@ -27,12 +27,26 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Open file with glob completion
 - switch between open files
 
+# Design and Terminology
+
+## Buffers
+Buffers are things that get rendered on screen and handle key events, they are usually made up by composing multiple components, each one have stack of keymaps
+which they use to handle user interactions.
+
+## Components
+Components are things that represent a section in UI and have their own state and logics but they don't handle user interactions and are controllable from buffers.
+
+## Keymaps
+Mapping from a Key event to a function that handles it, specific to each buffer.
+
+
+# Screenshot
+![Main.go](assets/screenshot.png)
+![Open File Menu](assets/files.png)
+
 
 ## TODO:
 - Zoom in/out (increase/decrease) font size
 - Fuzzy file finder
 - Command output buffer ( run a command and see it's result, similar to *Compile Mode* in Emacs)
 
-# Screenshot
-![Main.go](assets/screenshot.png)
-![Open File Menu](assets/files.png)
