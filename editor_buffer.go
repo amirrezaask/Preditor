@@ -715,7 +715,10 @@ var editorBufferKeymap = Keymap{
 	Key{K: "="}:              func(e *Application) error { return insertCharAtCursor(e, '=') },
 	Key{K: "-", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '_') },
 	Key{K: "=", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '+') },
+	Key{K: "`"}:              func(e *Application) error { return insertCharAtCursor(e, '`') },
+	Key{K: "`", Shift: true}: func(e *Application) error { return insertCharAtCursor(e, '~') },
 	Key{K: "<tab>"}:          func(e *Application) error { return e.ActiveEditor().Indent() },
+
 }
 
 func insertCharAtCursor(e *Application, char byte) error {

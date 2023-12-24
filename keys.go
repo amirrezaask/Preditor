@@ -102,6 +102,8 @@ func isPressed(key int32) bool {
 
 func getKeyPressedString() string {
 	switch {
+	case isPressed(rl.KeyApostrophe):
+		return "`"
 	case isPressed(rl.KeySpace):
 		return "<space>"
 	case isPressed(rl.KeyEscape):
