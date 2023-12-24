@@ -14,17 +14,20 @@ func TestSearch(t *testing.T) {
 }
 // func Test_Gotoline(t *testing.T) {}
 
+
+/////////////// These are the buggy ones
 func Test_BufferInsertChar(t *testing.T) {}
+func Test_KillLine(t *testing.T) {} // specially this mf
+func Test_Cut(t *testing.T) {}
+func Test_Paste(t *testing.T) {}
 func Test_DeleteCharBackword(t *testing.T) {}
 func Test_DeleteCharForeward(t *testing.T) {}
+////////////////////////////////////////////////
 func Test_WordAtPoint(t *testing.T) {}
 func Test_LeftWord(t *testing.T) {}
 func Test_RightWord(t *testing.T) {}
 func Test_DeleteWordBackward(t *testing.T) {}
 func Test_Indent(t *testing.T) {}
-func Test_KillLine(t *testing.T) {}
-func Test_Cut(t *testing.T) {}
-func Test_Paste(t *testing.T) {}
 func Test_ScrollUp(t *testing.T) {}
 func Test_ScrollToTop(t *testing.T) {}
 func Test_ScrollToBottom(t *testing.T) {}

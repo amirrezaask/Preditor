@@ -313,6 +313,7 @@ func setupDefaults() {
 	GlobalKeymap.BindKey(Key{K: "=", Control: true}, func(c *Context) { c.IncreaseFontSize(2) })
 	GlobalKeymap.BindKey(Key{K: "-", Control: true}, func(c *Context) { c.DecreaseFontSize(2) })
 	GlobalKeymap.BindKey(Key{K: "w", Alt: true}, func(c *Context) { c.OtherWindow() })
+	GlobalKeymap.BindKey(Key{K:"i", Control: true}, ToggleGlobalNoStatusbar)
 
 	// Search
 	SearchKeymap.BindKey(Key{K: "<enter>"}, MakeCommand(func(editor *BufferView) {
