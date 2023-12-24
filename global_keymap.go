@@ -172,6 +172,7 @@ func MakeInsertionKeys[T Buffer](insertor func(b byte) error) Keymap {
 		Key{K: "`"}:                    MakeCommand(func(e T) error { return insertor('`') }),
 		Key{K: "`", Shift: true}:       MakeCommand(func(e T) error { return insertor('~') }),
 		Key{K: "<space>", Shift: true}: MakeCommand(func(e T) error { return insertor(' ') }),
+		Key{K: "<space>"}:              MakeCommand(func(e T) error { return insertor(' ') }),
 	}
 }
 
