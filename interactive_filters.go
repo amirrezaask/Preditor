@@ -194,7 +194,7 @@ func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredIt
 	}
 	initialList := func() []ScoredItem[Drawable] {
 		var buffers []ScoredItem[Drawable]
-		for _, v := range parent.Buffers {
+		for _, v := range parent.Drawables {
 			buffers = append(buffers, ScoredItem[Drawable]{Item: v})
 		}
 

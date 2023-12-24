@@ -201,7 +201,7 @@ func (e *Buffer) Type() string {
 }
 
 func SwitchOrOpenFileInTextBuffer(parent *Context, cfg *Config, filename string, startingPos *Position) error {
-	for _, buf := range parent.Buffers {
+	for _, buf := range parent.Drawables {
 		switch t := buf.(type) {
 		case *Buffer:
 			if t.File == filename {

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"image/color"
+	"math/rand"
 	"os"
 	"path"
 	"runtime/debug"
@@ -67,7 +68,7 @@ func (b *BaseDrawable) SetID(i int) {
 
 type Window struct {
 	ID            int
-	BufferID      int
+	DrawableID    int
 	ZeroLocationX float64
 	ZeroLocationY float64
 	Width         float64
@@ -80,7 +81,7 @@ type Overlay struct {
 }
 
 func (w *Window) Render(c *Context, zeroLocation rl.Vector2, maxHeight float64, maxWidth float64) {
-	if buf := c.Buffers[w.BufferID]; buf != nil {
+	if buf := c.GetDrawable(w.DrawableID); buf != nil {
 		buf.Render(zeroLocation, maxHeight, maxWidth)
 	}
 }
@@ -111,7 +112,7 @@ type Context struct {
 	Cfg               *Config
 	ScratchBufferID   int
 	MessageBufferID   int
-	Buffers           map[int]Drawable
+	Drawables         []Drawable
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -165,15 +166,14 @@ func (c *Context) ActiveWindow() *Window {
 
 func (c *Context) ActiveBuffer() Drawable {
 	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
-		bufferid := win.BufferID
-		return c.Buffers[bufferid]
+		return c.GetDrawable(win.DrawableID)
 	}
 
 	return nil
 }
 func (c *Context) ActiveBufferID() int {
 	if win := c.GetWindow(c.ActiveWindowIndex); win != nil {
-		bufferid := win.BufferID
+		bufferid := win.DrawableID
 		return bufferid
 	}
 
@@ -192,7 +192,7 @@ func measureTextSize(font rl.Font, s byte, size int32, spacing float32) rl.Vecto
 }
 
 func (c *Context) WriteMessage(msg string) {
-	c.GetBuffer(c.MessageBufferID).(*Buffer).Content = append(c.GetBuffer(c.MessageBufferID).(*Buffer).Content, []byte(fmt.Sprintln(msg))...)
+	c.GetDrawable(c.MessageBufferID).(*Buffer).Content = append(c.GetDrawable(c.MessageBufferID).(*Buffer).Content, []byte(fmt.Sprintln(msg))...)
 }
 
 func (c *Context) getCWD() string {
@@ -203,9 +203,9 @@ func (c *Context) getCWD() string {
 	}
 }
 func (c *Context) AddBuffer(b Drawable) {
-	id := len(c.Buffers) + 1
-	c.Buffers[id] = b
+	id := rand.Intn(10000)
 	b.SetID(id)
+	c.Drawables = append(c.Drawables, b)
 }
 
 func (c *Context) windowCount() int {
@@ -253,23 +253,24 @@ func (c *Context) MarkWindowAsActive(id int) {
 }
 
 func (c *Context) MarkBufferAsActive(id int) {
-	c.ActiveWindow().BufferID = id
+	c.ActiveWindow().DrawableID = id
 }
 
-func (c *Context) GetBuffer(id int) Drawable {
-	return c.Buffers[id]
+func (c *Context) GetDrawable(id int) Drawable {
+	for _, d := range c.Drawables {
+		if d != nil && d.GetID() == id {
+			return d
+		}
+	}
+
+	return nil
 }
 
 func (c *Context) KillBuffer(id int) {
-	delete(c.Buffers, id)
-	for _, col := range c.Windows {
-		for _, win := range col {
-			if win.BufferID == id {
-				for _, buf := range c.Buffers {
-					win.BufferID = buf.GetID()
-					break
-				}
-			}
+	for i, drawable := range c.Drawables {
+		if drawable != nil && drawable.GetID() == id {
+			c.Drawables[i] = nil
+			break
 		}
 	}
 }
@@ -438,7 +439,7 @@ func (c *Context) Render() {
 	if c.Prompt.IsActive {
 		height -= float64(charsize.Y)
 	}
-	if buf := c.GetBuffer(c.BuildWindow.BufferID); buf != nil {
+	if buf := c.GetDrawable(c.BuildWindow.DrawableID); buf != nil {
 		height -= float64(buildWindowHeightRatio * c.OSWindowHeight)
 	}
 	for i, column := range c.Windows {
@@ -469,7 +470,7 @@ func (c *Context) Render() {
 	c.BuildWindow.ZeroLocationY = c.OSWindowHeight - (c.OSWindowHeight * buildWindowHeightRatio)
 	c.BuildWindow.Height = c.OSWindowHeight * buildWindowHeightRatio
 
-	if buf := c.GetBuffer(c.BuildWindow.BufferID); buf != nil {
+	if buf := c.GetDrawable(c.BuildWindow.DrawableID); buf != nil {
 		buf.Render(rl.Vector2{X: float32(c.BuildWindow.ZeroLocationX), Y: float32(c.BuildWindow.ZeroLocationY)}, c.BuildWindow.Height, c.BuildWindow.Width)
 	}
 
@@ -865,7 +866,7 @@ func New() (*Context, error) {
 	p := &Context{
 		Cfg:            cfg,
 		CWD:            wd,
-		Buffers:        map[int]Drawable{},
+		Drawables:      []Drawable{},
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        [][]*Window{},
@@ -1025,7 +1026,7 @@ func (c *Context) openCompilationBufferInAVSplit(command string) error {
 		return err
 	}
 	c.AddBuffer(cb)
-	win.BufferID = cb.ID
+	win.DrawableID = cb.ID
 	return nil
 }
 
@@ -1036,7 +1037,7 @@ func (c *Context) openCompilationBufferInAHSplit(command string) error {
 		return err
 	}
 	c.AddBuffer(cb)
-	win.BufferID = cb.ID
+	win.DrawableID = cb.ID
 	return nil
 }
 
@@ -1044,7 +1045,7 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 	var window *Window
 	for _, col := range c.Windows {
 		for _, win := range col {
-			if buf := c.GetBuffer(win.BufferID); buf != nil {
+			if buf := c.GetDrawable(win.DrawableID); buf != nil {
 				if b, is := buf.(*Buffer); is {
 					if b.File == "*Compilation*" {
 						window = win
@@ -1062,7 +1063,7 @@ func (c *Context) OpenCompilationBufferInSensibleSplit(command string) error {
 		return err
 	}
 	c.AddBuffer(cb)
-	window.BufferID = cb.ID
+	window.DrawableID = cb.ID
 
 	return nil
 }
@@ -1071,7 +1072,7 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 	var window *Window
 	for _, col := range c.Windows {
 		for _, win := range col {
-			if buf := c.GetBuffer(win.BufferID); buf != nil {
+			if buf := c.GetDrawable(win.DrawableID); buf != nil {
 				if b, is := buf.(*Buffer); is {
 					if b.File == "*Grep*" {
 						window = win
@@ -1089,7 +1090,7 @@ func (c *Context) OpenGrepBufferInSensibleSplit(command string) error {
 		return err
 	}
 	c.AddBuffer(cb)
-	window.BufferID = cb.ID
+	window.DrawableID = cb.ID
 
 	return nil
 }
@@ -1102,7 +1103,7 @@ func (c *Context) OpenCompilationBufferInBuildWindow(command string) error {
 
 	c.AddBuffer(cb)
 
-	c.BuildWindow.BufferID = cb.ID
+	c.BuildWindow.DrawableID = cb.ID
 
 	return nil
 }

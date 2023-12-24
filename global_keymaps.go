@@ -20,12 +20,12 @@ var GlobalKeymap = Keymap{
 		preditor.Exit()
 		return nil
 	},
-	Key{K: "0", Alt: true}: func(preditor *Context) error {
+	Key{K: "0", Control: true}: func(preditor *Context) error {
 		preditor.CloseWindow(preditor.ActiveWindowIndex)
 
 		return nil
 	},
-	Key{K: "1", Alt: true}: func(preditor *Context) error {
+	Key{K: "1", Control: true}: func(preditor *Context) error {
 		preditor.BuildWindowToggleState()
 
 		return nil
@@ -40,13 +40,8 @@ var GlobalKeymap = Keymap{
 		return nil
 	},
 
-	Key{K: "o", Alt: true}: func(a *Context) error {
+	Key{K: "o", Control: true}: func(a *Context) error {
 		a.openFileBuffer()
-		return nil
-	},
-	Key{K: "o", Alt: true, Shift: true}: func(a *Context) error {
-		a.openFuzzyFilePicker()
-
 		return nil
 	},
 	Key{K: "b", Alt: true}: func(a *Context) error {

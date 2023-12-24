@@ -11,7 +11,7 @@ func main() {
 	}
 
 	// editor.AddWindowInANewColumn(&preditor.Window{
-	//	 BufferID: editor.MessageBufferID,
+	//	 DrawableID: editor.MessageBufferID,
 	// })
 
 	// start main loop
