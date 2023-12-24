@@ -99,11 +99,8 @@ func (e *Application) HandleKeyEvents() {
 func (e *Application) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
-
 	e.ActiveEditor().Render()
-
 	rl.EndDrawing()
-
 }
 
 func (e *Application) HandleWindowResize() {

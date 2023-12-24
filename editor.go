@@ -306,12 +306,7 @@ func (t *Editor) renderSelection() {
 
 }
 
-func (t *Editor) Render() {
-
-	t.calculateVisualLines()
-
-	// fmt.Printf("Render buffer in window: Scan Loop took: %s\n", time.Since(loopStart))
-	// loopStart = time.Now()
+func (t *Editor) renderText() {
 	var visibleLines []visualLine
 	if t.VisibleEnd > int32(len(t.visualLines)) {
 		visibleLines = t.visualLines[t.VisibleStart:]
@@ -320,10 +315,32 @@ func (t *Editor) Render() {
 	}
 	for idx, line := range visibleLines {
 		if t.visualLineShouldBeRendered(line) {
-			t.renderVisualLine(line, idx)
+			charSize := measureTextSize(font, ' ', fontSize, 0)
+			var lineNumberWidth int
+			if t.RenderLineNumbers {
+				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
+				rl.DrawTextEx(font,
+					fmt.Sprintf("%d", line.ActualLine),
+					rl.Vector2{X: t.ZeroPosition.X, Y: float32(idx) * charSize.Y},
+					fontSize,
+					0,
+					t.Colors.LineNumbersForeground)
+
+			}
+
+			rl.DrawTextEx(font,
+				string(t.Content[line.startIndex:line.endIndex+1]),
+				rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
+				fontSize,
+				0,
+				t.Colors.Foreground)
 		}
 	}
+}
 
+func (t *Editor) Render() {
+	t.calculateVisualLines()
+	t.renderText()
 	t.renderCursor()
 	t.renderStatusBar()
 	t.renderSelection()
@@ -335,29 +352,6 @@ func (t *Editor) visualLineShouldBeRendered(line visualLine) bool {
 	}
 
 	return false
-}
-
-func (t *Editor) renderVisualLine(line visualLine, index int) {
-	charSize := measureTextSize(font, ' ', fontSize, 0)
-	var lineNumberWidth int
-	if t.RenderLineNumbers {
-		lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
-		rl.DrawTextEx(font,
-			fmt.Sprintf("%d", line.ActualLine),
-			rl.Vector2{X: t.ZeroPosition.X, Y: float32(index) * charSize.Y},
-			fontSize,
-			0,
-			t.Colors.LineNumbersForeground)
-
-	}
-
-	rl.DrawTextEx(font,
-		string(t.Content[line.startIndex:line.endIndex+1]),
-		rl.Vector2{X: t.ZeroPosition.X + float32(lineNumberWidth), Y: float32(index) * charSize.Y},
-		fontSize,
-		0,
-		t.Colors.Foreground)
-
 }
 
 func (t *Editor) positionToBufferIndex(pos Position) int {
@@ -478,7 +472,6 @@ func (t *Editor) DeleteCharBackward() error {
 
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
 		t.Cursor = Position{Line: startLine, Column: startColumn}
-		t.calculateVisualLines()
 		t.State = State_Dirty
 		return nil
 	}
@@ -508,7 +501,6 @@ func (t *Editor) DeleteCharForward() error {
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
 	t.State = State_Dirty
 
-	t.calculateVisualLines()
 	return nil
 }
 
