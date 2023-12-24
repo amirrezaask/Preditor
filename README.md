@@ -30,6 +30,7 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 - Fuzzy file finder
 - Zoom in/out (increase/decrease) font size
 - Multi Window ( Splits )
+- Compile commands
 
 # Design and Terminology
 
