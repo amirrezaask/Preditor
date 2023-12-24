@@ -16,8 +16,67 @@ import (
 	sitter "github.com/smacker/go-tree-sitter"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
-	"golang.design/x/clipboard"
 )
+
+func SwitchOrOpenFileInTextBuffer(parent *Context, cfg *Config, filename string, startingPos *Position) error {
+	for _, buf := range parent.Drawables {
+		switch t := buf.(type) {
+		case *Buffer:
+			if t.File == filename {
+				parent.MarkBufferAsActive(t.ID)
+				if startingPos != nil {
+					t.Cursors = []Cursor{{Point: t.positionToBufferIndex(*startingPos), Mark: t.positionToBufferIndex(*startingPos)}}
+					t.ScrollIfNeeded()
+				}
+				return nil
+			}
+		}
+	}
+
+	tb, err := NewBuffer(parent, cfg, filename)
+	if err != nil {
+		return nil
+	}
+
+	if startingPos != nil {
+		tb.Cursors = []Cursor{{Point: tb.positionToBufferIndex(*startingPos), Mark: tb.positionToBufferIndex(*startingPos)}}
+		tb.ScrollIfNeeded()
+
+	}
+	parent.AddBuffer(tb)
+	parent.MarkBufferAsActive(tb.ID)
+	return nil
+}
+
+func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
+	t := Buffer{cfg: cfg}
+	t.parent = parent
+	t.File = filename
+	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
+		return InsertChar(&t, b)
+	}))
+	t.UndoStack = NewStack[EditorAction](1000)
+	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
+	var err error
+	if t.File != "" {
+		if _, err = os.Stat(t.File); err == nil {
+			t.Content, err = os.ReadFile(t.File)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		fileType, exists := FileTypes[path.Ext(t.File)]
+		if exists {
+			t.fileType = fileType
+			t.LastCompileCommand = fileType.DefaultCompileCommand
+			t.needParsing = true
+		}
+	}
+	t.replaceTabsWithSpaces()
+	return &t, nil
+
+}
 
 const (
 	State_Clean = 1
@@ -71,7 +130,7 @@ func (r *Cursor) End() int {
 type View struct {
 	StartLine int32
 	EndLine   int32
-	Lines     []visualLine
+	Lines     []BufferLine
 }
 
 type ISearch struct {
@@ -314,70 +373,7 @@ func (e *Buffer) updateMaxLineAndColumn(maxH float64, maxW float64) {
 	e.View.EndLine += diff
 }
 
-func (e *Buffer) Type() string {
-	return "text_editor_buffer"
-}
-
-func SwitchOrOpenFileInTextBuffer(parent *Context, cfg *Config, filename string, startingPos *Position) error {
-	for _, buf := range parent.Drawables {
-		switch t := buf.(type) {
-		case *Buffer:
-			if t.File == filename {
-				parent.MarkBufferAsActive(t.ID)
-				if startingPos != nil {
-					t.Cursors = []Cursor{{Point: t.positionToBufferIndex(*startingPos), Mark: t.positionToBufferIndex(*startingPos)}}
-					t.ScrollIfNeeded()
-				}
-				return nil
-			}
-		}
-	}
-
-	tb, err := NewBuffer(parent, cfg, filename)
-	if err != nil {
-		return nil
-	}
-
-	if startingPos != nil {
-		tb.Cursors = []Cursor{{Point: tb.positionToBufferIndex(*startingPos), Mark: tb.positionToBufferIndex(*startingPos)}}
-		tb.ScrollIfNeeded()
-
-	}
-	parent.AddBuffer(tb)
-	parent.MarkBufferAsActive(tb.ID)
-	return nil
-}
-
-func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
-	t := Buffer{cfg: cfg}
-	t.parent = parent
-	t.File = filename
-	t.keymaps = append([]Keymap{}, EditorKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
-		return t.InsertCharAtCursor(b)
-	}))
-	t.UndoStack = NewStack[EditorAction](1000)
-	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
-	var err error
-	if t.File != "" {
-		if _, err = os.Stat(t.File); err == nil {
-			t.Content, err = os.ReadFile(t.File)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		fileType, exists := FileTypes[path.Ext(t.File)]
-		if exists {
-			t.fileType = fileType
-			t.LastCompileCommand = fileType.DefaultCompileCommand
-			t.needParsing = true
-		}
-	}
-	t.replaceTabsWithSpaces()
-	return &t, nil
-
-}
-func (e *Buffer) getIndexVisualLine(i int) visualLine {
+func (e *Buffer) getBufferLineForIndex(i int) BufferLine {
 	for _, line := range e.View.Lines {
 		if line.startIndex <= i && line.endIndex >= i {
 			return line
@@ -389,7 +385,7 @@ func (e *Buffer) getIndexVisualLine(i int) visualLine {
 		lastLine.endIndex++
 		return lastLine
 	}
-	return visualLine{}
+	return BufferLine{}
 }
 
 func (e *Buffer) getIndexPosition(i int) Position {
@@ -397,7 +393,7 @@ func (e *Buffer) getIndexPosition(i int) Position {
 		return Position{Line: 0, Column: i}
 	}
 
-	line := e.getIndexVisualLine(i)
+	line := e.getBufferLineForIndex(i)
 	return Position{
 		Line:   line.Index,
 		Column: i - line.startIndex,
@@ -423,7 +419,7 @@ type highlight struct {
 	Color color.RGBA
 }
 
-type visualLine struct {
+type BufferLine struct {
 	Index      int
 	startIndex int
 	endIndex   int
@@ -436,10 +432,44 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 		return pred(slice[i], slice[j])
 	})
 }
+func (e *Buffer) moveCursorTo(pos rl.Vector2) error {
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
+	apprLine := math.Floor(float64((pos.Y - e.zeroLocation.Y) / charSize.Y))
+	apprColumn := math.Floor(float64((pos.X - e.zeroLocation.X) / charSize.X))
 
+	if e.cfg.LineNumbers {
+		apprColumn -= float64((len(fmt.Sprint(apprLine)) + 1))
+	}
+
+	if len(e.View.Lines) < 1 {
+		return nil
+	}
+
+	line := int(apprLine) + int(e.View.StartLine) - 1
+	col := int(apprColumn)
+	if line >= len(e.View.Lines) {
+		line = len(e.View.Lines) - 1
+	}
+
+	if line < 0 {
+		line = 0
+	}
+
+	// check if cursor should be moved back
+	if col > e.View.Lines[line].Length {
+		col = e.View.Lines[line].Length
+	}
+	if col < 0 {
+		col = 0
+	}
+
+	e.Cursors[0].SetBoth(e.positionToBufferIndex(Position{Line: line, Column: col}))
+
+	return nil
+}
 func (e *Buffer) calculateVisualLines() {
 	e.Tokens = e.generateWordTokens()
-	e.View.Lines = []visualLine{}
+	e.View.Lines = []BufferLine{}
 	totalVisualLines := 0
 	lineCharCounter := 0
 	var actualLineIndex = 1
@@ -451,7 +481,7 @@ func (e *Buffer) calculateVisualLines() {
 	for idx, char := range e.Content {
 		lineCharCounter++
 		if char == '\n' {
-			line := visualLine{
+			line := BufferLine{
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
@@ -466,7 +496,7 @@ func (e *Buffer) calculateVisualLines() {
 		}
 		if idx == len(e.Content)-1 {
 			// last index
-			line := visualLine{
+			line := BufferLine{
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx + 1,
@@ -482,7 +512,7 @@ func (e *Buffer) calculateVisualLines() {
 		}
 
 		if int32(lineCharCounter) > e.maxColumn-int32(len(fmt.Sprint(totalVisualLines)))-1 {
-			line := visualLine{
+			line := BufferLine{
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
@@ -712,7 +742,7 @@ func (e *Buffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, i
 }
 
 func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64) {
-	var visibleLines []visualLine
+	var visibleLines []BufferLine
 	if e.View.EndLine < 0 {
 		return
 	}
@@ -731,7 +761,7 @@ func (e *Buffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.needParsing = false
 	}
 	for idx, line := range visibleLines {
-		if e.visualLineShouldBeRendered(line) {
+		if e.shouldBufferLineBeRendered(line) {
 			if e.cfg.LineNumbers {
 				rl.DrawTextEx(e.parent.Font,
 					fmt.Sprintf("%d", line.ActualLine),
@@ -826,7 +856,7 @@ func (e *Buffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.renderCursors(zeroLocation, maxH, maxW)
 }
 
-func (e *Buffer) visualLineShouldBeRendered(line visualLine) bool {
+func (e *Buffer) shouldBufferLineBeRendered(line BufferLine) bool {
 	if e.View.StartLine <= int32(line.Index) && line.Index <= int(e.View.EndLine) {
 		return true
 	}
@@ -872,9 +902,30 @@ func (e *Buffer) deleteSelectionsIfAnySelection() {
 		})
 		e.Content = append(e.Content[:sel.Start()], e.Content[sel.End()+1:]...)
 		sel.Point = sel.Mark
-		e.MoveLeft(sel, old-1-len(e.Content))
+		e.moveLeft(sel, old-1-len(e.Content))
 	}
 
+}
+
+func (e *Buffer) indexOfFirstNonLetter(bs []byte) int {
+
+	for idx, b := range bs {
+		if !unicode.IsLetter(rune(b)) {
+			return idx
+		}
+	}
+
+	return -1
+}
+
+func (e *Buffer) findIndexPositionInTokens(idx int) int {
+	for i, t := range e.Tokens {
+		if t.Start <= idx && idx < t.End {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func (e *Buffer) sortSelections() {
@@ -882,7 +933,8 @@ func (e *Buffer) sortSelections() {
 		return t1.Start() < t2.Start()
 	})
 }
-func (e *Buffer) GetLastSelection() *Cursor {
+
+func (e *Buffer) getLastCursor() *Cursor {
 	return &e.Cursors[len(e.Cursors)-1]
 }
 
@@ -902,176 +954,7 @@ func (e *Buffer) removeDuplicateSelectionsAndSort() {
 	e.sortSelections()
 }
 
-func (e *Buffer) InsertCharAtCursor(char byte) error {
-	if e.Readonly {
-		return nil
-	}
-	e.removeDuplicateSelectionsAndSort()
-	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		e.MoveRight(&e.Cursors[i], i*1)
-
-		if e.Cursors[i].Start() >= len(e.Content) { // end of file, appending
-			e.Content = append(e.Content, char)
-
-		} else {
-			e.Content = append(e.Content[:e.Cursors[i].Start()+1], e.Content[e.Cursors[i].End():]...)
-			e.Content[e.Cursors[i].Start()] = char
-		}
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
-			Idx:  e.Cursors[i].Start(),
-			Data: []byte{char},
-		})
-		e.MoveRight(&e.Cursors[i], 1)
-	}
-	e.SetStateDirty()
-	e.ScrollIfNeeded()
-	return nil
-}
-
-func (e *Buffer) DeleteCharBackward() error {
-	if e.Readonly {
-		return nil
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		e.MoveLeft(&e.Cursors[i], i*1)
-
-		switch {
-		case e.Cursors[i].Start() == 0:
-			continue
-		case e.Cursors[i].Start() < len(e.Content):
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  e.Cursors[i].Start() - 1,
-				Data: []byte{e.Content[e.Cursors[i].Start()-1]},
-			})
-			e.Content = append(e.Content[:e.Cursors[i].Start()-1], e.Content[e.Cursors[i].Start():]...)
-		case e.Cursors[i].Start() == len(e.Content):
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  e.Cursors[i].Start() - 1,
-				Data: []byte{e.Content[e.Cursors[i].Start()-1]},
-			})
-			e.Content = e.Content[:e.Cursors[i].Start()-1]
-		}
-
-		e.MoveLeft(&e.Cursors[i], 1)
-
-	}
-
-	e.SetStateDirty()
-	return nil
-}
-
-func (e *Buffer) DeleteCharForward() error {
-	if e.Readonly {
-		return nil
-	}
-	e.removeDuplicateSelectionsAndSort()
-	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		if len(e.Content) > e.Cursors[i].Start()+1 {
-			e.MoveLeft(&e.Cursors[i], i*1)
-			//e.AddUndoAction(EditorAction{
-			//	Type: EditorActionType_Delete,
-			//	Idx:  e.Cursors[i].Start(),
-			//	Data: []byte{e.Content[e.Cursors[i].Start()]},
-			//})
-			e.Content = append(e.Content[:e.Cursors[i].Start()], e.Content[e.Cursors[i].Start()+1:]...)
-			e.SetStateDirty()
-		}
-	}
-
-	return nil
-}
-
-func (e *Buffer) ScrollUp(n int) error {
-	if e.View.StartLine <= 0 {
-		return nil
-	}
-	e.View.EndLine += int32(-1 * n)
-	e.View.StartLine += int32(-1 * n)
-
-	diff := e.View.EndLine - e.View.StartLine
-
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = diff
-	}
-
-	return nil
-
-}
-
-func (e *Buffer) CenteralizeCursor() error {
-	cur := e.Cursors[0]
-	pos := e.convertBufferIndexToLineAndColumn(cur.Start())
-	e.View.StartLine = int32(pos.Line) - (e.maxLine / 2)
-	e.View.EndLine = int32(pos.Line) + (e.maxLine / 2)
-	if e.View.StartLine < 0 {
-		e.View.StartLine = 0
-		e.View.EndLine = e.maxLine
-	}
-	return nil
-}
-
-func (e *Buffer) ScrollToTop() error {
-	e.View.StartLine = 0
-	e.View.EndLine = e.maxLine
-	e.Cursors[0].SetBoth(0)
-
-	return nil
-}
-
-func (e *Buffer) ScrollToBottom() error {
-	e.View.StartLine = int32(len(e.View.Lines) - 1 - int(e.maxLine))
-	e.View.EndLine = int32(len(e.View.Lines) - 1)
-	e.Cursors[0].SetBoth(e.View.Lines[len(e.View.Lines)-1].startIndex)
-
-	return nil
-}
-
-func (e *Buffer) ScrollDown(n int) error {
-	if int(e.View.EndLine) >= len(e.View.Lines) {
-		return nil
-	}
-	e.View.EndLine += int32(n)
-	e.View.StartLine += int32(n)
-	diff := e.View.EndLine - e.View.StartLine
-	if int(e.View.EndLine) >= len(e.View.Lines) {
-		e.View.EndLine = int32(len(e.View.Lines) - 1)
-		e.View.StartLine = e.View.EndLine - diff
-	}
-
-	return nil
-
-}
-
-// Move* functions change Point part of cursor
-
-func (e *Buffer) MoveLeft(s *Cursor, n int) {
-	s.AddToBoth(-n)
-	if s.Start() < 0 {
-		s.SetBoth(0)
-	}
-
-	e.ScrollIfNeeded()
-}
-
-func (e *Buffer) MoveAllLeft(n int) error {
-	for i := range e.Cursors {
-		e.MoveLeft(&e.Cursors[i], n)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-
-}
-func (e *Buffer) MoveRight(s *Cursor, n int) {
+func (e *Buffer) moveRight(s *Cursor, n int) {
 	e.Cursors[0].Point = e.Cursors[0].Mark
 	s.AddToBoth(n)
 	if s.Start() > len(e.Content) {
@@ -1080,122 +963,15 @@ func (e *Buffer) MoveRight(s *Cursor, n int) {
 	e.ScrollIfNeeded()
 
 }
-
-func (e *Buffer) MoveAllRight(n int) error {
-	for i := range e.Cursors {
-		e.MoveRight(&e.Cursors[i], n)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-
-}
-
-func (e *Buffer) MoveUp() error {
-	for i := range e.Cursors {
-		currentLine := e.getIndexVisualLine(e.Cursors[i].Point)
-		prevLineIndex := currentLine.Index - 1
-		if prevLineIndex < 0 {
-			return nil
-		}
-
-		prevLine := e.View.Lines[prevLineIndex]
-		col := e.Cursors[i].Point - currentLine.startIndex
-		newidx := prevLine.startIndex + col
-		if newidx > prevLine.endIndex {
-			newidx = prevLine.endIndex
-		}
-		e.Cursors[i].SetBoth(newidx)
-		e.ScrollIfNeeded()
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func (e *Buffer) MoveDown() error {
-	for i := range e.Cursors {
-		currentLine := e.getIndexVisualLine(e.Cursors[i].Point)
-		nextLineIndex := currentLine.Index + 1
-		if nextLineIndex >= len(e.View.Lines) {
-			return nil
-		}
-
-		nextLine := e.View.Lines[nextLineIndex]
-		col := e.Cursors[i].Point - currentLine.startIndex
-		newIndex := nextLine.startIndex + col
-		if newIndex > nextLine.endIndex {
-			newIndex = nextLine.endIndex
-		}
-		e.Cursors[i].SetBoth(newIndex)
-		e.ScrollIfNeeded()
-
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func SelectionsToRight(e *Buffer, n int) error {
-	for i := range e.Cursors {
-		sel := &e.Cursors[i]
-		sel.Mark += n
-		if sel.Mark >= len(e.Content) {
-			sel.Mark = len(e.Content)
-		}
-		e.ScrollIfNeeded()
-
+func (e *Buffer) moveLeft(s *Cursor, n int) {
+	s.AddToBoth(-n)
+	if s.Start() < 0 {
+		s.SetBoth(0)
 	}
 
-	return nil
+	e.ScrollIfNeeded()
 }
-func SelectionsToLeft(e *Buffer, n int) error {
-	for i := range e.Cursors {
-		sel := &e.Cursors[i]
-		sel.Mark -= n
-		if sel.Mark < 0 {
-			sel.Mark = 0
-		}
-		e.ScrollIfNeeded()
-
-	}
-
-	return nil
-}
-func SelectionsUp(e *Buffer, n int) error {
-	for i := range e.Cursors {
-		currentLine := e.getIndexVisualLine(e.Cursors[i].Mark)
-		nextLineIndex := currentLine.Index - n
-		if nextLineIndex >= len(e.View.Lines) || nextLineIndex < 0 {
-			return nil
-		}
-
-		nextLine := e.View.Lines[nextLineIndex]
-		newcol := nextLine.startIndex
-		e.Cursors[i].Mark = newcol
-		e.ScrollIfNeeded()
-	}
-
-	return nil
-}
-func SelectionsDown(e *Buffer, n int) error {
-	for i := range e.Cursors {
-		currentLine := e.getIndexVisualLine(e.Cursors[i].Mark)
-		nextLineIndex := currentLine.Index + n
-		if nextLineIndex >= len(e.View.Lines) {
-			return nil
-		}
-
-		nextLine := e.View.Lines[nextLineIndex]
-		newcol := nextLine.startIndex
-		e.Cursors[i].Mark = newcol
-		e.ScrollIfNeeded()
-	}
-
-	return nil
-}
-
-func AnotherSelectionHere(e *Buffer, pos rl.Vector2) error {
+func (e *Buffer) addAnotherCursorAt(pos rl.Vector2) error {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	apprLine := math.Floor(float64(pos.Y / charSize.Y))
 	apprColumn := math.Floor(float64(pos.X / charSize.X))
@@ -1232,7 +1008,6 @@ func AnotherSelectionHere(e *Buffer, pos rl.Vector2) error {
 	e.removeDuplicateSelectionsAndSort()
 	return nil
 }
-
 func (e *Buffer) AnotherSelectionOnMatch() error {
 	lastSel := e.Cursors[len(e.Cursors)-1]
 	var thingToSearch []byte
@@ -1266,184 +1041,6 @@ func (e *Buffer) AnotherSelectionOnMatch() error {
 
 	return nil
 }
-
-func SelectionToPreviousToken(e *Buffer) error {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos-1 >= 0 {
-			e.Cursors[i].Mark = e.Tokens[tokenPos-1].Start
-		}
-		e.ScrollIfNeeded()
-	}
-
-	return nil
-}
-func SelectionToNextToken(e *Buffer) error {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
-			e.Cursors[i].Mark = e.Tokens[tokenPos+1].Start
-		}
-		e.ScrollIfNeeded()
-
-	}
-
-	return nil
-}
-
-func (e *Buffer) SelectionEndOfLine() error {
-	for i := range e.Cursors {
-		line := e.getIndexVisualLine(e.Cursors[i].End())
-		e.Cursors[i].Mark = line.endIndex
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-func (e *Buffer) SelectionBeginningOfLine() error {
-	for i := range e.Cursors {
-		line := e.getIndexVisualLine(e.Cursors[i].End())
-		e.Cursors[i].Mark = line.startIndex
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func (e *Buffer) MoveToBeginningOfTheLine() error {
-	for i := range e.Cursors {
-		line := e.getIndexVisualLine(e.Cursors[i].Start())
-		e.Cursors[i].SetBoth(line.startIndex)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-
-}
-
-func (e *Buffer) MoveToEndOfTheLine() error {
-	for i := range e.Cursors {
-		line := e.getIndexVisualLine(e.Cursors[i].Start())
-		e.Cursors[i].SetBoth(line.endIndex)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func PlaceAnotherCursorNextLine(e *Buffer) error {
-	pos := e.getIndexPosition(e.Cursors[len(e.Cursors)-1].Start())
-	pos.Line++
-	if e.isValidCursorPosition(pos) {
-		newidx := e.positionToBufferIndex(pos)
-		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func PlaceAnotherCursorPreviousLine(e *Buffer) error {
-	pos := e.getIndexPosition(e.Cursors[len(e.Cursors)-1].Start())
-	pos.Line--
-	if e.isValidCursorPosition(pos) {
-		newidx := e.positionToBufferIndex(pos)
-		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
-
-func (e *Buffer) indexOfFirstNonLetter(bs []byte) int {
-
-	for idx, b := range bs {
-		if !unicode.IsLetter(rune(b)) {
-			return idx
-		}
-	}
-
-	return -1
-}
-
-func (e *Buffer) findIndexPositionInTokens(idx int) int {
-	for i, t := range e.Tokens {
-		if t.Start <= idx && idx < t.End {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func (e *Buffer) MoveForwardByToken(n int) error {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		cur.SetBoth(cur.Point)
-		tokenPos := e.findIndexPositionInTokens(cur.Mark)
-		if tokenPos != -1 && tokenPos != len(e.Tokens)-1 {
-			cur.SetBoth(e.Tokens[tokenPos+1].Start)
-		}
-		e.ScrollIfNeeded()
-
-	}
-
-	return nil
-}
-
-func (e *Buffer) MoveBackwardByToken(n int) error {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		cur.SetBoth(cur.Point)
-		tokenPos := e.findIndexPositionInTokens(cur.Point)
-		if tokenPos != -1 && tokenPos != 0 {
-			cur.SetBoth(e.Tokens[tokenPos-1].Start)
-		}
-		e.ScrollIfNeeded()
-
-	}
-
-	return nil
-}
-
-func (e *Buffer) MoveCursorTo(pos rl.Vector2) error {
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	apprLine := math.Floor(float64((pos.Y - e.zeroLocation.Y) / charSize.Y))
-	apprColumn := math.Floor(float64((pos.X - e.zeroLocation.X) / charSize.X))
-
-	if e.cfg.LineNumbers {
-		apprColumn -= float64((len(fmt.Sprint(apprLine)) + 1))
-	}
-
-	if len(e.View.Lines) < 1 {
-		return nil
-	}
-
-	line := int(apprLine) + int(e.View.StartLine) - 1
-	col := int(apprColumn)
-	if line >= len(e.View.Lines) {
-		line = len(e.View.Lines) - 1
-	}
-
-	if line < 0 {
-		line = 0
-	}
-
-	// check if cursor should be moved back
-	if col > e.View.Lines[line].Length {
-		col = e.View.Lines[line].Length
-	}
-	if col < 0 {
-		col = 0
-	}
-
-	e.Cursors[0].SetBoth(e.positionToBufferIndex(Position{Line: line, Column: col}))
-
-	return nil
-}
-
 func (e *Buffer) ScrollIfNeeded() error {
 	pos := e.getIndexPosition(e.Cursors[0].End())
 	if int32(pos.Line) <= e.View.StartLine {
@@ -1472,247 +1069,6 @@ func (e *Buffer) ScrollIfNeeded() error {
 	return nil
 }
 
-func (e *Buffer) Write() error {
-	if e.Readonly && e.IsSpecial() {
-		return nil
-	}
-
-	if e.fileType.TabSize != 0 {
-		e.Content = bytes.Replace(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize)), []byte("\t"), -1)
-	}
-
-	if e.fileType.BeforeSave != nil {
-		_ = e.fileType.BeforeSave(e)
-	}
-
-	if err := os.WriteFile(e.File, e.Content, 0644); err != nil {
-		return err
-	}
-	e.SetStateClean()
-	e.replaceTabsWithSpaces()
-	e.calculateVisualLines()
-	if e.fileType.AfterSave != nil {
-		_ = e.fileType.AfterSave(e)
-
-	}
-
-	return nil
-}
-
-func (e *Buffer) Indent() error {
-	e.removeDuplicateSelectionsAndSort()
-
-	for i := range e.Cursors {
-		e.MoveRight(&e.Cursors[i], i*e.fileType.TabSize)
-		if e.Cursors[i].Start() >= len(e.Content) { // end of file, appending
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Insert,
-				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
-			})
-			e.Content = append(e.Content, []byte(strings.Repeat(" ", e.fileType.TabSize))...)
-		} else {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Insert,
-				Idx:  e.Cursors[i].Start(),
-				Data: []byte(strings.Repeat(" ", e.fileType.TabSize)),
-			})
-			e.Content = append(e.Content[:e.Cursors[i].Start()], append([]byte(strings.Repeat(" ", e.fileType.TabSize)), e.Content[e.Cursors[i].Start():]...)...)
-		}
-		e.MoveRight(&e.Cursors[i], e.fileType.TabSize)
-
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-
-func (e *Buffer) KillLine() error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	var lastChange int
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		old := len(e.Content)
-		e.MoveLeft(cur, lastChange)
-		line := e.getIndexVisualLine(cur.Start())
-		writeToClipboard(e.Content[cur.Start():line.endIndex])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  cur.Start(),
-			Data: e.Content[cur.Start():line.endIndex],
-		})
-		e.Content = append(e.Content[:cur.Start()], e.Content[line.endIndex:]...)
-		lastChange += -1 * (len(e.Content) - old)
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-
-func (e *Buffer) DeleteTokenBackward() {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return
-	}
-	e.deleteSelectionsIfAnySelection()
-
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		tokenPos := e.findIndexPositionInTokens(cur.Point)
-		if tokenPos == -1 {
-			continue
-		}
-		start := e.Tokens[tokenPos].Start
-		if start == cur.Point && tokenPos-1 >= 0 {
-			start = e.Tokens[tokenPos-1].Start
-		}
-		old := len(e.Content)
-		if len(e.Content) > cur.Start()+1 {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  start,
-				Data: e.Content[start:cur.Start()],
-			})
-			e.Content = append(e.Content[:start], e.Content[cur.Start():]...)
-		} else {
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Idx:  start,
-				Data: e.Content[start:],
-			})
-			e.Content = e.Content[:start]
-		}
-		cur.SetBoth(cur.Point + (len(e.Content) - old))
-	}
-
-	e.SetStateDirty()
-}
-
-func (e *Buffer) Copy() error {
-	if len(e.Cursors) > 1 {
-		return nil
-	}
-	cur := e.Cursors[0]
-	if cur.Start() != cur.End() {
-		// Copy selection
-		writeToClipboard(e.Content[cur.Start():cur.End()])
-	} else {
-		line := e.getIndexVisualLine(cur.Start())
-		writeToClipboard(e.Content[line.startIndex : line.endIndex+1])
-	}
-
-	return nil
-}
-
-func (e *Buffer) Cut() error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	cur := &e.Cursors[0]
-	if cur.Start() != cur.End() {
-		// Copy selection
-		writeToClipboard(e.Content[cur.Start():cur.End()])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  cur.Start(),
-			Data: e.Content[cur.Start():cur.End()],
-		})
-		e.Content = append(e.Content[:cur.Start()], e.Content[cur.End()+1:]...)
-	} else {
-		line := e.getIndexVisualLine(cur.Start())
-		writeToClipboard(e.Content[line.startIndex : line.endIndex+1])
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Idx:  line.startIndex,
-			Data: e.Content[line.startIndex:line.endIndex],
-		})
-		e.Content = append(e.Content[:line.startIndex], e.Content[line.endIndex+1:]...)
-	}
-	e.SetStateDirty()
-
-	return nil
-}
-func (e *Buffer) Paste() error {
-	if e.Readonly || len(e.Cursors) > 1 {
-		return nil
-	}
-	e.deleteSelectionsIfAnySelection()
-	contentToPaste := getClipboardContent()
-	cur := e.Cursors[0]
-	if cur.Start() >= len(e.Content) { // end of file, appending
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
-			Idx:  cur.Start(),
-			Data: contentToPaste,
-		})
-		e.Content = append(e.Content, contentToPaste...)
-	} else {
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Insert,
-			Idx:  cur.Start(),
-			Data: contentToPaste,
-		})
-		e.Content = append(e.Content[:cur.Start()], append(contentToPaste, e.Content[cur.Start():]...)...)
-	}
-
-	e.SetStateDirty()
-
-	e.MoveAllRight(len(contentToPaste))
-	return nil
-}
-
-var EditorKeymap Keymap
-
-func insertChar(editor *Buffer, char byte) error {
-	return editor.InsertCharAtCursor(char)
-}
-
-func getClipboardContent() []byte {
-	return clipboard.Read(clipboard.FmtText)
-}
-
-func writeToClipboard(bs []byte) {
-	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
-}
-
-func (a *Buffer) CompileAskForCommand() error {
-	a.parent.SetPrompt("Compile", nil, func(userInput string, c *Context) error {
-		a.LastCompileCommand = userInput
-		if err := a.parent.OpenCompilationBufferInBuildWindow(userInput); err != nil {
-			return err
-		}
-
-		return nil
-	}, nil, a.LastCompileCommand)
-
-	return nil
-}
-
-func (a *Buffer) CompileNoAsk() error {
-	if a.LastCompileCommand == "" {
-		return a.CompileAskForCommand()
-	}
-
-	if err := a.parent.OpenCompilationBufferInBuildWindow(a.LastCompileCommand); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (a *Buffer) GrepAsk() error {
-	a.parent.SetPrompt("Grep", nil, func(userInput string, c *Context) error {
-		if err := a.parent.OpenGrepBufferInSensibleSplit(fmt.Sprintf("rg --vimgrep %s", userInput)); err != nil {
-			return err
-		}
-
-		return nil
-	}, nil, "")
-
-	return nil
-}
-
 func (e *Buffer) readFileFromDisk() error {
 	bs, err := os.ReadFile(e.File)
 	if err != nil {
@@ -1723,373 +1079,4 @@ func (e *Buffer) readFileFromDisk() error {
 	e.replaceTabsWithSpaces()
 	e.SetStateClean()
 	return nil
-}
-
-func (e *Buffer) DeleteCharBackwardFromActiveSearch() error {
-	if e.ISearch.SearchString == "" {
-		return nil
-	}
-	s := []byte(e.ISearch.SearchString)
-	if len(s) < 1 {
-		return nil
-	}
-	s = s[:len(s)-1]
-
-	e.ISearch.SearchString = string(s)
-
-	return nil
-}
-
-func (editor *Buffer) ExitISearch() error {
-	editor.keymaps = editor.keymaps[:len(editor.keymaps)-2]
-	editor.ISearch.IsSearching = false
-	editor.ISearch.SearchMatches = nil
-	editor.ISearch.CurrentMatch = 0
-	editor.ISearch.MovedAwayFromCurrentMatch = false
-	return nil
-}
-
-func (editor *Buffer) NextISearchMatch() error {
-	editor.ISearch.CurrentMatch++
-	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-		editor.ISearch.CurrentMatch = 0
-	}
-	editor.ISearch.MovedAwayFromCurrentMatch = false
-	return nil
-}
-
-func (editor *Buffer) PrevISearchMatch() error {
-	editor.ISearch.CurrentMatch--
-	if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-		editor.ISearch.CurrentMatch = 0
-	}
-	if editor.ISearch.CurrentMatch < 0 {
-		editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-	}
-	editor.ISearch.MovedAwayFromCurrentMatch = false
-	return nil
-
-}
-
-var SearchTextBufferKeymap = Keymap{
-	Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
-		return e.DeleteCharBackwardFromActiveSearch()
-	}),
-	Key{K: "<enter>"}: MakeCommand(func(editor *Buffer) error {
-		return editor.NextISearchMatch()
-	}),
-	Key{K: "s", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return editor.NextISearchMatch()
-	}),
-	Key{K: "r", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return editor.PrevISearchMatch()
-	}),
-
-	Key{K: "<enter>", Control: true}: MakeCommand(func(editor *Buffer) error {
-		return editor.PrevISearchMatch()
-	}),
-	Key{K: "<esc>"}: MakeCommand(func(editor *Buffer) error {
-		editor.ExitISearch()
-
-		return nil
-	}),
-	Key{K: "<lmouse>-click"}: MakeCommand(func(e *Buffer) error {
-		return e.MoveCursorTo(rl.GetMousePosition())
-	}),
-	Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		return e.ScrollUp(20)
-
-	}),
-	Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-
-		return e.ScrollDown(20)
-	}),
-
-	Key{K: "<rmouse>-click"}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch++
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		if editor.ISearch.CurrentMatch < 0 {
-			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
-	}),
-	Key{K: "<mmouse>-click"}: MakeCommand(func(editor *Buffer) error {
-		editor.ISearch.CurrentMatch--
-		if editor.ISearch.CurrentMatch >= len(editor.ISearch.SearchMatches) {
-			editor.ISearch.CurrentMatch = 0
-		}
-		if editor.ISearch.CurrentMatch < 0 {
-			editor.ISearch.CurrentMatch = len(editor.ISearch.SearchMatches) - 1
-		}
-		editor.ISearch.MovedAwayFromCurrentMatch = false
-		return nil
-	}),
-	Key{K: "<pagedown>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-		return e.ScrollDown(1)
-	}),
-	Key{K: "<pageup>"}: MakeCommand(func(e *Buffer) error {
-		e.ISearch.MovedAwayFromCurrentMatch = true
-
-		return e.ScrollUp(1)
-	}),
-}
-
-func init() {
-
-	EditorKeymap = Keymap{
-
-		Key{K: ".", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.AnotherSelectionOnMatch()
-		}),
-		Key{K: ",", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			e.ScrollToTop()
-
-			return nil
-		}),
-		Key{K: "l", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.CenteralizeCursor()
-
-			return nil
-		}),
-		Key{K: "g", Alt: true}: MakeCommand(func(t *Buffer) error {
-			return t.GrepAsk()
-		}),
-		Key{K: ".", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			e.ScrollToBottom()
-
-			return nil
-		}),
-		Key{K: "<right>", Shift: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsToRight(e, 1)
-
-			return nil
-		}),
-		Key{K: "<right>", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionToNextToken(e)
-
-			return nil
-		}),
-		Key{K: "<left>", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionToPreviousToken(e)
-
-			return nil
-		}),
-		Key{K: "<left>", Shift: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsToLeft(e, 1)
-
-			return nil
-		}),
-		Key{K: "<up>", Shift: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsUp(e, 1)
-
-			return nil
-		}),
-		Key{K: "<down>", Shift: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsDown(e, 1)
-
-			return nil
-		}),
-		Key{K: "a", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			e.SelectionBeginningOfLine()
-
-			return nil
-		}),
-		Key{K: "e", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			e.SelectionEndOfLine()
-
-			return nil
-		}),
-		Key{K: "n", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsDown(e, 1)
-
-			return nil
-		}),
-		Key{K: "p", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsUp(e, 1)
-
-			return nil
-		}),
-		Key{K: "f", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsToRight(e, 1)
-
-			return nil
-		}),
-		Key{K: "b", Shift: true, Control: true}: MakeCommand(func(e *Buffer) error {
-			SelectionsToLeft(e, 1)
-
-			return nil
-		}),
-		Key{K: "<lmouse>-click", Control: true}: MakeCommand(func(e *Buffer) error {
-			return AnotherSelectionHere(e, rl.GetMousePosition())
-		}),
-		Key{K: "<lmouse>-hold", Control: true}: MakeCommand(func(e *Buffer) error {
-			return AnotherSelectionHere(e, rl.GetMousePosition())
-		}),
-		Key{K: "<up>", Control: true}: MakeCommand(func(e *Buffer) error {
-			return PlaceAnotherCursorPreviousLine(e)
-		}),
-
-		Key{K: "<down>", Control: true}: MakeCommand(func(e *Buffer) error {
-			return PlaceAnotherCursorNextLine(e)
-		}),
-		Key{K: "r", Alt: true}: MakeCommand(func(e *Buffer) error {
-			return e.readFileFromDisk()
-		}),
-		Key{K: "z", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.PopAndReverseLastAction()
-			return nil
-		}),
-		Key{K: "f", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveAllRight(1)
-		}),
-		Key{K: "x", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.Cut()
-		}),
-		Key{K: "v", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.Paste()
-		}),
-		Key{K: "k", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.KillLine()
-		}),
-		Key{K: "g", Control: true}: MakeCommand(func(e *Buffer) error {
-			doneHook := func(userInput string, c *Context) error {
-				number, err := strconv.Atoi(userInput)
-				if err != nil {
-					return nil
-				}
-
-				for _, line := range e.View.Lines {
-					if line.ActualLine == number {
-						e.Cursors[0].SetBoth(line.startIndex)
-						e.ScrollIfNeeded()
-					}
-				}
-
-				return nil
-			}
-			e.parent.SetPrompt("Goto", nil, doneHook, nil, "")
-
-			return nil
-		}),
-		Key{K: "c", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.Copy()
-		}),
-
-		Key{K: "c", Alt: true}: MakeCommand(func(a *Buffer) error {
-			return a.CompileAskForCommand()
-		}),
-		Key{K: "s", Control: true}: MakeCommand(func(a *Buffer) error {
-			a.ISearch.IsSearching = true
-			a.ISearch.SearchString = ""
-			a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys(func(c *Context, b byte) error {
-				a.ISearch.SearchString += string(b)
-				return nil
-			}))
-			return nil
-		}),
-		Key{K: "w", Control: true}: MakeCommand(func(a *Buffer) error {
-			return a.Write()
-		}),
-
-		Key{K: "<esc>"}: MakeCommand(func(p *Buffer) error {
-			p.Cursors = p.Cursors[:1]
-			p.Cursors[0].Point = p.Cursors[0].Mark
-
-			return nil
-		}),
-
-		// navigation
-		Key{K: "<lmouse>-click"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveCursorTo(rl.GetMousePosition())
-		}),
-
-		Key{K: "<mouse-wheel-down>"}: MakeCommand(func(e *Buffer) error {
-			return e.ScrollDown(5)
-		}),
-
-		Key{K: "<mouse-wheel-up>"}: MakeCommand(func(e *Buffer) error {
-			return e.ScrollUp(5)
-		}),
-
-		Key{K: "<lmouse>-hold"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveCursorTo(rl.GetMousePosition())
-		}),
-
-		Key{K: "a", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveToBeginningOfTheLine()
-		}),
-		Key{K: "e", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveToEndOfTheLine()
-		}),
-
-		Key{K: "p", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveUp()
-		}),
-
-		Key{K: "n", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveDown()
-		}),
-
-		Key{K: "<up>"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveUp()
-		}),
-		Key{K: "<down>"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveDown()
-		}),
-		Key{K: "<right>"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveAllRight(1)
-		}),
-		Key{K: "<right>", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveForwardByToken(1)
-		}),
-		Key{K: "<left>"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveAllLeft(1)
-		}),
-		Key{K: "<left>", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveBackwardByToken(1)
-		}),
-
-		Key{K: "b", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.MoveAllLeft(1)
-		}),
-		Key{K: "<home>"}: MakeCommand(func(e *Buffer) error {
-			return e.MoveToBeginningOfTheLine()
-		}),
-		Key{K: "<pagedown>"}: MakeCommand(func(e *Buffer) error {
-			return e.ScrollDown(1)
-		}),
-		Key{K: "<pageup>"}: MakeCommand(func(e *Buffer) error {
-			return e.ScrollUp(1)
-		}),
-
-		//insertion
-		Key{K: "<enter>"}: MakeCommand(func(e *Buffer) error {
-			return insertChar(e, '\n')
-		}),
-		Key{K: "<backspace>", Control: true}: MakeCommand(func(e *Buffer) error {
-			e.DeleteTokenBackward()
-			return nil
-		}),
-		Key{K: "<backspace>"}: MakeCommand(func(e *Buffer) error {
-			return e.DeleteCharBackward()
-		}),
-		Key{K: "<backspace>", Shift: true}: MakeCommand(func(e *Buffer) error {
-			return e.DeleteCharBackward()
-		}),
-
-		Key{K: "d", Control: true}: MakeCommand(func(e *Buffer) error {
-			return e.DeleteCharForward()
-		}),
-		Key{K: "<delete>"}: MakeCommand(func(e *Buffer) error {
-			return e.DeleteCharForward()
-		}),
-
-		Key{K: "<tab>"}: MakeCommand(func(e *Buffer) error { return e.Indent() }),
-	}
 }

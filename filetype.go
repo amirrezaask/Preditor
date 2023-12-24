@@ -66,7 +66,7 @@ func init() {
 (if_statement condition: (_) @if_condition)
 `),
 			AfterSave: func(buffer *Buffer) error {
-				return buffer.CompileNoAsk()
+				return CompileNoAsk(buffer)
 			},
 			DefaultCompileCommand: "go build -v ./...",
 		},
