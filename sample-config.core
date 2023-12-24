@@ -5,4 +5,4 @@ background #062329
 foreground #d3b58d
 statusbar_background #d3b58d
 statusbar_foreground #000000
-linenumbers_foreground #ffffff
+line_numbers_foreground #ffffff
