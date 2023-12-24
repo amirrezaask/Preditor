@@ -35,7 +35,7 @@ var GlobalKeymap = Keymap{
 		return nil
 	},
 	Key{K: "k", Alt: true}: func(preditor *Context) error {
-		preditor.KillBuffer(preditor.ActiveBufferID())
+		preditor.KillDrawable(preditor.ActiveDrawableID())
 
 		return nil
 	},

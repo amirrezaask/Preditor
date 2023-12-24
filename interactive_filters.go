@@ -120,7 +120,7 @@ func makeKeymap[T any]() Keymap {
 			return e.UserInputComponent.EndOfTheLine()
 		}),
 		Key{K: "g", Control: true}: MakeCommand(func(e *InteractiveFilter[T]) error {
-			e.parent.KillBuffer(e.ID)
+			e.parent.KillDrawable(e.ID)
 			return nil
 		}),
 
@@ -188,8 +188,8 @@ func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredIt
 
 	}
 	openSelection := func(parent *Context, item ScoredItem[Drawable]) error {
-		parent.KillBuffer(parent.ActiveBuffer().GetID())
-		parent.MarkBufferAsActive(item.Item.GetID())
+		parent.KillDrawable(parent.ActiveDrawable().GetID())
+		parent.MarkDrawableAsActive(item.Item.GetID())
 
 		return nil
 	}
@@ -230,7 +230,7 @@ func NewThemeSwitcher(parent *Context, cfg *Config) *InteractiveFilter[ScoredIte
 	}
 	openSelection := func(parent *Context, item ScoredItem[string]) error {
 		parent.Cfg.CurrentTheme = item.Item
-		parent.KillBuffer(parent.ActiveBufferID())
+		parent.KillDrawable(parent.ActiveDrawableID())
 		return nil
 	}
 	initialList := func() []ScoredItem[string] {
@@ -342,14 +342,14 @@ func NewInteractiveFilePicker(parent *Context, cfg *Config, initialInput string)
 
 	}
 	openUserInput := func(parent *Context, userInput string) {
-		parent.KillBuffer(parent.ActiveBufferID())
+		parent.KillDrawable(parent.ActiveDrawableID())
 		err := SwitchOrOpenFileInCurrentWindow(parent, parent.Cfg, userInput, nil)
 		if err != nil {
 			panic(err)
 		}
 	}
 	openSelection := func(parent *Context, item LocationItem) error {
-		parent.KillBuffer(parent.ActiveBufferID())
+		parent.KillDrawable(parent.ActiveDrawableID())
 		err := SwitchOrOpenFileInCurrentWindow(parent, parent.Cfg, item.Filename, nil)
 		if err != nil {
 			panic(err)
@@ -392,7 +392,7 @@ func NewInteractiveFilePicker(parent *Context, cfg *Config, initialInput string)
 	)
 
 	ifb.keymaps[0][Key{K: "<enter>", Control: true}] = func(preditor *Context) error {
-		input := preditor.ActiveBuffer().(*InteractiveFilter[LocationItem]).UserInputComponent.UserInput
+		input := preditor.ActiveDrawable().(*InteractiveFilter[LocationItem]).UserInputComponent.UserInput
 		openUserInput(preditor, string(input))
 		return nil
 	}
