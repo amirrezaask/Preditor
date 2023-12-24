@@ -96,12 +96,12 @@ func RunCommandWithOutputBuffer(parent *Context, cfg *Config, bufferName string,
 
 	}
 
-	tb.keymaps[1].SetKeyCommand(Key{K: "g"}, MakeCommand(func(b *Buffer) error {
+	tb.keymaps[1].BindKey(Key{K: "g"}, MakeCommand(func(b *Buffer) error {
 		runCompileCommand()
 
 		return nil
 	}))
-	tb.keymaps[1].SetKeyCommand(Key{K: "<enter>"}, OpenLocationInCurrentLine)
+	tb.keymaps[1].BindKey(Key{K: "<enter>"}, OpenLocationInCurrentLine)
 
 	runCompileCommand()
 	return tb, nil

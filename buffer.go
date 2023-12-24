@@ -24,6 +24,9 @@ func SwitchOrOpenFileInCurrentWindow(parent *Context, cfg *Config, filename stri
 	return SwitchOrOpenFileInWindow(parent, cfg, filename, startingPos, parent.ActiveWindow())
 }
 
+var EditorKeymap Keymap
+var SearchTextBufferKeymap Keymap
+
 func NewBuffer(parent *Context, cfg *Config, filename string) (*Buffer, error) {
 	t := Buffer{cfg: cfg}
 	t.parent = parent
