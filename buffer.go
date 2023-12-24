@@ -106,6 +106,9 @@ func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command
 				bufferView.Buffer.Content = []byte(err.Error())
 				bufferView.Buffer.Content = append(bufferView.Buffer.Content, '\n')
 			}
+			if bytes.Contains(output, []byte("\r")) {
+				output = bytes.Replace(output, []byte("\r"), []byte(""), -1)
+			}
 			bufferView.Buffer.Content = append(bufferView.Buffer.Content, output...)
 			bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
 
@@ -1858,6 +1861,7 @@ func SearchExit(editor *BufferView) error {
 	editor.Search.SearchMatches = nil
 	editor.Search.CurrentMatch = 0
 	editor.Search.MovedAwayFromCurrentMatch = false
+	editor.parent.Prompt.NoRender = false
 
 	return nil
 }
