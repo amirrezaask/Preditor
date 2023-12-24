@@ -508,6 +508,17 @@ func (e *BufferView) RemoveRange(start int, end int, addBufferAction bool) {
 	}
 
 }
+func (e *BufferView) WordAtPoint(curIndex int) (int, int) {
+	return -1, -1
+}
+
+func (e *BufferView) WordLeftEnd(cursor int) int {
+	return -1
+}
+
+func (e *BufferView) WordRightStart(cursor int) int {
+	return -1
+}
 
 func (e *BufferView) getLineNumbersMaxLength() int {
 	return len(fmt.Sprint(len(e.bufferLines))) + 1
@@ -839,7 +850,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 						}
 						posY := int32(idxPosition.Line)*int32(charSize.Y) + int32(zeroLocation.Y)
 
-						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().Cursor.ToColorRGBA(), 0.4))
+						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().HighlightMatching.ToColorRGBA(), 0.4))
 					}
 				}
 
