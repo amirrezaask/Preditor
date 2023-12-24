@@ -4,7 +4,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 	"os"
 	"path/filepath"
-	"unicode"
 )
 
 type LocationItem struct {
@@ -168,16 +167,11 @@ func (f *FilePicker) EndOfTheLine() error {
 	return nil
 }
 
-func (f *FilePicker) NextWord() error {
-	jump := f.indexOfFirstNonLetter(f.UserInput[f.Idx+1:])
-	if jump == -1 {
-		return nil
-	}
-	if jump == 0 {
-		jump = 1
+func (f *FilePicker) NextWordStart() error {
+	if idx := nextWordInBuffer(f.UserInput, f.Idx); idx != -1 {
+		f.Idx = idx
 	}
 
-	f.Idx = f.Idx + jump
 	return nil
 }
 
@@ -191,25 +185,12 @@ func (f *FilePicker) CursorLeft(n int) error {
 
 	return nil
 }
-func (t *FilePicker) indexOfFirstNonLetter(bs []byte) int {
-	for idx, b := range bs {
-		if !unicode.IsLetter(rune(b)) {
-			return idx
-		}
-	}
 
-	return -1
-}
 func (f *FilePicker) PreviousWord() error {
-	jump := f.indexOfFirstNonLetter(f.UserInput[:f.Idx])
-	if jump == -1 {
-		return nil
-	}
-	if jump == 0 {
-		jump = 1
+	if idx := previousWordInBuffer(f.UserInput, f.Idx); idx != -1 {
+		f.Idx = idx
 	}
 
-	f.Idx = f.Idx - jump
 	return nil
 }
 
@@ -280,7 +261,7 @@ func makeFilePickerCommand(f func(e *FilePicker) error) Command {
 var filePickerKeymap = Keymap{
 
 	Key{K: "f", Control: true}: makeFilePickerCommand(func(e *FilePicker) error {
-		return e.CursorRight(0)
+		return e.CursorRight(1)
 	}),
 	Key{K: "y", Control: true}: makeFilePickerCommand(func(e *FilePicker) error {
 		return e.paste()
@@ -308,14 +289,14 @@ var filePickerKeymap = Keymap{
 	}),
 
 	Key{K: "<right>"}: makeFilePickerCommand(func(e *FilePicker) error {
-		return e.CursorRight(0)
+		return e.CursorRight(1)
 	}),
 	Key{K: "<up>"}:             makeFilePickerCommand(func(e *FilePicker) error { return e.prevSelection() }),
 	Key{K: "<down>"}:           makeFilePickerCommand(func(e *FilePicker) error { return e.nextSelection() }),
 	Key{K: "p", Control: true}: makeFilePickerCommand(func(e *FilePicker) error { return e.prevSelection() }),
 	Key{K: "n", Control: true}: makeFilePickerCommand(func(e *FilePicker) error { return e.nextSelection() }),
 	Key{K: "<right>", Control: true}: makeFilePickerCommand(func(e *FilePicker) error {
-		return e.NextWord()
+		return e.NextWordStart()
 	}),
 	Key{K: "<left>"}: makeFilePickerCommand(func(e *FilePicker) error {
 		return e.CursorLeft(1)

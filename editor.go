@@ -950,17 +950,8 @@ func (t *Editor) indexOfFirstNonLetter(bs []byte) int {
 
 func (t *Editor) NextWord() error {
 	currentidx := t.positionToBufferIndex(t.Cursor)
-	if len(t.Content) <= currentidx+1 {
-		return nil
-	}
-	jump := t.indexOfFirstNonLetter(t.Content[currentidx+1:])
-	if jump == -1 {
-		return nil
-	}
-	if jump == 0 {
-		jump = 1
-	}
-	pos := t.convertBufferIndexToLineAndColumn(jump + currentidx)
+	newidx := nextWordInBuffer(t.Content, currentidx)
+	pos := t.convertBufferIndexToLineAndColumn(newidx)
 
 	if t.isValidCursorPosition(*pos) {
 		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
@@ -970,17 +961,8 @@ func (t *Editor) NextWord() error {
 
 func (t *Editor) PreviousWord() error {
 	currentidx := t.positionToBufferIndex(t.Cursor)
-	if len(t.Content) <= currentidx+1 {
-		return nil
-	}
-	jump := t.indexOfFirstNonLetter(t.Content[:currentidx])
-	if jump == -1 {
-		return nil
-	}
-	if jump == 0 {
-		jump = 1
-	}
-	pos := t.convertBufferIndexToLineAndColumn(currentidx - jump)
+	newidx := previousWordInBuffer(t.Content, currentidx)
+	pos := t.convertBufferIndexToLineAndColumn(newidx)
 
 	if t.isValidCursorPosition(*pos) {
 		return t.MoveCursorToPositionAndScrollIfNeeded(*pos)
