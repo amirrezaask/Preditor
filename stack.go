@@ -19,7 +19,9 @@ func (s *Stack[T]) Pop() (T, error) {
 	if len(s.data) == 0 {
 		return *new(T), EmptyStack
 	}
-	return s.data[len(s.data)-1], nil
+	last := s.data[len(s.data)-1]
+	s.data = s.data[:len(s.data)-1]
+	return last, nil
 }
 
 func (s *Stack[T]) Push(e T) {
