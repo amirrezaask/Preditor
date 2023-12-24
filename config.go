@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -35,6 +36,57 @@ var defaultConfig = Config{
 	FontSize: 20,
 }
 
+func addToConfig(cfg *Config, key string, value string) error {
+	var err error
+	switch key {
+	case "font":
+		cfg.FontName = value
+	case "font_size":
+		var err error
+		cfg.FontSize, err = strconv.Atoi(value)
+		if err != nil {
+			return err
+		}
+	case "background":
+		cfg.Colors.Background, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "foreground":
+		cfg.Colors.Foreground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "statusbar_background":
+		cfg.Colors.StatusBarBackground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "statusbar_foreground":
+		cfg.Colors.StatusBarForeground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "selection_background":
+		cfg.Colors.SelectionBackground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "selection_foreground":
+		cfg.Colors.SelectionForeground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	case "line_numbers_foreground":
+		cfg.Colors.LineNumbersForeground, err = parseHexColor(value)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func readConfig(cfgPath string) (*Config, error) {
 	cfg := defaultConfig
 	if _, err := os.Stat(cfgPath); errors.Is(err, os.ErrNotExist) {
@@ -45,61 +97,18 @@ func readConfig(cfgPath string) (*Config, error) {
 		return nil, err
 	}
 
-	var currentConfigKey string
-	var currentConfigValue string
-	for _, b := range bs {
-		switch {
-		case b != ' ' && currentConfigKey == "":
-			currentConfigKey += string(b)
-		case b != ' ' && currentConfigKey != "":
-			currentConfigValue += string(b)
-		}
-	}
+	lines := strings.Split(string(bs), "\n")
 
-	switch currentConfigKey {
-	case "font":
-		cfg.FontName = currentConfigValue
-	case "font_size":
-		var err error
-		cfg.FontSize, err = strconv.Atoi(currentConfigValue)
-		if err != nil {
-			return nil, err
+	for _, line := range lines {
+		splitted := strings.Split(line, " ")
+		if len(splitted) != 2 {
+			continue
 		}
-	case "background":
-		cfg.Colors.Background, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "foreground":
-		cfg.Colors.Foreground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "statusbar_background":
-		cfg.Colors.StatusBarBackground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "statusbar_foreground":
-		cfg.Colors.StatusBarForeground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "selection_background":
-		cfg.Colors.SelectionBackground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "selection_foreground":
-		cfg.Colors.SelectionForeground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
-	case "line_numbers_foreground":
-		cfg.Colors.LineNumbersForeground, err = parseHexColor(currentConfigValue)
-		if err != nil {
-			return nil, err
-		}
+		key := splitted[0]
+		value := splitted[1]
+		key = strings.Trim(key, " \t\r")
+		value = strings.Trim(value, " \t\r")
+		addToConfig(&cfg, key, value)
 	}
 
 	return &cfg, nil
