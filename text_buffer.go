@@ -410,11 +410,10 @@ func (e *TextBuffer) calculateVisualLines() {
 	}
 }
 
-func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, maxW float64) {
+func (e *TextBuffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 
 	//TODO:
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-
 	for _, sel := range e.Cursors {
 		if sel.Start() == sel.End() {
 			cursor := e.getIndexPosition(sel.Start())
@@ -453,14 +452,7 @@ func (e *TextBuffer) renderSelections(zeroLocation rl.Vector2, maxH float64, max
 
 func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	//render status bar
-	rl.DrawRectangle(
-		int32(zeroLocation.X),
-		e.maxLine*int32(charSize.Y),
-		int32(maxW),
-		int32(charSize.Y),
-		e.cfg.Colors.StatusBarBackground,
-	)
+
 	var sections []string
 	if len(e.Cursors) > 1 {
 		sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
@@ -481,15 +473,24 @@ func (e *TextBuffer) renderStatusBar(zeroLocation rl.Vector2, maxH float64, maxW
 	if e.State == State_Dirty {
 		state = "**"
 	} else {
-		state = "--"
+		state = ""
 	}
+	//render status bar
+	rl.DrawRectangle(
+		int32(zeroLocation.X),
+		int32(zeroLocation.Y),
+		int32(maxW),
+		int32(charSize.Y),
+		e.cfg.Colors.StatusBarBackground,
+	)
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 	rl.DrawTextEx(e.parent.Font,
-		strings.Join(sections, " | "),
-		rl.Vector2{X: zeroLocation.X, Y: float32(e.maxLine) * charSize.Y},
+		strings.Join(sections, " "),
+		rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
 		float32(e.parent.FontSize),
 		0,
 		e.cfg.Colors.StatusBarForeground)
+
 }
 
 func (e *TextBuffer) highlightBetweenTwoIndexes(zeroLocation rl.Vector2, idx1 int, idx2 int, color color.RGBA) {
@@ -545,15 +546,15 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 	} else {
 		visibleLines = e.View.Lines[e.View.StartLine:e.View.EndLine]
 	}
+	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 	for idx, line := range visibleLines {
 		if e.visualLineShouldBeRendered(line) {
-			charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
 			var lineNumberWidth int
 			if e.cfg.LineNumbers {
 				lineNumberWidth = (len(fmt.Sprint(line.ActualLine)) + 1) * int(charSize.X)
 				rl.DrawTextEx(e.parent.Font,
 					fmt.Sprintf("%d", line.ActualLine),
-					rl.Vector2{X: zeroLocation.X, Y: float32(idx) * charSize.Y},
+					rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
 					float32(e.parent.FontSize),
 					0,
 					e.cfg.Colors.LineNumbersForeground)
@@ -561,7 +562,7 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 			}
 			rl.DrawTextEx(e.parent.Font,
 				string(e.Content[line.startIndex:line.endIndex]),
-				rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
+				rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: zeroLocation.Y + float32(idx)*charSize.Y},
 				float32(e.parent.FontSize),
 				0,
 				e.cfg.Colors.Foreground)
@@ -571,7 +572,7 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 				for _, h := range highlights {
 					rl.DrawTextEx(e.parent.Font,
 						string(e.Content[h.start:h.end+1]),
-						rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
+						rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
 						float32(e.parent.FontSize),
 						0,
 						h.Color)
@@ -663,11 +664,13 @@ func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW floa
 
 func (e *TextBuffer) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	e.updateMaxLineAndColumn(maxH, maxW)
+
+	e.renderStatusBar(zeroLocation, maxH, maxW)
+	zeroLocation.Y += measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0).Y
 	e.renderText(zeroLocation, maxH, maxW)
 	e.renderSearch(zeroLocation, maxH, maxW)
 	e.renderGoto(zeroLocation, maxH, maxW)
-	e.renderSelections(zeroLocation, maxH, maxW)
-	e.renderStatusBar(zeroLocation, maxH, maxW)
+	e.renderCursors(zeroLocation, maxH, maxW)
 }
 
 func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
@@ -1549,11 +1552,6 @@ var EditorKeymap = Keymap{
 	Key{K: "c", Control: true}: MakeCommand(func(e *TextBuffer) error {
 		return e.Copy()
 	}),
-	Key{K: "c", Alt: true}: MakeCommand(func(e *TextBuffer) error {
-		e.keymaps = append(e.keymaps, CompileKeymap)
-
-		return nil
-	}),
 	Key{K: "s", Control: true}: MakeCommand(func(a *TextBuffer) error {
 		a.keymaps = append(a.keymaps, SearchTextBufferKeymap, MakeInsertionKeys[*TextBuffer](func(b byte) error {
 			if a.ISearch.SearchString == nil {
@@ -1853,5 +1851,3 @@ var GotoLineKeymap = Keymap{
 	Key{K: "8"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '8') }),
 	Key{K: "9"}: MakeCommand(func(e *TextBuffer) error { return insertCharAtGotoLineBuffer(e, '9') }),
 }
-
-var CompileKeymap = Keymap{}
