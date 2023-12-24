@@ -15,7 +15,7 @@ Simple text editor implemented in Golang using Raylib with the goal of replacing
 ![Main](assets/build-window-max.png)
 
 ## Credits
-- Alan Webster for 4coder editor which I took the default colorscheme and basic idea of having an editor that is extensible with an "actual" language.
+- Allen Webster for 4coder editor which I took the default colorscheme and basic idea of having an editor that is extensible with an "actual" language.
 - Casey Muratori for handmadehero which I learnt a lot
 - Jonathan Blow for his inspiring character
 - Emacs/VSCode/Neovim which I took ideas from
