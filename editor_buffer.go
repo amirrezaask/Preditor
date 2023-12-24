@@ -37,8 +37,10 @@ type EditorBuffer struct {
 	CursorBlinking    bool
 	RenderLineNumbers bool
 	HasSelection      bool
-	SelectionStart    Position
-	SelectionEnd      Position
+	SelectionStart    struct {
+		VisualLineIndex int
+		Column          int
+	}
 }
 
 func (t *EditorBuffer) replaceTabsWithSpaces() {
