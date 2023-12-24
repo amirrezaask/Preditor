@@ -34,7 +34,7 @@ type Colors struct {
 type Buffer interface {
 	GetID() int
 	SetID(int)
-	Render(zeroLocation rl.Vector2, maxHeight int32, maxWidth int32)
+	Render(zeroLocation rl.Vector2, maxHeight float64, maxWidth float64)
 	Keymaps() []Keymap
 	fmt.Stringer
 }
@@ -53,8 +53,8 @@ type Window struct {
 	ID           int
 	BufferID     int
 	ZeroLocation rl.Vector2
-	MaxHeight    int32
-	MaxWidth     int32
+	MaxHeight    float64
+	MaxWidth     float64
 }
 
 func (w *Window) Render(c *Context) {
@@ -73,8 +73,8 @@ type Context struct {
 	FontPath          string
 	Font              rl.Font
 	FontSize          int32
-	OSWindowHeight    int32
-	OSWindowWidth     int32
+	OSWindowHeight    float64
+	OSWindowWidth     float64
 	Windows           map[int]*Window
 	ActiveWindowIndex int
 }
@@ -241,8 +241,23 @@ func (c *Context) Render() {
 }
 
 func (c *Context) HandleWindowResize() {
-	c.OSWindowHeight = int32(rl.GetRenderHeight())
-	c.OSWindowWidth = int32(rl.GetRenderWidth())
+	newHeight := float64(rl.GetRenderHeight())
+	newWidth := float64(rl.GetRenderWidth())
+
+	for _, win := range c.Windows {
+		if newHeight != c.OSWindowHeight {
+			win.MaxHeight = newHeight * (win.MaxHeight / c.OSWindowHeight)
+		}
+
+		if newWidth != c.OSWindowWidth {
+			win.MaxWidth = newWidth * (win.MaxWidth / c.OSWindowWidth)
+
+		}
+
+	}
+
+	c.OSWindowHeight = newHeight
+	c.OSWindowWidth = newWidth
 }
 
 func (c *Context) HandleMouseEvents() {
@@ -583,8 +598,8 @@ func New() (*Context, error) {
 	p := &Context{
 		Cfg:            cfg,
 		Buffers:        map[int]Buffer{},
-		OSWindowHeight: int32(rl.GetRenderHeight()),
-		OSWindowWidth:  int32(rl.GetRenderWidth()),
+		OSWindowHeight: float64(rl.GetRenderHeight()),
+		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        map[int]*Window{},
 	}
 
@@ -609,8 +624,8 @@ func New() (*Context, error) {
 
 	mainWindow := Window{
 		ZeroLocation: rl.Vector2{},
+		MaxWidth:     p.OSWindowWidth / 2,
 		MaxHeight:    p.OSWindowHeight,
-		MaxWidth:     p.OSWindowWidth,
 	}
 	p.AddWindow(&mainWindow)
 
@@ -657,7 +672,6 @@ func New() (*Context, error) {
 
 func (c *Context) StartMainLoop() {
 	defer func() {
-
 		if r := recover(); r != nil {
 			err := os.WriteFile(path.Join(os.Getenv("HOME"),
 				fmt.Sprintf("preditor-crashlog-%d", time.Now().Unix())),
@@ -669,7 +683,6 @@ func (c *Context) StartMainLoop() {
 
 			fmt.Printf("%v\n%s\n%s\n", r, string(debug.Stack()), spew.Sdump(c))
 		}
-
 	}()
 
 	for !rl.WindowShouldClose() {

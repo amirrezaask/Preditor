@@ -61,7 +61,7 @@ func NewInteractiveFilterBuffer[T any](
 	return ifb
 }
 
-func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH int32, maxW int32) {
+func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float64, maxW float64) {
 	if i.LastInputWeRanUpdateFor != string(i.UserInputComponent.UserInput) {
 		i.LastInputWeRanUpdateFor = string(i.UserInputComponent.UserInput)
 		i.UpdateList(&i.List, string(i.UserInputComponent.UserInput))
@@ -69,7 +69,7 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH int32,
 	charSize := measureTextSize(i.parent.Font, ' ', i.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), maxW, int32(charSize.Y)*2, i.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y)*2, i.cfg.Colors.StatusBarBackground)
 	rl.DrawTextEx(i.parent.Font, string(i.UserInputComponent.UserInput), rl.Vector2{
 		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
 	}, float32(i.parent.FontSize), 0, i.cfg.Colors.Foreground)
@@ -84,7 +84,7 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH int32,
 	}
 
 	startOfListY := int32(zeroLocation.Y) + int32(3*(charSize.Y))
-	maxLine := int((maxH - startOfListY) / int32(charSize.Y))
+	maxLine := int(int32(maxH-float64(startOfListY)) / int32(charSize.Y))
 
 	//draw list of items
 	for idx, item := range i.List.VisibleView(maxLine) {
@@ -93,7 +93,7 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH int32,
 		}, float32(i.parent.FontSize), 0, i.cfg.Colors.Foreground)
 	}
 	if len(i.List.Items) > 0 {
-		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), maxW, int32(charSize.Y), rl.Fade(i.cfg.Colors.Selection, 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.Colors.Selection, 0.2))
 	}
 }
 
