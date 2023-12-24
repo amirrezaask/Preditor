@@ -1,8 +1,11 @@
 package main
 
 import (
-	rl "github.com/gen2brain/raylib-go/raylib"
+	"bytes"
 	"os"
+	"strings"
+
+	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type TextEditorBuffer struct {
@@ -14,6 +17,7 @@ type TextEditorBuffer struct {
 	MaxHeight    int32
 	MaxWidth     int32
 	ZeroPosition rl.Vector2
+	TabSize      int
 	VisibleStart int32
 	VisibleEnd   int32
 	visualLines  []visualLine
@@ -21,6 +25,10 @@ type TextEditorBuffer struct {
 	maxLine      int32
 	maxColumn    int32
 	Colors       Colors
+}
+
+func (t *TextEditorBuffer) replaceTabsWithSpaces() {
+	t.Content = bytes.Replace(t.Content, []byte("\t"), []byte(strings.Repeat(" ", 4)), -1)
 }
 
 func (t *TextEditorBuffer) SetMaxWidth(w int32) {
@@ -50,6 +58,7 @@ func (t *TextEditorBuffer) Initialize(opts BufferOptions) error {
 	if err != nil {
 		return err
 	}
+	t.replaceTabsWithSpaces()
 	return nil
 }
 
@@ -77,8 +86,6 @@ func (t *TextEditorBuffer) Render() {
 	if t.VisibleEnd == 0 {
 		t.VisibleEnd = t.maxLine
 	}
-
-	// loopStart := time.Now()
 
 	for idx, char := range t.Content {
 		lineCharCounter++
@@ -383,13 +390,16 @@ func (t *TextEditorBuffer) MoveCursorTo(pos rl.Vector2) error {
 	t.Cursor.Line = int(apprLine)
 	t.Cursor.Column = int(apprColumn)
 
+	t.fixCursorColumnIfNeeded(&t.Cursor)
+
 	return nil
 }
 
 func (t *TextEditorBuffer) Write() error {
+	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
-
+	t.replaceTabsWithSpaces()
 	return nil
 }

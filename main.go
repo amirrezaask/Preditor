@@ -28,13 +28,14 @@ func main() {
 	rl.SetTextLineSpacing(int(fontSize))
 	rl.SetMouseCursor(rl.MouseCursorIBeam)
 	textEditorBuffer := &TextEditorBuffer{
-		File:    "main.go",
+		File:	"main.go",
+		TabSize: 4,
 	}
 
 	textEditorBuffer.Initialize(BufferOptions{
-		MaxHeight:    int32(rl.GetRenderHeight()),
-		MaxWidth:     int32(rl.GetRenderWidth()),
-		Colors:       editor.Colors,
+		MaxHeight:	int32(rl.GetRenderHeight()),
+		MaxWidth:	 int32(rl.GetRenderWidth()),
+		Colors:	   editor.Colors,
 		ZeroPosition: rl.Vector2{},
 	})
 	editor.Buffers = append(editor.Buffers, textEditorBuffer)
