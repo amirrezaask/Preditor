@@ -13,8 +13,7 @@ import (
 type Colors struct {
 	Background            color.RGBA
 	Foreground            color.RGBA
-	SelectionBackground   color.RGBA
-	SelectionForeground   color.RGBA
+	Selection             color.RGBA
 	StatusBarBackground   color.RGBA
 	StatusBarForeground   color.RGBA
 	LineNumbersForeground color.RGBA
