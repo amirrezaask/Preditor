@@ -170,13 +170,13 @@ func (t *TextEditorBuffer) Render() {
 			t.renderVisualLine(line, idx)
 		}
 	}
+	// render cursor
 	// fmt.Printf("Rendering buffer: render Loop took: %s\n", time.Since(loopStart))
 	cursorView := Position{
 		Line:   t.Cursor.Line - int(t.VisibleStart),
 		Column: t.Cursor.Column,
 	}
 	rl.DrawRectangleLines(int32(cursorView.Column)*int32(charSize.X), int32(cursorView.Line)*int32(charSize.Y), int32(charSize.X), int32(charSize.Y), rl.White)
-
 	//render status bar
 	rl.DrawRectangle(
 		int32(t.ZeroPosition.X),
@@ -189,13 +189,13 @@ func (t *TextEditorBuffer) Render() {
 	if file == "" {
 		file = "*scratch*"
 	}
+
 	rl.DrawTextEx(font,
 		string(fmt.Sprintf("%s %d:%d", file, t.Cursor.Line, t.Cursor.Column)),
 		rl.Vector2{X: t.ZeroPosition.X, Y: float32(t.maxLine) * charSize.Y},
 		fontSize,
 		0,
 		t.Colors.StatusBarForeground)
-
 }
 
 func (t *TextEditorBuffer) visualLineShouldBeRendered(line visualLine) bool {
