@@ -50,7 +50,7 @@ func (f *FuzzyFilePickerBuffer) String() string {
 
 func (f *FuzzyFilePickerBuffer) SortItems() {
 	for idx, item := range f.List.Items {
-		f.List.Items[idx].Score = fuzzy.RankMatch(string(f.UserInputComponent.UserInput), item.Filename)
+		f.List.Items[idx].Score = fuzzy.RankMatchNormalizedFold(string(f.UserInputComponent.UserInput), item.Filename)
 	}
 
 	sortme(f.List.Items, func(t1 LocationItemScored, t2 LocationItemScored) bool {
