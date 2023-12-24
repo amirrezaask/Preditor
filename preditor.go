@@ -763,8 +763,14 @@ func New() (*Context, error) {
 	if err := clipboard.Init(); err != nil {
 		panic(err)
 	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	p := &Context{
 		Cfg:            cfg,
+		CWD:            wd,
 		Buffers:        map[int]Buffer{},
 		OSWindowHeight: float64(rl.GetRenderHeight()),
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
