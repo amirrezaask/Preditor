@@ -4,8 +4,6 @@ import (
 	"unicode"
 )
 
-const nonLetter = "~!@#$%^&*()_+{}[];:'\"\\\n\r <>,.?/"
-
 func SeekNextNonLetter(bs []byte, idx int) int {
 	for i := idx + 1; i < len(bs); i++ {
 		if i == len(bs) {
@@ -55,13 +53,49 @@ func SeekNextLetter(bs []byte, idx int) int {
 }
 
 func PreviousWordInBuffer(bs []byte, idx int) int {
-	lastNonLetter := SeekPreviousNonLetter(bs, idx)
-	lastLetterIndex := SeekPreviousLetter(bs, lastNonLetter)
-	return lastLetterIndex
-}
+	var sawWord bool
+	var sawWhitespaces bool
+	for i := idx - 1; i >= 0; i-- {
+		if sawWord {
+			return i + 1
+		}
+		if i == 0 {
+			return i
+		}
 
+		if !unicode.IsLetter(rune(bs[i])) {
+			sawWhitespaces = true
+		} else {
+			if sawWhitespaces {
+				sawWord = true
+				if sawWord && sawWhitespaces {
+					return i
+				}
+			}
+		}
+	}
+
+	return -1
+
+}
 func NextWordInBuffer(bs []byte, idx int) int {
-	nextNonLetter := SeekNextNonLetter(bs, idx)
-	nextLetterIndex := SeekNextLetter(bs, nextNonLetter)
-	return nextLetterIndex
+	var sawWord bool
+	var sawWhitespaces bool
+	for i := idx + 1; i < len(bs); i++ {
+		if sawWord {
+			return i + 1
+		}
+		if !unicode.IsLetter(rune(bs[i])) {
+			sawWhitespaces = true
+		} else {
+			if sawWhitespaces {
+				sawWord = true
+				if sawWord && sawWhitespaces {
+					return i
+				}
+			}
+		}
+	}
+
+	return -1
 }

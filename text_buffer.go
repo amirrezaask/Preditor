@@ -944,6 +944,8 @@ func (e *TextBuffer) MoveLeft(s *Cursor, n int) {
 	if s.Start() < 0 {
 		s.SetBoth(0)
 	}
+
+	e.ScrollIfNeeded()
 }
 
 func (e *TextBuffer) MoveAllLeft(n int) error {
@@ -961,6 +963,8 @@ func (e *TextBuffer) MoveRight(s *Cursor, n int) {
 	if s.Start() > len(e.Content) {
 		s.SetBoth(len(e.Content))
 	}
+	e.ScrollIfNeeded()
+
 }
 
 func (e *TextBuffer) MoveAllRight(n int) error {
@@ -1025,6 +1029,8 @@ func SelectionsToRight(e *TextBuffer, n int) error {
 		if sel.Mark >= len(e.Content) {
 			sel.Mark = len(e.Content)
 		}
+		e.ScrollIfNeeded()
+
 	}
 
 	return nil
@@ -1036,6 +1042,8 @@ func SelectionsToLeft(e *TextBuffer, n int) error {
 		if sel.Mark < 0 {
 			sel.Mark = 0
 		}
+		e.ScrollIfNeeded()
+
 	}
 
 	return nil
@@ -1151,6 +1159,7 @@ func SelectionPreviousWord(e *TextBuffer) error {
 			continue
 		}
 		e.Cursors[i].Mark = previousWord
+		e.ScrollIfNeeded()
 	}
 
 	return nil
@@ -1162,6 +1171,8 @@ func SelectionNextWord(e *TextBuffer) error {
 			continue
 		}
 		e.Cursors[i].Mark = nextWord
+		e.ScrollIfNeeded()
+
 	}
 
 	return nil
@@ -1252,7 +1263,7 @@ func (e *TextBuffer) MoveToNextWord() error {
 			newidx = len(e.Content)
 		}
 		e.Cursors[i].SetBoth(newidx)
-
+		e.ScrollIfNeeded()
 	}
 	return nil
 }
@@ -1267,6 +1278,7 @@ func (e *TextBuffer) MoveToPreviousWord() error {
 			newidx = 0
 		}
 		e.Cursors[i].SetBoth(newidx)
+		e.ScrollIfNeeded()
 
 	}
 	return nil
