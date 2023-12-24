@@ -26,6 +26,11 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: "t", Alt: true}: func(preditor *Context) error {
+		preditor.openThemeSwitcher()
+		return nil
+	},
+
 	Key{K: "o", Alt: true}: func(a *Context) error {
 		a.openFileBuffer()
 		return nil

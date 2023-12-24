@@ -74,10 +74,10 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 	charSize := measureTextSize(i.parent.Font, ' ', i.parent.FontSize, 0)
 
 	//draw input box
-	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y)*2, i.cfg.Colors.StatusBarBackground)
+	rl.DrawRectangleLines(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y)*2, i.cfg.CurrentThemeColors().StatusBarBackground)
 	rl.DrawTextEx(i.parent.Font, string(i.UserInputComponent.UserInput), rl.Vector2{
 		X: zeroLocation.X, Y: zeroLocation.Y + charSize.Y/2,
-	}, float32(i.parent.FontSize), 0, i.cfg.Colors.Foreground)
+	}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground)
 
 	switch i.cfg.CursorShape {
 	case CURSOR_SHAPE_OUTLINE:
@@ -95,10 +95,10 @@ func (i *InteractiveFilterBuffer[T]) Render(zeroLocation rl.Vector2, maxH float6
 	for idx, item := range i.List.VisibleView(maxLine) {
 		rl.DrawTextEx(i.parent.Font, i.ItemRepr(item), rl.Vector2{
 			X: zeroLocation.X, Y: float32(startOfListY) + float32(idx)*charSize.Y,
-		}, float32(i.parent.FontSize), 0, i.cfg.Colors.Foreground)
+		}, float32(i.parent.FontSize), 0, i.cfg.CurrentThemeColors().Foreground)
 	}
 	if len(i.List.Items) > 0 {
-		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.Colors.Selection, 0.2))
+		rl.DrawRectangle(int32(zeroLocation.X), int32(int(startOfListY)+(i.List.Selection-i.List.VisibleStart)*int(charSize.Y)), int32(maxW), int32(charSize.Y), rl.Fade(i.cfg.CurrentThemeColors().Selection, 0.2))
 	}
 }
 
@@ -198,6 +198,44 @@ func NewBufferSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[Sc
 		return s.Item.String()
 	}
 	return NewInteractiveFilterBuffer[ScoredItem[Buffer]](
+		parent,
+		cfg,
+		updateList,
+		openSelection,
+		repr,
+		initialList,
+	)
+
+}
+
+func NewThemeSwitcher(parent *Context, cfg *Config) *InteractiveFilterBuffer[ScoredItem[string]] {
+	updateList := func(l *components.ListComponent[ScoredItem[string]], input string) {
+		for idx, item := range l.Items {
+			l.Items[idx].Score = fuzzy.RankMatchNormalizedFold(input, fmt.Sprint(item.Item))
+		}
+
+		sortme(l.Items, func(t1 ScoredItem[string], t2 ScoredItem[string]) bool {
+			return t1.Score > t2.Score
+		})
+
+	}
+	openSelection := func(parent *Context, item ScoredItem[string]) error {
+		parent.Cfg.CurrentTheme = item.Item
+		parent.KillBuffer(parent.ActiveBufferID())
+		return nil
+	}
+	initialList := func() []ScoredItem[string] {
+		var themes []ScoredItem[string]
+		for _, v := range parent.Cfg.Themes {
+			themes = append(themes, ScoredItem[string]{Item: v.Name})
+		}
+
+		return themes
+	}
+	repr := func(s ScoredItem[string]) string {
+		return s.Item
+	}
+	return NewInteractiveFilterBuffer[ScoredItem[string]](
 		parent,
 		cfg,
 		updateList,

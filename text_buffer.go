@@ -436,18 +436,18 @@ func (e *TextBuffer) renderCursors(zeroLocation rl.Vector2, maxH float64, maxW f
 			}
 			switch e.cfg.CursorShape {
 			case CURSOR_SHAPE_OUTLINE:
-				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), e.cfg.Colors.Cursor)
+				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor)
 			case CURSOR_SHAPE_BLOCK:
-				rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.Cursor, 0.5))
+				rl.DrawRectangle(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().Cursor, 0.5))
 			case CURSOR_SHAPE_LINE:
-				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), 2, int32(charSize.Y), e.cfg.Colors.Cursor)
+				rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor)
 			}
 			if e.cfg.CursorLineHighlight {
-				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.Colors.CursorLineBackground, 0.2))
+				rl.DrawRectangle(int32(zeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(zeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground, 0.2))
 			}
 
 		} else {
-			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), e.cfg.Colors.Selection)
+			e.highlightBetweenTwoIndexes(zeroLocation, sel.Start(), sel.End(), e.cfg.CurrentThemeColors().Selection)
 		}
 
 	}
@@ -497,7 +497,7 @@ func (e *TextBuffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW
 		int32(zeroLocation.Y),
 		int32(maxW),
 		int32(charSize.Y),
-		e.cfg.Colors.StatusBarBackground,
+		e.cfg.CurrentThemeColors().StatusBarBackground,
 	)
 	sections = append(sections, fmt.Sprintf("%s %s", state, file))
 	sections = append(sections, isActiveWindow)
@@ -506,7 +506,7 @@ func (e *TextBuffer) renderStatusbar(zeroLocation rl.Vector2, maxH float64, maxW
 		rl.Vector2{X: zeroLocation.X, Y: float32(zeroLocation.Y)},
 		float32(e.parent.FontSize),
 		0,
-		e.cfg.Colors.StatusBarForeground)
+		e.cfg.CurrentThemeColors().StatusBarForeground)
 
 }
 
@@ -574,7 +574,7 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 					rl.Vector2{X: zeroLocation.X, Y: zeroLocation.Y + float32(idx)*charSize.Y},
 					float32(e.parent.FontSize),
 					0,
-					e.cfg.Colors.LineNumbersForeground)
+					e.cfg.CurrentThemeColors().LineNumbersForeground)
 
 			}
 			rl.DrawTextEx(e.parent.Font,
@@ -582,7 +582,7 @@ func (e *TextBuffer) renderText(zeroLocation rl.Vector2, maxH float64, maxW floa
 				rl.Vector2{X: zeroLocation.X + float32(lineNumberWidth), Y: zeroLocation.Y + float32(idx)*charSize.Y},
 				float32(e.parent.FontSize),
 				0,
-				e.cfg.Colors.Foreground)
+				e.cfg.CurrentThemeColors().Foreground)
 
 			if e.cfg.EnableSyntaxHighlighting && e.HasSyntaxHighlights {
 				highlights := e.calculateHighlights(e.Content[line.startIndex:line.endIndex], line.startIndex)
@@ -624,7 +624,7 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string, zeroLocation rl.Vec
 		}
 	}
 	for idx, match := range e.ISearch.SearchMatches {
-		c := e.cfg.Colors.Selection
+		c := e.cfg.CurrentThemeColors().Selection
 		_ = c
 		if idx == e.ISearch.CurrentMatch {
 			c = rl.Fade(rl.Red, 0.5)
@@ -660,7 +660,7 @@ func (e *TextBuffer) renderSearch(zeroLocation rl.Vector2, maxH float64, maxW fl
 		e.Cursors[0].Mark = e.ISearch.SearchMatches[e.ISearch.CurrentMatch][0]
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
 	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("ISearch: %s", *e.ISearch.SearchString), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
@@ -672,7 +672,7 @@ func (e *TextBuffer) renderGoto(zeroLocation rl.Vector2, maxH float64, maxW floa
 		return
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
 	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Goto: %s", string(e.GotoLine.GotoLineUserInput)), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,
@@ -684,7 +684,7 @@ func (e *TextBuffer) renderCompilation(zeroLocation rl.Vector2, maxH float64, ma
 		return
 	}
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.Colors.Prompts)
+	rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts)
 	rl.DrawTextEx(e.parent.Font, fmt.Sprintf("Compile: %s", string(e.Compilation.CompilationCommand)), rl.Vector2{
 		X: zeroLocation.X,
 		Y: zeroLocation.Y,

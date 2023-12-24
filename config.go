@@ -9,9 +9,14 @@ import (
 	"strings"
 )
 
-// this
+type Theme struct {
+	Name   string
+	Colors Colors
+}
+
 type Config struct {
-	Colors                   Colors
+	Themes                   []Theme
+	CurrentTheme             string
 	TabSize                  int
 	LineNumbers              bool
 	FontName                 string
@@ -31,21 +36,46 @@ func mustParseHexColor(hex string) color.RGBA {
 }
 
 var defaultConfig = Config{
-	Colors: Colors{
-		Background:            mustParseHexColor("#000000"),
-		Foreground:            mustParseHexColor("#a9a9a9"),
-		Selection:             mustParseHexColor("#0000cd"),
-		Prompts:               mustParseHexColor("#333333"),
-		StatusBarBackground:   mustParseHexColor("#696969"),
-		StatusBarForeground:   mustParseHexColor("#000000"),
-		LineNumbersForeground: mustParseHexColor("#F2F2F2"),
-		ActiveWindowBorder:    mustParseHexColor("#8cde94"),
-		Cursor:                mustParseHexColor("#00ff00"),
-		CursorLineBackground:  mustParseHexColor("#52534E"),
-		SyntaxKeywords:        mustParseHexColor("#cd950c"),
-		SyntaxTypes:           mustParseHexColor("#8cde94"),
-		SyntaxComments:        mustParseHexColor("#118a1a"),
-		SyntaxStrings:         mustParseHexColor("#118a1a"),
+	CurrentTheme: "Light",
+	Themes: []Theme{
+		{
+			Name: "Dark",
+			Colors: Colors{
+				Background:            mustParseHexColor("#000000"),
+				Foreground:            mustParseHexColor("#a9a9a9"),
+				Selection:             mustParseHexColor("#0000cd"),
+				Prompts:               mustParseHexColor("#333333"),
+				StatusBarBackground:   mustParseHexColor("#696969"),
+				StatusBarForeground:   mustParseHexColor("#000000"),
+				LineNumbersForeground: mustParseHexColor("#F2F2F2"),
+				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
+				Cursor:                mustParseHexColor("#00ff00"),
+				CursorLineBackground:  mustParseHexColor("#52534E"),
+				SyntaxKeywords:        mustParseHexColor("#cd950c"),
+				SyntaxTypes:           mustParseHexColor("#8cde94"),
+				SyntaxComments:        mustParseHexColor("#118a1a"),
+				SyntaxStrings:         mustParseHexColor("#118a1a"),
+			},
+		},
+		{
+			Name: "Light",
+			Colors: Colors{
+				Background:            mustParseHexColor("#a9a9a9"),
+				Foreground:            mustParseHexColor("#000000"),
+				Selection:             mustParseHexColor("#0000cd"),
+				Prompts:               mustParseHexColor("#333333"),
+				StatusBarBackground:   mustParseHexColor("#696969"),
+				StatusBarForeground:   mustParseHexColor("#000000"),
+				LineNumbersForeground: mustParseHexColor("#F2F2F2"),
+				ActiveWindowBorder:    mustParseHexColor("#8cde94"),
+				Cursor:                mustParseHexColor("#00ff00"),
+				CursorLineBackground:  mustParseHexColor("#52534E"),
+				SyntaxKeywords:        mustParseHexColor("#cd950c"),
+				SyntaxTypes:           mustParseHexColor("#8cde94"),
+				SyntaxComments:        mustParseHexColor("#118a1a"),
+				SyntaxStrings:         mustParseHexColor("#118a1a"),
+			},
+		},
 	},
 	CursorLineHighlight:      true,
 	TabSize:                  4,
@@ -57,8 +87,17 @@ var defaultConfig = Config{
 	FontSize:                 30,
 }
 
+func (c *Config) CurrentThemeColors() *Colors {
+	for _, theme := range c.Themes {
+		if theme.Name == c.CurrentTheme {
+			return &theme.Colors
+		}
+	}
+
+	return nil
+}
+
 func addToConfig(cfg *Config, key string, value string) error {
-	var err error
 	switch key {
 	case "syntax":
 		cfg.EnableSyntaxHighlighting = value == "true"
@@ -84,41 +123,6 @@ func addToConfig(cfg *Config, key string, value string) error {
 	case "font_size":
 		var err error
 		cfg.FontSize, err = strconv.Atoi(value)
-		if err != nil {
-			return err
-		}
-	case "background":
-		cfg.Colors.Background, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "foreground":
-		cfg.Colors.Foreground, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "statusbar_background":
-		cfg.Colors.StatusBarBackground, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "statusbar_foreground":
-		cfg.Colors.StatusBarForeground, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "selection_background":
-		cfg.Colors.Selection, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "line_numbers_foreground":
-		cfg.Colors.LineNumbersForeground, err = parseHexColor(value)
-		if err != nil {
-			return err
-		}
-	case "cursor_background":
-		cfg.Colors.Cursor, err = parseHexColor(value)
 		if err != nil {
 			return err
 		}
