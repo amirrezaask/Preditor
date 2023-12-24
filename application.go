@@ -19,7 +19,7 @@ type Colors struct {
 	LineNumbersForeground color.RGBA
 }
 
-type Application struct {
+type Preditor struct {
 	Editors           []*Editor
 	ActiveEditorIndex int
 	GlobalKeymaps     []Keymap
@@ -30,11 +30,11 @@ type Application struct {
 	Colors            Colors
 }
 
-func (e *Application) ActiveEditor() *Editor {
+func (e *Preditor) ActiveEditor() *Editor {
 	return e.Editors[e.ActiveEditorIndex]
 }
 
-type Command func(*Application) error
+type Command func(*Preditor) error
 type Variables map[string]any
 type Key struct {
 	Control bool
@@ -85,7 +85,7 @@ func parseHexColor(v string) (out color.RGBA, err error) {
 	return
 }
 
-func (e *Application) HandleKeyEvents() {
+func (e *Preditor) HandleKeyEvents() {
 	key := getKey()
 	if !key.IsEmpty() {
 		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {
@@ -99,14 +99,14 @@ func (e *Application) HandleKeyEvents() {
 
 }
 
-func (e *Application) Render() {
+func (e *Preditor) Render() {
 	rl.BeginDrawing()
 	rl.ClearBackground(e.Colors.Background)
 	e.ActiveEditor().Render()
 	rl.EndDrawing()
 }
 
-func (e *Application) HandleWindowResize() {
+func (e *Preditor) HandleWindowResize() {
 	height := rl.GetRenderHeight()
 	width := rl.GetRenderWidth()
 
@@ -123,7 +123,7 @@ func (e *Application) HandleWindowResize() {
 	}
 }
 
-func (e *Application) HandleMouseEvents() {
+func (e *Preditor) HandleMouseEvents() {
 	key := getMouseKey()
 	if !key.IsEmpty() {
 		for i := len(e.ActiveEditor().Keymaps) - 1; i >= 0; i-- {

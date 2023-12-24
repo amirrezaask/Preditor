@@ -31,7 +31,7 @@ func main() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(30)
 	// create editor
-	editor := Application{
+	editor := Preditor{
 		LineNumbers:  true,
 		LineWrapping: true,
 		Colors:       cfg.Colors,
