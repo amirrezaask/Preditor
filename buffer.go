@@ -19,7 +19,6 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-// this a nother test
 var EditorKeymap Keymap
 var SearchTextBufferKeymap Keymap
 
@@ -357,9 +356,6 @@ func (e *BufferView) BufferIndexToPosition(i int) Position {
 }
 
 func (e *BufferView) PositionToBufferIndex(pos Position) int {
-	if len(e.Lines) < 1 {
-		e.generateBufferLines()
-	}
 	if len(e.Lines) <= pos.Line {
 		return len(e.Buffer.Content)
 	}
@@ -429,61 +425,7 @@ func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
 	return nil
 }
 func (e *BufferView) generateBufferLines() {
-	e.Buffer.tokens = e.generateWordTokens()
-	e.Lines = []BufferLine{}
-	totalVisualLines := 0
-	lineCharCounter := 0
-	var actualLineIndex = 1
-	var start int
-	if e.EndLine == 0 {
-		e.EndLine = e.maxLine
-	}
 
-	for idx, char := range e.Buffer.Content {
-		lineCharCounter++
-		if char == '\n' {
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
-			}
-			e.Lines = append(e.Lines, line)
-			totalVisualLines++
-			actualLineIndex++
-			lineCharCounter = 0
-			start = idx + 1
-		}
-		if idx == len(e.Buffer.Content)-1 {
-			// last index
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx + 1,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
-			}
-			e.Lines = append(e.Lines, line)
-			totalVisualLines++
-			actualLineIndex++
-			lineCharCounter = 0
-			start = idx + 1
-		}
-		if int32(lineCharCounter) > e.maxColumn-5 {
-			line := BufferLine{
-				Index:      totalVisualLines,
-				startIndex: start,
-				endIndex:   idx,
-				Length:     idx - start + 1,
-				ActualLine: actualLineIndex,
-			}
-			e.Lines = append(e.Lines, line)
-			totalVisualLines++
-			lineCharCounter = 0
-			start = idx + 1
-		}
-	}
 }
 func (e *BufferView) renderTextRange(zeroLocation rl.Vector2, idx1 int, idx2 int, maxH float64, maxW float64, color color.RGBA) {
 	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
@@ -676,7 +618,63 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	e.maxLine-- //reserve one line of screen for statusbar
 	diff := e.maxLine - oldMaxLine
 	e.EndLine += diff
-	e.generateBufferLines()
+
+	// generate visual lines that we are going to render
+	e.Buffer.tokens = e.generateWordTokens()
+	e.Lines = []BufferLine{}
+	totalVisualLines := 0
+	lineCharCounter := 0
+	var actualLineIndex = 1
+	var start int
+	if e.EndLine == 0 {
+		e.EndLine = e.maxLine
+	}
+
+	for idx, char := range e.Buffer.Content {
+		lineCharCounter++
+		if char == '\n' {
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.Lines = append(e.Lines, line)
+			totalVisualLines++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+		if idx == len(e.Buffer.Content)-1 {
+			// last index
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx + 1,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.Lines = append(e.Lines, line)
+			totalVisualLines++
+			actualLineIndex++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+		if int32(lineCharCounter) > e.maxColumn-5 {
+			line := BufferLine{
+				Index:      totalVisualLines,
+				startIndex: start,
+				endIndex:   idx,
+				Length:     idx - start + 1,
+				ActualLine: actualLineIndex,
+			}
+			e.Lines = append(e.Lines, line)
+			totalVisualLines++
+			lineCharCounter = 0
+			start = idx + 1
+		}
+	}
 
 	if !e.NoStatusbar {
 		var sections []string
@@ -768,7 +766,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	for idx, line := range visibleLines {
-		if e.shouldBufferLineBeRendered(line) {
+		if e.StartLine <= int32(line.Index) && line.Index <= int(e.EndLine) {
 			if e.cfg.LineNumbers {
 				rl.DrawTextEx(e.parent.Font,
 					fmt.Sprintf("%d", line.ActualLine),
@@ -865,14 +863,6 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 
 	e.zeroLocation = zeroLocation
 
-}
-
-func (e *BufferView) shouldBufferLineBeRendered(line BufferLine) bool {
-	if e.StartLine <= int32(line.Index) && line.Index <= int(e.EndLine) {
-		return true
-	}
-
-	return false
 }
 
 func (e *BufferView) isValidCursorPosition(newPosition Position) bool {
@@ -1613,7 +1603,6 @@ func Write(e *BufferView) error {
 	if e.Buffer.CRLF {
 		e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\r\n"), []byte("\n"), -1)
 	}
-	e.generateBufferLines()
 	if e.Buffer.fileType.AfterSave != nil {
 		_ = e.Buffer.fileType.AfterSave(e)
 
