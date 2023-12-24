@@ -40,16 +40,15 @@ type TextBuffer struct {
 	VisibleStart              int32
 	VisibleEnd                int32
 	visualLines               []visualLine
-	Cursor                    Position
 	maxLine                   int32
+	bufferIndex               int
 	maxColumn                 int32
 	State                     int
-	HasSelection              bool
-	SelectionStart            *Position
+	SelectionStart            int
 	IsSearching               bool
 	LastSearchString          string
 	SearchString              *string
-	SearchMatches             [][2]Position
+	SearchMatches             [][]int
 	CurrentMatch              int
 	MovedAwayFromCurrentMatch bool
 	LastCursorBlink           time.Time
@@ -145,6 +144,7 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	t.MaxWidth = maxW
 	t.ZeroPosition = zeroPosition
 	t.keymaps = append([]Keymap{}, editorKeymap)
+	t.SelectionStart = -1
 	var err error
 	if t.File != "" {
 		if _, err = os.Stat(t.File); err == nil {
@@ -168,6 +168,36 @@ func NewTextBuffer(parent *Preditor, cfg *Config, filename string, maxH int32, m
 	t.calculateVisualLines()
 	return &t, nil
 
+}
+func (e *TextBuffer) getIndexVisualLine(i int) visualLine {
+	for _, line := range e.visualLines {
+		if line.startIndex <= i && line.endIndex >= i {
+			return line
+		}
+	}
+
+	return visualLine{}
+}
+
+func (e *TextBuffer) getIndexPosition(i int) Position {
+	if len(e.visualLines) == 0 {
+		return Position{Line: 0, Column: i}
+	}
+
+	line := e.getIndexVisualLine(i)
+	return Position{
+		Line:   line.Index,
+		Column: i - line.startIndex,
+	}
+
+}
+
+func (e *TextBuffer) positionToBufferIndex(pos Position) int {
+	if len(e.visualLines) <= pos.Line {
+		return len(e.Content)
+	}
+
+	return e.visualLines[pos.Line].startIndex + pos.Column
 }
 
 func (e *TextBuffer) Destroy() error {
@@ -213,16 +243,21 @@ func (e *TextBuffer) calculateHighlights(bs []byte, offset int) []highlight {
 	}
 	return highlights
 }
+
 func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 	sort.Slice(slice, func(i, j int) bool {
 		return pred(slice[i], slice[j])
 	})
 }
+
 func (e *TextBuffer) fillInTheBlanks(hs []highlight, start, end int) []highlight {
 	var missing []highlight
 	sortme[highlight](hs, func(t1, t2 highlight) bool {
 		return t1.start < t2.start
 	})
+	if start == end {
+		return hs
+	}
 	if len(hs) == 0 {
 		missing = append(missing, highlight{
 			start: start,
@@ -243,7 +278,7 @@ func (e *TextBuffer) fillInTheBlanks(hs []highlight, start, end int) []highlight
 			if i == len(hs)-1 && h.end != end {
 				missing = append(missing, highlight{
 					start: h.end + 1,
-					end:   end,
+					end:   end - 1,
 					Color: e.cfg.Colors.Foreground,
 				})
 			}
@@ -282,7 +317,7 @@ func (e *TextBuffer) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 			e.visualLines = append(e.visualLines, line)
@@ -290,15 +325,14 @@ func (e *TextBuffer) calculateVisualLines() {
 			actualLineIndex++
 			lineCharCounter = 0
 			start = idx + 1
-			continue
 		}
-		if idx >= len(e.Content)-1 {
+		if idx == len(e.Content)-1 {
 			// last index
 			line := visualLine{
 				Index:      totalVisualLines,
 				startIndex: start,
-				endIndex:   idx,
-				Length:     idx - start,
+				endIndex:   idx + 1,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 			e.visualLines = append(e.visualLines, line)
@@ -314,7 +348,7 @@ func (e *TextBuffer) calculateVisualLines() {
 				Index:      totalVisualLines,
 				startIndex: start,
 				endIndex:   idx,
-				Length:     idx - start,
+				Length:     idx - start + 1,
 				ActualLine: actualLineIndex,
 			}
 
@@ -333,14 +367,16 @@ func (e *TextBuffer) renderCursor() {
 	if e.cfg.CursorBlinking && time.Since(e.LastCursorBlink).Milliseconds() < 1000 {
 		return
 	}
+	cursor := e.getIndexPosition(e.bufferIndex)
+
 	cursorView := Position{
-		Line:   e.Cursor.Line - int(e.VisibleStart),
-		Column: e.Cursor.Column,
+		Line:   cursor.Line - int(e.VisibleStart),
+		Column: cursor.Column,
 	}
 	posX := int32(cursorView.Column)*int32(charSize.X) + int32(e.ZeroPosition.X)
 	if e.cfg.LineNumbers {
-		if len(e.visualLines) > e.Cursor.Line {
-			posX += int32((len(fmt.Sprint(e.visualLines[e.Cursor.Line].ActualLine)) + 1) * int(charSize.X))
+		if len(e.visualLines) > cursor.Line {
+			posX += int32((len(fmt.Sprint(e.visualLines[cursor.Line].ActualLine)) + 1) * int(charSize.X))
 		} else {
 			posX += int32(charSize.X)
 
@@ -362,7 +398,7 @@ func (e *TextBuffer) renderCursor() {
 
 func (e *TextBuffer) renderStatusBar() {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
-
+	cursor := e.getIndexPosition(e.bufferIndex)
 	//render status bar
 	rl.DrawRectangle(
 		int32(e.ZeroPosition.X),
@@ -382,8 +418,8 @@ func (e *TextBuffer) renderStatusBar() {
 		state = "--"
 	}
 	var line int
-	if len(e.visualLines) > e.Cursor.Line {
-		line = e.visualLines[e.Cursor.Line].ActualLine
+	if len(e.visualLines) > cursor.Line {
+		line = e.visualLines[cursor.Line].ActualLine
 	} else {
 		line = 0
 	}
@@ -393,16 +429,24 @@ func (e *TextBuffer) renderStatusBar() {
 	}
 
 	rl.DrawTextEx(font,
-		fmt.Sprintf("%s %s %d:%d %s", state, file, line, e.Cursor.Column, searchString),
+		fmt.Sprintf("%s %s %d:%d %s", state, file, line, cursor.Column, searchString),
 		rl.Vector2{X: e.ZeroPosition.X, Y: float32(e.maxLine) * charSize.Y},
 		fontSize,
 		0,
 		e.cfg.Colors.StatusBarForeground)
 }
 
-func (e *TextBuffer) highilightBetweenTwoPositions(start Position, end Position, color color.RGBA) {
+func (e *TextBuffer) highilightBetweenTwoIndexes(idx1 int, idx2 int, color color.RGBA) {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
-
+	var start Position
+	var end Position
+	if idx1 > idx2 {
+		start = e.getIndexPosition(idx2)
+		end = e.getIndexPosition(idx1)
+	} else if idx2 > idx1 {
+		start = e.getIndexPosition(idx1)
+		end = e.getIndexPosition(idx2)
+	}
 	for i := start.Line; i <= end.Line; i++ {
 		if len(e.visualLines) <= i {
 			break
@@ -438,45 +482,10 @@ func (e *TextBuffer) highilightBetweenTwoPositions(start Position, end Position,
 }
 
 func (e *TextBuffer) renderSelection() {
-	if e.SelectionStart == nil {
+	if e.SelectionStart == -1 {
 		return
 	}
-
-	var startLine int
-	var startColumn int
-	var endLine int
-	var endColumn int
-	switch {
-	case e.SelectionStart.Line < e.Cursor.Line:
-		startLine = e.SelectionStart.Line
-		startColumn = e.SelectionStart.Column
-		endLine = e.Cursor.Line
-		endColumn = e.Cursor.Column
-	case e.Cursor.Line < e.SelectionStart.Line:
-		startLine = e.Cursor.Line
-		startColumn = e.Cursor.Column
-		endLine = e.SelectionStart.Line
-		endColumn = e.SelectionStart.Column
-	case e.Cursor.Line == e.SelectionStart.Line:
-		startLine = e.Cursor.Line
-		endLine = e.Cursor.Line
-		if e.SelectionStart.Column > e.Cursor.Column {
-			startColumn = e.Cursor.Column
-			endColumn = e.SelectionStart.Column
-		} else {
-			startColumn = e.SelectionStart.Column
-			endColumn = e.Cursor.Column
-		}
-
-	}
-
-	e.highilightBetweenTwoPositions(Position{
-		Line:   startLine,
-		Column: startColumn,
-	}, Position{
-		Line:   endLine,
-		Column: endColumn,
-	}, e.cfg.Colors.Selection)
+	e.highilightBetweenTwoIndexes(e.SelectionStart, e.bufferIndex, e.cfg.Colors.Selection)
 
 }
 
@@ -504,20 +513,19 @@ func (e *TextBuffer) renderText() {
 
 			if e.cfg.EnableSyntaxHighlighting && e.HasSyntaxHighlights {
 				highlights := e.fillInTheBlanks(e.calculateHighlights(e.Content[line.startIndex:line.endIndex], line.startIndex), line.startIndex, line.endIndex)
-
 				for _, h := range highlights {
-
 					rl.DrawTextEx(font,
 						string(e.Content[h.start:h.end+1]),
 						rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth) + float32(h.start-line.startIndex)*charSize.X, Y: float32(idx) * charSize.Y},
 						fontSize,
 						0,
 						h.Color)
+
 				}
 			} else {
 
 				rl.DrawTextEx(font,
-					string(e.Content[line.startIndex:line.endIndex+1]),
+					string(e.Content[line.startIndex:line.endIndex]),
 					rl.Vector2{X: e.ZeroPosition.X + float32(lineNumberWidth), Y: float32(idx) * charSize.Y},
 					fontSize,
 					0,
@@ -539,7 +547,7 @@ func (e *TextBuffer) convertBufferIndexToLineAndColumn(idx int) *Position {
 	return nil
 }
 func (e *TextBuffer) findMatchesRegex(pattern string) error {
-	e.SearchMatches = [][2]Position{}
+	e.SearchMatches = [][]int{}
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return err
@@ -547,13 +555,7 @@ func (e *TextBuffer) findMatchesRegex(pattern string) error {
 
 	matches := re.FindAllStringIndex(string(e.Content), -1)
 	for _, match := range matches {
-		matchStart := e.convertBufferIndexToLineAndColumn(match[0])
-		matchEnd := e.convertBufferIndexToLineAndColumn(match[1])
-		if matchStart == nil || matchEnd == nil {
-			continue
-		}
-		matchEnd.Column--
-		e.SearchMatches = append(e.SearchMatches, [2]Position{*matchStart, *matchEnd})
+		e.SearchMatches = append(e.SearchMatches, match)
 	}
 
 	return nil
@@ -567,22 +569,25 @@ func (e *TextBuffer) findMatchesAndHighlight(pattern string) error {
 	}
 	for idx, match := range e.SearchMatches {
 		c := e.cfg.Colors.Selection
+		_ = c
 		if idx == e.CurrentMatch {
 			c = rl.Fade(rl.Red, 0.5)
-			if !(e.VisibleStart < int32(match[0].Line) && e.VisibleEnd > int32(match[1].Line)) && !e.MovedAwayFromCurrentMatch {
+			matchStartLine := e.getIndexPosition(match[0])
+			matchEndLine := e.getIndexPosition(match[0])
+			if !(e.VisibleStart < int32(matchStartLine.Line) && e.VisibleEnd > int32(matchEndLine.Line)) && !e.MovedAwayFromCurrentMatch {
 				// current match is not in view
 				// move the view
 				oldStart := e.VisibleStart
-				e.VisibleStart = int32(match[0].Line) - e.maxLine/2
+				e.VisibleStart = int32(matchStartLine.Line) - e.maxLine/2
 				if e.VisibleStart < 0 {
-					e.VisibleStart = int32(match[0].Line)
+					e.VisibleStart = int32(matchStartLine.Line)
 				}
 
 				diff := e.VisibleStart - oldStart
 				e.VisibleEnd += diff
 			}
 		}
-		e.highilightBetweenTwoPositions(match[0], match[1], c)
+		e.highilightBetweenTwoIndexes(match[0], match[1], c)
 	}
 	e.LastSearchString = pattern
 
@@ -611,13 +616,6 @@ func (e *TextBuffer) visualLineShouldBeRendered(line visualLine) bool {
 	return false
 }
 
-func (e *TextBuffer) positionToBufferIndex(pos Position) int {
-	if pos.Line >= len(e.visualLines) {
-		return 0
-	}
-	return e.visualLines[pos.Line].startIndex + pos.Column
-}
-
 func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	if newPosition.Line < 0 {
 		return false
@@ -639,152 +637,53 @@ func (e *TextBuffer) isValidCursorPosition(newPosition Position) bool {
 	return true
 }
 
-func (e *TextBuffer) InsertCharAtCursor(char byte) error {
-	var idx int
-	if e.HasSelection {
-		var startLine int
-		var startColumn int
-		var endLine int
-		var endColumn int
-		switch {
-		case e.SelectionStart.Line < e.Cursor.Line:
-			startLine = e.SelectionStart.Line
-			startColumn = e.SelectionStart.Column
-			endLine = e.Cursor.Line
-			endColumn = e.Cursor.Column
-		case e.Cursor.Line < e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			startColumn = e.Cursor.Column
-			endLine = e.SelectionStart.Line
-			endColumn = e.SelectionStart.Column
-		case e.Cursor.Line == e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			endLine = e.Cursor.Line
-			if e.SelectionStart.Column > e.Cursor.Column {
-				startColumn = e.Cursor.Column
-				endColumn = e.SelectionStart.Column
-			} else {
-				startColumn = e.SelectionStart.Column
-				endColumn = e.Cursor.Column
-			}
-			e.HasSelection = false
-			e.SelectionStart = nil
-		}
-		idx = e.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
-		startIndex := e.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
-		endIndex := e.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
-
-		e.Content = append(e.Content[:startIndex], e.Content[endIndex+1:]...)
-		e.Cursor = Position{Line: startLine, Column: startColumn}
-	} else {
-		idx = e.positionToBufferIndex(e.Cursor)
+func (e *TextBuffer) deleteSelectionIfSelection() {
+	if e.SelectionStart == -1 {
+		return
 	}
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Insert,
-		Idx:  idx,
-		Data: []byte{char},
-	})
-	if idx >= len(e.Content) { // end of file, appending
+	if e.bufferIndex > e.SelectionStart {
+		e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
+	} else {
+		e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
+	}
+}
+
+func (e *TextBuffer) InsertCharAtCursor(char byte) error {
+	e.deleteSelectionIfSelection()
+	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.Content = append(e.Content, char)
 	} else {
-		e.Content = append(e.Content[:idx+1], e.Content[idx:]...)
-		e.Content[idx] = char
+		e.Content = append(e.Content[:e.bufferIndex+1], e.Content[e.bufferIndex:]...)
+		e.Content[e.bufferIndex] = char
 	}
 	e.SetStateDirty()
-
-	if char == '\n' {
-		e.CursorDown()
-		e.BeginingOfTheLine()
-	} else {
-		e.CursorRight(1)
-	}
+	e.CursorRight(1)
 	return nil
 }
 
 func (e *TextBuffer) DeleteCharBackward() error {
-	if e.HasSelection {
-		var startLine int
-		var startColumn int
-		var endLine int
-		var endColumn int
-		switch {
-		case e.SelectionStart.Line < e.Cursor.Line:
-			startLine = e.SelectionStart.Line
-			startColumn = e.SelectionStart.Column
-			endLine = e.Cursor.Line
-			endColumn = e.Cursor.Column
-		case e.Cursor.Line < e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			startColumn = e.Cursor.Column
-			endLine = e.SelectionStart.Line
-			endColumn = e.SelectionStart.Column
-		case e.Cursor.Line == e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			endLine = e.Cursor.Line
-			if e.SelectionStart.Column > e.Cursor.Column {
-				startColumn = e.Cursor.Column
-				endColumn = e.SelectionStart.Column
-			} else {
-				startColumn = e.SelectionStart.Column
-				endColumn = e.Cursor.Column
-			}
-			e.HasSelection = false
-			e.SelectionStart = nil
-		}
-		startIndex := e.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
-		endIndex := e.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
-		e.AddUndoAction(EditorAction{
-			Type: EditorActionType_Delete,
-			Data: e.Content[startIndex:endIndex],
-		})
-		e.Content = append(e.Content[:startIndex], e.Content[endIndex+1:]...)
-		e.Cursor = Position{Line: startLine, Column: startColumn}
-		e.SetStateDirty()
-		e.HasSelection = false
-		return nil
+	if e.SelectionStart != -1 {
+		e.deleteSelectionIfSelection()
+		e.SelectionStart = -1
 	} else {
-		idx := e.positionToBufferIndex(e.Cursor)
-		if idx < 0 || idx > len(e.Content) {
-			fmt.Println("[WARN] invalid index for cursor", idx, e.Cursor)
-			return nil
-		}
 		switch {
-		case len(e.Content) == 0:
-
-		case len(e.Content) == idx:
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Data: []byte{e.Content[idx-1]},
-			})
-			e.Content = e.Content[:idx-1]
-		default:
-			e.AddUndoAction(EditorAction{
-				Type: EditorActionType_Delete,
-				Data: []byte{e.Content[idx]},
-			})
-			e.Content = append(e.Content[:idx-1], e.Content[idx:]...)
+		case e.bufferIndex == 0:
+			return nil
+		case e.bufferIndex < len(e.Content):
+			e.Content = append(e.Content[:e.bufferIndex-1], e.Content[e.bufferIndex:]...)
+		case e.bufferIndex == len(e.Content):
+			e.Content = e.Content[:e.bufferIndex-1]
 		}
-		e.SetStateDirty()
-		e.CursorLeft()
-
-		return nil
 	}
+
+	e.SetStateDirty()
+	e.CursorLeft()
+	return nil
 }
 
 func (e *TextBuffer) DeleteCharForward() error {
-	idx := e.positionToBufferIndex(e.Cursor)
-	if idx < 0 || e.Cursor.Column < 0 || len(e.Content) <= idx {
-		return nil
-	}
-
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Delete,
-		Data: []byte{e.Content[idx]},
-		Idx:  idx,
-	})
-	e.Content = append(e.Content[:idx], e.Content[idx+1:]...)
+	e.Content = append(e.Content[:e.bufferIndex], e.Content[e.bufferIndex+1:]...)
 	e.SetStateDirty()
-
 	return nil
 }
 
@@ -823,107 +722,73 @@ func (e *TextBuffer) ScrollDown(n int) error {
 }
 
 func (e *TextBuffer) CursorLeft() error {
-	newPosition := e.Cursor
-	newPosition.Column--
-	if e.Cursor.Column < 0 {
-		if newPosition.Line > 0 {
-			newPosition.Line--
-			lineColumns := e.visualLines[newPosition.Line].Length
-			if lineColumns <= 0 {
-				lineColumns = 0
-			}
-			newPosition.Column = lineColumns
-		}
-
+	e.bufferIndex--
+	if e.bufferIndex < 0 {
+		e.bufferIndex = 0
 	}
-
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-	}
-
 	return nil
 
 }
 
 func (e *TextBuffer) CursorRight(n int) error {
-	newPosition := e.Cursor
-	newPosition.Column += n
-	if e.Cursor.Line == len(e.visualLines) {
-		return nil
+	e.bufferIndex += n
+	if e.bufferIndex > len(e.Content) {
+		e.bufferIndex = len(e.Content)
 	}
-
-	if int32(newPosition.Column) > e.maxColumn {
-		newPosition.Line++
-		newPosition.Column = 0
-	}
-
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-
+	line := e.getIndexVisualLine(e.bufferIndex)
+	if e.bufferIndex-line.startIndex > int(e.maxColumn) {
+		e.bufferIndex = int(e.maxColumn)
 	}
 	return nil
 
 }
 
 func (e *TextBuffer) CursorUp() error {
-	newPosition := e.Cursor
-	newPosition.Line--
-
-	if newPosition.Line < 0 {
-		newPosition.Line = 0
+	currentLine := e.getIndexVisualLine(e.bufferIndex)
+	prevLineIndex := currentLine.Index - 1
+	if prevLineIndex < 0 {
+		return nil
 	}
 
-	if newPosition.Column > e.visualLines[newPosition.Line].Length {
-		newPosition.Column = e.visualLines[newPosition.Line].Length
+	prevLine := e.visualLines[prevLineIndex]
+	col := e.bufferIndex - currentLine.startIndex
+	newcol := prevLine.startIndex + col
+	if newcol > prevLine.endIndex {
+		newcol = prevLine.endIndex
 	}
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-
-	}
-
+	e.bufferIndex = newcol
 	return nil
-
 }
 
 func (e *TextBuffer) CursorDown() error {
-	newPosition := e.Cursor
-	newPosition.Line++
-
-	// check if cursor should be moved back
-	if newPosition.Line < len(e.visualLines) {
-		if newPosition.Column > e.visualLines[newPosition.Line].Length {
-			newPosition.Column = e.visualLines[newPosition.Line].Length
-		}
-	} else {
-		newPosition.Column = 0
+	currentLine := e.getIndexVisualLine(e.bufferIndex)
+	nextLineIndex := currentLine.Index + 1
+	if nextLineIndex >= len(e.visualLines) {
+		return nil
 	}
 
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-
+	nextLine := e.visualLines[nextLineIndex]
+	col := e.bufferIndex - currentLine.startIndex
+	newcol := nextLine.startIndex + col
+	if newcol > nextLine.endIndex {
+		newcol = nextLine.endIndex
 	}
+	e.bufferIndex = newcol
+
 	return nil
-
 }
 
-func (e *TextBuffer) BeginingOfTheLine() error {
-	newPosition := e.Cursor
-	newPosition.Column = 0
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-	}
+func (e *TextBuffer) BeginningOfTheLine() error {
+	line := e.getIndexVisualLine(e.bufferIndex)
+	e.bufferIndex = line.startIndex
 	return nil
 
 }
 
 func (e *TextBuffer) EndOfTheLine() error {
-	newPosition := e.Cursor
-	newPosition.Column = e.visualLines[e.Cursor.Line].Length
-	if e.isValidCursorPosition(newPosition) {
-		e.MoveCursorToPositionAndScrollIfNeeded(newPosition)
-	}
+	line := e.getIndexVisualLine(e.bufferIndex)
+	e.bufferIndex = line.endIndex
 	return nil
-
 }
 
 func (e *TextBuffer) PreviousLine() error {
@@ -945,84 +810,67 @@ func (e *TextBuffer) indexOfFirstNonLetter(bs []byte) int {
 }
 
 func (e *TextBuffer) NextWord() error {
-	currentidx := e.positionToBufferIndex(e.Cursor)
-	newidx := nextWordInBuffer(e.Content, currentidx)
-	pos := e.convertBufferIndexToLineAndColumn(newidx)
-
-	if e.isValidCursorPosition(*pos) {
-		return e.MoveCursorToPositionAndScrollIfNeeded(*pos)
+	newidx := nextWordInBuffer(e.Content, e.bufferIndex)
+	if newidx == -1 {
+		return nil
 	}
+	if newidx > len(e.Content) {
+		newidx = len(e.Content)
+	}
+	e.bufferIndex = newidx
+
 	return nil
 }
 
 func (e *TextBuffer) PreviousWord() error {
-	currentidx := e.positionToBufferIndex(e.Cursor)
-	newidx := previousWordInBuffer(e.Content, currentidx)
-	pos := e.convertBufferIndexToLineAndColumn(newidx)
-
-	if e.isValidCursorPosition(*pos) {
-		return e.MoveCursorToPositionAndScrollIfNeeded(*pos)
+	newidx := previousWordInBuffer(e.Content, e.bufferIndex)
+	if newidx == -1 {
+		return nil
 	}
+	if newidx < 0 {
+		newidx = 0
+	}
+	e.bufferIndex = newidx
 
 	return nil
 }
 
 func (e *TextBuffer) MoveCursorTo(pos rl.Vector2) error {
 	charSize := measureTextSize(font, ' ', fontSize, 0)
-	oldPos := e.Cursor
-
 	apprLine := pos.Y / charSize.Y
 	apprColumn := pos.X / charSize.X
-	if e.cfg.LineNumbers {
-		var line int
-		if len(e.visualLines) > e.Cursor.Line {
-			line = e.visualLines[e.Cursor.Line].ActualLine
-		}
-		apprColumn -= float32((len(fmt.Sprint(line)) + 1))
 
-	}
+	//TODO: fix this for line numbers feature
+	//if e.cfg.LineNumbers {
+	//	var line int
+	//	if len(e.visualLines) > cursor.Line {
+	//		line = e.visualLines[cursor.Line].ActualLine
+	//	}
+	//	apprColumn -= float32((len(fmt.Sprint(line)) + 1))
+	//
+	//}
 
 	if len(e.visualLines) < 1 {
 		return nil
 	}
 
-	e.Cursor.Line = int(apprLine) + int(e.VisibleStart)
-	e.Cursor.Column = int(apprColumn)
+	line := int(apprLine) + int(e.VisibleStart)
+	col := int(apprColumn)
 
-	if e.Cursor.Line >= len(e.visualLines) {
-		e.Cursor.Line = len(e.visualLines) - 1
+	if line >= len(e.visualLines) {
+		line = len(e.visualLines) - 1
 	}
 
-	if e.Cursor.Line < 0 {
-		e.Cursor.Line = 0
+	if line < 0 {
+		line = 0
 	}
 
 	// check if cursor should be moved back
-	if e.Cursor.Column > e.visualLines[e.Cursor.Line].Length {
-		e.Cursor.Column = e.visualLines[e.Cursor.Line].Length
-	}
-	if !e.isValidCursorPosition(e.Cursor) {
-		e.Cursor = oldPos
-		return nil
+	if col > e.visualLines[line].Length {
+		col = e.visualLines[line].Length
 	}
 
-	return nil
-}
-
-func (e *TextBuffer) MoveCursorToPositionAndScrollIfNeeded(pos Position) error {
-	if !e.isValidCursorPosition(pos) {
-		return nil
-	}
-	e.Cursor = pos
-	if e.Cursor.Line == int(e.VisibleStart-1) {
-		jump := int(e.maxLine / 2)
-		e.ScrollUp(jump)
-	}
-
-	if e.Cursor.Line == int(e.VisibleEnd)+1 {
-		jump := int(e.maxLine / 2)
-		e.ScrollDown(jump)
-	}
+	e.bufferIndex = e.positionToBufferIndex(Position{Line: line, Column: col})
 
 	return nil
 }
@@ -1053,11 +901,10 @@ func (e *TextBuffer) Write() error {
 func (e *TextBuffer) GetMaxHeight() int32 { return e.MaxHeight }
 func (e *TextBuffer) GetMaxWidth() int32  { return e.MaxWidth }
 func (e *TextBuffer) Indent() error {
-	idx := e.positionToBufferIndex(e.Cursor)
-	if idx >= len(e.Content) { // end of file, appending
+	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.Content = append(e.Content, []byte(strings.Repeat(" ", e.TabSize))...)
 	} else {
-		e.Content = append(e.Content[:idx], append([]byte(strings.Repeat(" ", e.TabSize)), e.Content[idx:]...)...)
+		e.Content = append(e.Content[:e.bufferIndex], append([]byte(strings.Repeat(" ", e.TabSize)), e.Content[e.bufferIndex:]...)...)
 	}
 
 	e.SetStateDirty()
@@ -1066,145 +913,85 @@ func (e *TextBuffer) Indent() error {
 }
 
 func (e *TextBuffer) copy() error {
-	if e.HasSelection {
+	if e.SelectionStart != -1 {
 		// copy selection
-		selection := e.positionToBufferIndex(*e.SelectionStart)
-		cursor := e.positionToBufferIndex(e.Cursor)
 		switch {
-		case selection < cursor:
-			writeToClipboard(e.Content[selection:cursor])
-		case selection > cursor:
-			writeToClipboard(e.Content[cursor:selection])
-		case cursor == selection:
+		case e.SelectionStart < e.bufferIndex:
+			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
+		case e.SelectionStart > e.bufferIndex:
+			writeToClipboard(e.Content[e.bufferIndex:e.SelectionStart])
+		case e.bufferIndex == e.SelectionStart:
 			return nil
 		}
 	} else {
-		writeToClipboard(e.Content[e.visualLines[e.Cursor.Line].startIndex:e.visualLines[e.Cursor.Line].endIndex])
+		line := e.getIndexVisualLine(e.bufferIndex)
+		writeToClipboard(e.Content[line.startIndex : line.endIndex+1])
 	}
 
 	return nil
 }
 func (e *TextBuffer) killLine() error {
-	var startIndex int
-	var endIndex int
-	if e.HasSelection {
+	if e.SelectionStart != -1 {
 		// copy selection
-		selection := e.positionToBufferIndex(*e.SelectionStart)
-		cursor := e.positionToBufferIndex(e.Cursor)
 		switch {
-		case selection < cursor:
-			writeToClipboard(e.Content[selection:cursor])
-			startIndex = selection
-			endIndex = cursor
-		case selection > cursor:
-			writeToClipboard(e.Content[cursor:selection])
-			startIndex = cursor
-			endIndex = selection
-		case cursor == selection:
+		case e.SelectionStart < e.bufferIndex:
+			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
+			e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
+
+		case e.SelectionStart > e.bufferIndex:
+			writeToClipboard(e.Content[e.bufferIndex:e.SelectionStart])
+			e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
+
+		case e.bufferIndex == e.SelectionStart:
 			return nil
 		}
-		e.HasSelection = false
-		e.SelectionStart = nil
+		e.SelectionStart = -1
 	} else {
-		writeToClipboard(e.Content[e.visualLines[e.Cursor.Line].startIndex:e.visualLines[e.Cursor.Line].endIndex])
-		startIndex = e.Cursor.Column + e.visualLines[e.Cursor.Line].startIndex
-		endIndex = e.visualLines[e.Cursor.Line].endIndex
+		line := e.getIndexVisualLine(e.bufferIndex)
+		writeToClipboard(e.Content[e.bufferIndex : line.endIndex+1])
+		e.Content = append(e.Content[:e.bufferIndex], e.Content[line.endIndex:]...)
 	}
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Delete,
-		Data: e.Content[startIndex:endIndex],
-	})
-	e.Content = append(e.Content[:startIndex], e.Content[endIndex+1:]...)
-
 	e.SetStateDirty()
 
 	return nil
 }
 func (e *TextBuffer) cut() error {
-	var startIndex int
-	var endIndex int
-	if e.HasSelection {
+	if e.SelectionStart != -1 {
 		// copy selection
-		selection := e.positionToBufferIndex(*e.SelectionStart)
-		cursor := e.positionToBufferIndex(e.Cursor)
 		switch {
-		case selection < cursor:
-			writeToClipboard(e.Content[selection:cursor])
-			startIndex = selection
-			endIndex = cursor
-		case selection > cursor:
-			writeToClipboard(e.Content[cursor:selection])
-			startIndex = cursor
-			endIndex = selection
-		case cursor == selection:
+		case e.SelectionStart < e.bufferIndex:
+			writeToClipboard(e.Content[e.SelectionStart:e.bufferIndex])
+			e.Content = append(e.Content[:e.SelectionStart], e.Content[e.bufferIndex+1:]...)
+
+		case e.SelectionStart > e.bufferIndex:
+			writeToClipboard(e.Content[e.bufferIndex:e.SelectionStart])
+			e.Content = append(e.Content[:e.bufferIndex], e.Content[e.SelectionStart+1:]...)
+
+		case e.bufferIndex == e.SelectionStart:
 			return nil
 		}
-		e.HasSelection = false
-		e.SelectionStart = nil
+		e.SelectionStart = -1
 	} else {
-		writeToClipboard(e.Content[e.visualLines[e.Cursor.Line].startIndex:e.visualLines[e.Cursor.Line].endIndex])
-		startIndex = e.visualLines[e.Cursor.Line].startIndex
-		endIndex = e.visualLines[e.Cursor.Line].endIndex
+		line := e.getIndexVisualLine(e.bufferIndex)
+		writeToClipboard(e.Content[line.startIndex : line.endIndex+1])
+		e.Content = append(e.Content[:line.startIndex], e.Content[line.endIndex+1:]...)
 	}
-	e.AddUndoAction(EditorAction{
-		Type: EditorActionType_Delete,
-		Data: e.Content[startIndex:endIndex],
-	})
-	e.Content = append(e.Content[:startIndex], e.Content[endIndex+1:]...)
-
 	e.SetStateDirty()
 
 	return nil
 }
 func (e *TextBuffer) paste() error {
-	var idx int
-	if e.HasSelection {
-		var startLine int
-		var startColumn int
-		var endLine int
-		var endColumn int
-		switch {
-		case e.SelectionStart.Line < e.Cursor.Line:
-			startLine = e.SelectionStart.Line
-			startColumn = e.SelectionStart.Column
-			endLine = e.Cursor.Line
-			endColumn = e.Cursor.Column
-		case e.Cursor.Line < e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			startColumn = e.Cursor.Column
-			endLine = e.SelectionStart.Line
-			endColumn = e.SelectionStart.Column
-		case e.Cursor.Line == e.SelectionStart.Line:
-			startLine = e.Cursor.Line
-			endLine = e.Cursor.Line
-			if e.SelectionStart.Column > e.Cursor.Column {
-				startColumn = e.Cursor.Column
-				endColumn = e.SelectionStart.Column
-			} else {
-				startColumn = e.SelectionStart.Column
-				endColumn = e.Cursor.Column
-			}
-			e.HasSelection = false
-			e.SelectionStart = nil
-		}
-		idx = e.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
-		startIndex := e.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
-		endIndex := e.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
+	e.deleteSelectionIfSelection()
+	e.SelectionStart = -1
 
-		e.Content = append(e.Content[:startIndex], e.Content[endIndex+1:]...)
-		e.Cursor = Position{Line: startLine, Column: startColumn}
-	} else {
-		idx = e.positionToBufferIndex(e.Cursor)
-	}
 	contentToPaste := getClipboardContent()
-	if idx >= len(e.Content) { // end of file, appending
+	if e.bufferIndex >= len(e.Content) { // end of file, appending
 		e.Content = append(e.Content, contentToPaste...)
 	} else {
-		e.Content = append(e.Content[:idx], append(contentToPaste, e.Content[idx:]...)...)
+		e.Content = append(e.Content[:e.bufferIndex], append(contentToPaste, e.Content[e.bufferIndex:]...)...)
 	}
+
 	e.SetStateDirty()
-	e.HasSelection = false
-	e.SelectionStart = nil
 
 	e.CursorRight(len(contentToPaste))
 	return nil
@@ -1219,23 +1006,22 @@ func (e *TextBuffer) openFileBuffer() {
 }
 
 func (e *TextBuffer) deleteWordBackward() {
-	cursorIndex := e.positionToBufferIndex(e.Cursor)
-	previousWordEndIdx := previousWordInBuffer(e.Content, cursorIndex)
-	if len(e.Content) > cursorIndex+1 {
-		e.Content = (append(e.Content[:previousWordEndIdx+1], e.Content[cursorIndex+1:]...))
+	previousWordEndIdx := previousWordInBuffer(e.Content, e.bufferIndex)
+	if len(e.Content) > e.bufferIndex+1 {
+		e.Content = append(e.Content[:previousWordEndIdx+1], e.Content[e.bufferIndex+1:]...)
+		e.bufferIndex -= (e.bufferIndex + 1) - previousWordEndIdx
 	} else {
-		e.Content = (e.Content[:previousWordEndIdx+1])
+		e.Content = e.Content[:previousWordEndIdx+1]
 	}
 	e.SetStateDirty()
 }
 
 func (e *TextBuffer) deleteWordForward() {
-	cursorIndex := e.positionToBufferIndex(e.Cursor)
-	nextWordStartIdx := nextWordInBuffer(e.Content, cursorIndex)
+	nextWordStartIdx := nextWordInBuffer(e.Content, e.bufferIndex)
 	if len(e.Content) > nextWordStartIdx+1 {
-		e.Content = (append(e.Content[:cursorIndex+1], e.Content[nextWordStartIdx+1:]...))
+		e.Content = (append(e.Content[:e.bufferIndex+1], e.Content[nextWordStartIdx+1:]...))
 	} else {
-		e.Content = (e.Content[:cursorIndex])
+		e.Content = (e.Content[:e.bufferIndex])
 	}
 }
 
@@ -1280,9 +1066,8 @@ var editorKeymap = Keymap{
 		return nil
 	}),
 	Key{K: "<esc>"}: makeCommand(func(p *TextBuffer) error {
-		if p.HasSelection {
-			p.HasSelection = !p.HasSelection
-			p.SelectionStart = nil
+		if p.SelectionStart != -1 {
+			p.SelectionStart = -1
 		}
 
 		return nil
@@ -1290,17 +1075,10 @@ var editorKeymap = Keymap{
 
 	//selection
 	Key{K: "<space>", Control: true}: makeCommand(func(editor *TextBuffer) error {
-		if editor.HasSelection {
-			editor.HasSelection = !editor.HasSelection
-			editor.SelectionStart = nil
-
+		if editor.SelectionStart != -1 {
+			editor.SelectionStart = -1
 		} else {
-			editor.HasSelection = !editor.HasSelection
-			editor.SelectionStart = &Position{
-				Line:   editor.Cursor.Line,
-				Column: editor.Cursor.Column,
-			}
-
+			editor.SelectionStart = editor.bufferIndex
 		}
 		return nil
 	}),
@@ -1343,7 +1121,7 @@ var editorKeymap = Keymap{
 	}),
 
 	Key{K: "a", Control: true}: makeCommand(func(e *TextBuffer) error {
-		return e.BeginingOfTheLine()
+		return e.BeginningOfTheLine()
 	}),
 	Key{K: "e", Control: true}: makeCommand(func(e *TextBuffer) error {
 		return e.EndOfTheLine()
@@ -1380,7 +1158,7 @@ var editorKeymap = Keymap{
 		return e.CursorLeft()
 	}),
 	Key{K: "<home>"}: makeCommand(func(e *TextBuffer) error {
-		return e.BeginingOfTheLine()
+		return e.BeginningOfTheLine()
 	}),
 	Key{K: "<pagedown>"}: makeCommand(func(e *TextBuffer) error {
 		return e.ScrollDown(1)
