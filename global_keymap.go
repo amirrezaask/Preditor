@@ -16,6 +16,10 @@ var GlobalKeymap = Keymap{
 
 		return nil
 	},
+	Key{K: "p", Alt: true}: func(preditor *Context) error {
+		preditor.OpenBottomOverlay()
+		return nil
+	},
 	Key{K: "0", Alt: true}: func(preditor *Context) error {
 		preditor.CloseWindow(preditor.ActiveWindowIndex)
 

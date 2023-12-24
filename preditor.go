@@ -114,10 +114,12 @@ type Context struct {
 	ActiveWindowIndex int
 }
 
-func (c *Context) CloseCompilePanel() {
+func (c *Context) CloseBottomOverlay() {
 	c.BottomOverlay.Active = false
 }
-
+func (c *Context) OpenBottomOverlay() {
+	c.BottomOverlay.Active = true
+}
 func (c *Context) SetPrompt(text string,
 	changeHook func(userInput string, c *Context) error,
 	doneHook func(userInput string, c *Context) error, keymap *Keymap) {
@@ -992,7 +994,7 @@ func (c *Context) openCompilationBufferInCompilationPanel(command string) error 
 		return err
 	}
 	cb.keymaps[0].SetKeyCommand(Key{K: "<esc>"}, func(context *Context) error {
-		context.CloseCompilePanel()
+		context.CloseBottomOverlay()
 		return nil
 	})
 	c.AddBuffer(cb)
