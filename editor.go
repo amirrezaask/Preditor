@@ -444,6 +444,45 @@ func (t *Editor) InsertCharAtCursor(char byte) error {
 }
 
 func (t *Editor) DeleteCharBackward() error {
+	if t.HasSelection {
+		var startLine int
+		var startColumn int
+		var endLine int
+		var endColumn int
+		switch {
+		case t.SelectionStart.Line < t.Cursor.Line:
+			startLine = t.SelectionStart.Line
+			startColumn = t.SelectionStart.Column
+			endLine = t.Cursor.Line
+			endColumn = t.Cursor.Column
+		case t.Cursor.Line < t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			startColumn = t.Cursor.Column
+			endLine = t.SelectionStart.Line
+			endColumn = t.SelectionStart.Column
+		case t.Cursor.Line == t.SelectionStart.Line:
+			startLine = t.Cursor.Line
+			endLine = t.Cursor.Line
+			if t.SelectionStart.Column > t.Cursor.Column {
+				startColumn = t.Cursor.Column
+				endColumn = t.SelectionStart.Column
+			} else {
+				startColumn = t.SelectionStart.Column
+				endColumn = t.Cursor.Column
+			}
+			t.HasSelection = false
+			t.SelectionStart = nil
+		}
+		startIndex := t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
+		endIndex := t.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
+
+		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
+		t.Cursor = Position{Line: startLine, Column: startColumn}
+		t.calculateVisualLines()
+		t.State = State_Dirty
+		return nil
+	}
+
 	idx := t.positionToBufferIndex(t.Cursor)
 	if idx <= 0 {
 		return nil
