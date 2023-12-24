@@ -59,17 +59,13 @@ type Editor struct {
 }
 
 const (
-	EditorActionType_InsertChar = iota + 1
-	EditorActionType_DeleteCharBackward
-	EditorActionType_DeleteCharForward
-	EditorActionType_Indent
-	EditorActionType_Cut
-	EditorActionType_Paste
-	C
+	EditorActionType_Insert = iota + 1
+	EditorActionType_Delete
 )
 
 type EditorAction struct {
 	Type int
+	Idx    int
 	Data []byte
 }
 
@@ -77,7 +73,25 @@ func (t *Editor) Keymaps() []Keymap {
 	return t.keymaps
 }
 func (t *Editor) AddUndoAction(a EditorAction) {
+	fmt.Printf("undo stack: %+v\n", t.UndoStack)
 	t.UndoStack.Push(a)
+}
+
+func (t *Editor) PopAndReverseLastAction() {
+	last, err := t.UndoStack.Pop()
+	if err != nil {
+		return
+	}
+
+	switch last.Type {
+	case EditorActionType_Insert:
+		t.Content = append(t.Content[:last.Idx], t.Content[last.Idx+1:]...)
+	case EditorActionType_Delete:
+		t.Content = append(t.Content[:last.Idx], append(last.Data, t.Content[last.Idx:]...)...)
+	}
+
+
+	t.SetStateDirty()
 }
 
 func (t *Editor) SetStateDirty() {
@@ -355,7 +369,7 @@ func (t *Editor) renderCursor() {
 		rl.DrawRectangleLines(posX, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), 2, int32(charSize.Y), t.Colors.Cursor)
 	}
 
-	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), t.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.CursorLineBackground, 0.3))
+	rl.DrawRectangle(0, int32(cursorView.Line)*int32(charSize.Y)+int32(t.ZeroPosition.Y), t.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(t.Colors.CursorLineBackground, 0.2))
 
 	t.LastCursorBlink = time.Now()
 }
@@ -675,6 +689,11 @@ func (t *Editor) InsertCharAtCursor(char byte) error {
 	} else {
 		idx = t.positionToBufferIndex(t.Cursor)
 	}
+	t.AddUndoAction(EditorAction{
+		Type: EditorActionType_Insert,
+		Idx:  idx,
+		Data: []byte{char},
+	})
 	if idx >= len(t.Content) { // end of file, appending
 		t.Content = append(t.Content, char)
 	} else {
@@ -725,7 +744,7 @@ func (t *Editor) DeleteCharBackward() error {
 		startIndex := t.positionToBufferIndex(Position{Line: startLine, Column: startColumn})
 		endIndex := t.positionToBufferIndex(Position{Line: endLine, Column: endColumn})
 		t.AddUndoAction(EditorAction{
-			Type: EditorActionType_DeleteCharBackward,
+			Type: EditorActionType_Delete,
 			Data: t.Content[startIndex:endIndex],
 		})
 		t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
@@ -741,13 +760,13 @@ func (t *Editor) DeleteCharBackward() error {
 	}
 	if len(t.Content) <= idx {
 		t.AddUndoAction(EditorAction{
-			Type: EditorActionType_DeleteCharBackward,
+			Type: EditorActionType_Delete,
 			Data: []byte{t.Content[idx]},
 		})
 		t.Content = t.Content[:idx]
 	} else {
 		t.AddUndoAction(EditorAction{
-			Type: EditorActionType_DeleteCharBackward,
+			Type: EditorActionType_Delete,
 			Data: []byte{t.Content[idx]},
 		})
 		t.Content = append(t.Content[:idx-1], t.Content[idx:]...)
@@ -765,8 +784,9 @@ func (t *Editor) DeleteCharForward() error {
 		return nil
 	}
 	t.AddUndoAction(EditorAction{
-		Type: EditorActionType_DeleteCharForward,
+		Type: EditorActionType_Delete,
 		Data: []byte{t.Content[idx]},
+		Idx: idx,
 	})
 	t.Content = append(t.Content[:idx], t.Content[idx+1:]...)
 	t.SetStateDirty()
@@ -1029,7 +1049,7 @@ func (t *Editor) Write() error {
 		}
 	}
 
-	t.Content = bytes.Replace(t.Content, []byte("	"), []byte("\t"), -1)
+	t.Content = bytes.Replace(t.Content, []byte("    "), []byte("\t"), -1)
 	if err := os.WriteFile(t.File, t.Content, 0644); err != nil {
 		return err
 	}
@@ -1099,7 +1119,7 @@ func (t *Editor) cut() error {
 		endIndex = t.visualLines[t.Cursor.Line].endIndex
 	}
 	t.AddUndoAction(EditorAction{
-		Type: EditorActionType_Cut,
+		Type: EditorActionType_Delete,
 		Data: t.Content[startIndex:endIndex],
 	})
 	t.Content = append(t.Content[:startIndex], t.Content[endIndex+1:]...)
@@ -1169,6 +1189,11 @@ func makeCommand(f func(e *Editor) error) Command {
 }
 
 var editorKeymap = Keymap{
+	// Key{K: "z", Control: true}: makeCommand(func(e *Editor) error {
+	// 	e.PopAndReverseLastAction()
+
+	// 	return nil
+	// }),
 	Key{K: "f", Control: true}: makeCommand(func(e *Editor) error {
 		return e.CursorRight(1)
 	}),
