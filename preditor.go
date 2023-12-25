@@ -940,7 +940,7 @@ func New() (*Context, error) {
 	scratch := NewBufferViewFromFilename(p, p.Cfg, "*Scratch*")
 	message := NewBufferViewFromFilename(p, p.Cfg, "*Messages*")
 	message.Buffer.Readonly = true
-	message.Buffer.Content = append(message.Buffer.Content, []byte(fmt.Sprintf("Loaded Configuration:\n%s\n", cfg))...)
+	message.Buffer.Content = append(message.Buffer.Content, []byte(fmt.Sprintf("Loaded Configuration from '%s':\n%s\n", configPath, cfg))...)
 
 	p.AddDrawable(scratch)
 	p.AddDrawable(message)

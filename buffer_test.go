@@ -237,9 +237,9 @@ func Test_DeleteCharForeward(t *testing.T) {
 	assert.Equal(t, "012345678\n012345678", string(bufferView.Buffer.Content))
 }
 
-func Test_WordAtPoint(t *testing.T) {
+// func Test_WordAtPoint(t *testing.T) {
 
-}
+// }
 
 //func Test_LeftWord(t *testing.T)				{}
 //func Test_RightWord(t *testing.T)			   {}

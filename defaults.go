@@ -159,6 +159,7 @@ func setupDefaults() {
 	BufferKeymap.BindKey(Key{K: "5", Shift: true, Control: true}, MakeCommand(MarkToMatchingChar))
 	BufferKeymap.BindKey(Key{K: "m", Shift: true, Control: true}, MakeCommand(MarkToMatchingChar))
 	BufferKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(QueryReplaceActivate))
+	BufferKeymap.BindKey(Key{K: "r", Control: true, Shift: true}, MakeCommand(RevertBuffer))
 	BufferKeymap.BindKey(Key{K: "<lmouse>-click", Control: true}, MakeCommand(func(e *BufferView) {
 		e.addAnotherCursorAt(rl.GetMousePosition())
 	}))

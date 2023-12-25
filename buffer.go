@@ -1186,6 +1186,11 @@ func (e *BufferView) readFileFromDisk() error {
 		return nil
 	}
 
+	//replace CRLF with LF
+	if bytes.Index(bs, []byte("\r\n")) != -1 {
+		bs = bytes.Replace(bs, []byte("\r"), []byte(""), -1)
+		e.Buffer.CRLF = true
+	}
 	e.Buffer.Content = bs
 	e.replaceTabsWithSpaces()
 	e.SetStateClean()
@@ -1965,4 +1970,9 @@ func GetClipboardContent() []byte {
 
 func WriteToClipboard(bs []byte) {
 	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
+}
+
+
+func RevertBuffer(bufferView *BufferView) {
+	bufferView.readFileFromDisk()
 }
