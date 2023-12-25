@@ -10,12 +10,12 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
-	"path/filepath"
 
 	"golang.design/x/clipboard"
 
@@ -1114,19 +1114,19 @@ func (e *BufferView) removeDuplicateSelectionsAndSort() {
 }
 
 func (e *BufferView) moveRight(s *Cursor, n int) {
-	e.Cursors[0].Point = e.Cursors[0].Mark
-	s.AddToBoth(n)
-	if s.Start() > len(e.Buffer.Content) {
-		s.SetBoth(len(e.Buffer.Content))
-	}
-	e.ScrollIfNeeded()
-
-}
-func (e *BufferView) moveLeft(s *Cursor, n int) {
-	s.AddToBoth(-n)
-	if s.Start() < 0 {
+	s.Point += n
+	if s.Point > len(e.Buffer.Content) {
 		s.SetBoth(0)
 	}
+	s.Mark = s.Point
+	e.ScrollIfNeeded()
+}
+func (e *BufferView) moveLeft(s *Cursor, n int) {
+	s.Point -= n
+	if s.Point < 0 {
+		s.SetBoth(0)
+	}
+	s.Mark = s.Point
 
 	e.ScrollIfNeeded()
 }
