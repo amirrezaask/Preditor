@@ -974,6 +974,10 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		e.lastCursorTime = time.Now()
 	}
 
+	if !e.cfg.CursorBlinking {
+		e.showCursors = true
+	}
+
 	if e.parent.ActiveDrawableID() == e.ID {
 		for _, sel := range e.Cursors {
 			if sel.Start() == sel.End() {
@@ -1933,10 +1937,6 @@ func QueryReplaceExit(bufferView *BufferView) {
 	bufferView.QueryReplace.CurrentMatch = 0
 	bufferView.QueryReplace.MovedAwayFromCurrentMatch = false
 	bufferView.keymaps.Pop()
-}
-
-func ToggleStatusbar(bufferView *BufferView) {
-	bufferView.NoStatusbar = !bufferView.NoStatusbar
 }
 
 func GetClipboardContent() []byte {
