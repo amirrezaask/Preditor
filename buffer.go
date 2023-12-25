@@ -387,6 +387,7 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 		return pred(slice[i], slice[j])
 	})
 }
+
 func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
 	if len(e.Cursors) > 1 {
 		RemoveAllCursorsButOne(e)
@@ -846,9 +847,14 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	if e.MoveToPositionInNextRender != nil {
-		bufferIndex := e.PositionToBufferIndex(*e.MoveToPositionInNextRender)
+		var bufferIndex int
+		for _, line := range e.bufferLines {
+			if line.ActualLine == e.MoveToPositionInNextRender.Line {
+				bufferIndex = line.startIndex + e.MoveToPositionInNextRender.Column
+				e.VisibleStart = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
+			}
+		}
 		e.Cursors[0].SetBoth(bufferIndex)
-		e.VisibleStart = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
 		e.MoveToPositionInNextRender = nil
 	}
 	if e.Buffer.needParsing {

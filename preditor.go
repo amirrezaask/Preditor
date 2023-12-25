@@ -3,9 +3,11 @@ package preditor
 import (
 	"bufio"
 	"bytes"
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
+	"image"
 	"image/color"
 	"math/rand"
 	"os"
@@ -22,6 +24,9 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
+
+//go:embed logo.png
+var logoBytes []byte
 
 type RGBA color.RGBA
 
@@ -895,7 +900,15 @@ func setupRaylib(cfg *Config) {
 	rl.InitWindow(800, 600, "Preditor")
 	rl.SetTargetFPS(60)
 	rl.SetTextLineSpacing(cfg.FontSize)
+	img, format, err := image.Decode(bytes.NewReader(logoBytes))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("logot format", format)
+	rlImage := rl.NewImageFromImage(img)
+	rl.SetWindowIcon(*rlImage)
 	rl.SetExitKey(0)
+
 }
 
 func New() (*Context, error) {
