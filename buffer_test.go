@@ -207,7 +207,6 @@ func Test_DeleteCharBackward(t *testing.T) {
 		},
 		ActionStack: NewStack[BufferAction](10),
 	}
-
 	DeleteCharBackward(&bufferView)
 	assert.Equal(t, "02345678\n012345678", string(bufferView.Buffer.Content))
 	RevertLastBufferAction(&bufferView)

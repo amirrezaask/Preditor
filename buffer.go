@@ -103,7 +103,7 @@ func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command
 			since := time.Now()
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				bufferView.Buffer.Content = []byte(err.Error())
+				bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(err.Error())...)
 				bufferView.Buffer.Content = append(bufferView.Buffer.Content, '\n')
 			}
 			if bytes.Contains(output, []byte("\r")) {

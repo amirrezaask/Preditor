@@ -14,7 +14,7 @@ func SeekNextNonLetter(bs []byte, idx int) int {
 		}
 	}
 
-	return -1
+	return len(bs) - 1
 }
 
 func SeekPreviousNonLetter(bs []byte, idx int) int {
@@ -26,7 +26,7 @@ func SeekPreviousNonLetter(bs []byte, idx int) int {
 			return i
 		}
 	}
-	return -1
+	return 0
 }
 
 func SeekPreviousLetter(bs []byte, idx int) int {

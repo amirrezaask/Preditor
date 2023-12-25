@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -255,7 +256,9 @@ func (c *Context) WriteMessage(msg string) {
 
 func (c *Context) getCWD() string {
 	if tb, isTextBuffer := c.ActiveDrawable().(*BufferView); isTextBuffer && !tb.IsSpecial() {
-		return path.Dir(tb.Buffer.File)
+		wd, _ := filepath.Abs(tb.Buffer.File)
+		wd = filepath.Dir(wd)
+		return wd
 	} else {
 		return c.CWD
 	}
@@ -935,6 +938,7 @@ func New() (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
+	wd, err = filepath.Abs(wd)
 	p := &Context{
 		Cfg:            cfg,
 		CWD:            wd,
