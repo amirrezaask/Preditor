@@ -299,7 +299,7 @@ type BufferAction struct {
 }
 
 func (e *BufferView) String() string {
-	return e.Buffer.File
+	return fmt.Sprintf("%s:%d", e.Buffer.File, e.Cursors[0].Point)
 }
 
 func (e *BufferView) Keymaps() []Keymap {
@@ -1971,7 +1971,6 @@ func GetClipboardContent() []byte {
 func WriteToClipboard(bs []byte) {
 	clipboard.Write(clipboard.FmtText, bytes.Clone(bs))
 }
-
 
 func RevertBuffer(bufferView *BufferView) {
 	bufferView.readFileFromDisk()
