@@ -133,7 +133,6 @@ func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, e
 
 func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
 	return RunCommandInBuffer(parent, cfg, "*Compilation*", command)
-
 }
 
 func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *BufferView {
@@ -1846,39 +1845,60 @@ func GrepAsk(a *BufferView) {
 	return
 }
 
+const BIG_FILE_SEARCH_THRESHOLD = 1024 * 1024
+
 func SearchActivate(bufferView *BufferView) {
-	thisPromptKeymap := PromptKeymap.Clone()
-	thisPromptKeymap.BindKey(Key{K: "<esc>"}, func(c *Context) {
-		c.ResetPrompt()
-		SearchExit(bufferView)
-	})
-	thisPromptKeymap.BindKey(Key{K: "<enter>"}, func(c *Context) {
-		SearchNextMatch(bufferView)
-	})
-	bufferView.parent.SetPrompt("Search", func(query string, c *Context) {
-		if !bufferView.Search.IsSearching {
-			bufferView.Search.IsSearching = true
-			bufferView.keymaps.Push(SearchKeymap)
-		}
-		bufferView.Search.SearchString = query
-
-		matchPatternAsync(&bufferView.Search.SearchMatches, bufferView.Buffer.Content, []byte(query))
-	}, nil, &thisPromptKeymap, "")
-
-	bufferView.parent.Prompt.NoRender = true
+	if len(bufferView.Buffer.Content) < BIG_FILE_SEARCH_THRESHOLD {
+		thisPromptKeymap := PromptKeymap.Clone()
+		thisPromptKeymap.BindKey(Key{K: "<esc>"}, func(c *Context) {
+			c.ResetPrompt()
+			SearchExit(bufferView)
+		})
+		thisPromptKeymap.BindKey(Key{K: "<enter>"}, func(c *Context) {
+			SearchNextMatch(bufferView)
+		})
+		bufferView.parent.SetPrompt("ISearch", func(query string, c *Context) {
+			if !bufferView.Search.IsSearching {
+				bufferView.Search.IsSearching = true
+				bufferView.keymaps.Push(SearchKeymap)
+			}
+			bufferView.Search.SearchString = query
+			matchPatternAsync(&bufferView.Search.SearchMatches, bufferView.Buffer.Content, []byte(query))
+		}, nil, &thisPromptKeymap, "")
+		bufferView.parent.Prompt.NoRender = true
+	} else {
+		bufferView.parent.SetPrompt("Search", nil, func(query string, c *Context) {
+			if !bufferView.Search.IsSearching {
+				bufferView.Search.IsSearching = true
+				bufferView.keymaps.Push(SearchKeymap)
+			}
+			bufferView.Search.SearchString = query
+			matchPatternAsync(&bufferView.Search.SearchMatches, bufferView.Buffer.Content, []byte(query))
+		}, nil, "")
+	}
 }
 
 func SearchExit(editor *BufferView) error {
-	editor.keymaps.Pop()
-	editor.parent.ResetPrompt()
-	editor.Search.IsSearching = false
-	editor.Search.SearchMatches = nil
-	editor.Search.CurrentMatch = 0
-	editor.Search.MovedAwayFromCurrentMatch = false
-	editor.parent.Prompt.NoRender = false
+	if len(editor.Buffer.Content) < BIG_FILE_SEARCH_THRESHOLD {
+		editor.keymaps.Pop()
+		editor.parent.ResetPrompt()
+		editor.Search.IsSearching = false
+		editor.Search.SearchMatches = nil
+		editor.Search.CurrentMatch = 0
+		editor.Search.MovedAwayFromCurrentMatch = false
+		editor.parent.Prompt.NoRender = false
+		return nil
+	} else {
+		editor.Search.IsSearching = false
+		editor.Search.SearchMatches = nil
+		editor.Search.CurrentMatch = 0
+		editor.Search.MovedAwayFromCurrentMatch = false
+		editor.keymaps.Pop()
+	}
 
 	return nil
 }
+
 func SearchNextMatch(editor *BufferView) error {
 	editor.Search.CurrentMatch++
 	if editor.Search.CurrentMatch >= len(editor.Search.SearchMatches) {
