@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"path/filepath"
 
 	"golang.design/x/clipboard"
 
@@ -76,15 +77,15 @@ func BufferOpenLocationInCurrentLine(c *Context) {
 		}
 
 	}
-	_ = SwitchOrOpenFileInWindow(c, c.Cfg, string(filename), &Position{Line: lineNum, Column: col}, targetWindow)
+	_ = SwitchOrOpenFileInWindow(c, c.Cfg, filepath.Join(c.getCWD(), string(filename)), &Position{Line: lineNum, Column: col}, targetWindow)
 
 	c.ActiveWindowIndex = targetWindow.ID
 	return
 }
 
 func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
-	bufferView := NewBufferViewFromFilename(parent, cfg, bufferName)
 	cwd := parent.getCWD()
+	bufferView := NewBufferViewFromFilename(parent, cfg, fmt.Sprintf("%s@%s", bufferName, cwd))
 
 	bufferView.Buffer.Readonly = true
 	runCompileCommand := func() {
@@ -132,7 +133,7 @@ func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, e
 }
 
 func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
-	return RunCommandInBuffer(parent, cfg, "*Compilation*", command)
+	return RunCommandInBuffer(parent, cfg, "*Compilation", command)
 }
 
 func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *BufferView {

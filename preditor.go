@@ -255,13 +255,19 @@ func (c *Context) WriteMessage(msg string) {
 }
 
 func (c *Context) getCWD() string {
-	if tb, isTextBuffer := c.ActiveDrawable().(*BufferView); isTextBuffer && !tb.IsSpecial() {
-		wd, _ := filepath.Abs(tb.Buffer.File)
-		wd = filepath.Dir(wd)
-		return wd
-	} else {
-		return c.CWD
-	}
+	if tb, isTextBuffer := c.ActiveDrawable().(*BufferView); isTextBuffer {
+		if strings.Contains(tb.Buffer.File, "*Grep") || strings.Contains(tb.Buffer.File, "*Compilation"){
+			segs := strings.Split(tb.Buffer.File, "@")
+			if len(segs) > 1{
+				return segs[1]
+			}
+		} else {
+			wd, _ := filepath.Abs(tb.Buffer.File)
+			wd = filepath.Dir(wd)
+			return wd
+		}
+	} 
+	return c.CWD
 }
 func (c *Context) AddDrawable(b Drawable) {
 	id := rand.Intn(10000)
