@@ -3,23 +3,32 @@ v0.5
 - New command to run grep and output in a buffer
 - Open locations outputed by compilers and grep programs
 - Treesitter syntax highlighting
-- Fix line numbers bug where Goto line jumped to wrong line
-- Fix line numbers bug where line in statusbar was wrong
 - Build window has 3 states now
 - Improve Line numbers rendering, now line numbers are rendered in a fixed sized space and lines don't move when line number width increases
-- Remove Lexers to decrease complexity, since for syntax highlighting we now have treesitter
-- ActiveStatusbar* Colors to better differentiate between active and non active windows
-- Better <tab> complete for file pickers
-- Improve and fix some bugs regarding undo
-- Fix copy command not including last character
-- More theme updates thanks to @JonathanBlow and @AllenWebster
-- Now buffers and their view are seperated and we can have multiple views (windows) for same buffer and editing at the same time
-- Solarized_Dark & Solarized_Light theme
-- Highlight matching open/close parens/braces/brackets
-- Remove word lexer and calculate word boundaries real time
-- QueryReplace Command: functionality similar to emacs
-- Fix bug when doing ISearch first visible line was hidden behind ISearch prompt.
 - ISearch renamed to Search since it's now using same prompt as other features which makes the implementation much simpler
+- Remove Lexers to decrease complexity, since for syntax highlighting we now have treesitter
+- Better <tab> complete for file pickers
+- More theme updates thanks to @JonathanBlow and @AllenWebster ( 4Coder, 4Coder_Fleury, Naysayer, Solarized_Dark, Solarized_Light)
+- Now buffers and their view are seperated and we can have multiple views (windows) for same buffer and editing at the same time
+- Highlight matching open/close parens/braces/brackets
+- QueryReplace Command: functionality similar to emacs
+- ActiveStatusbar* Colors to better differentiate between active and non active windows
+- Remove word lexer and calculate word boundaries in real time
+- Improve CWD detection in various places ( compilation buffers, list files )
+- Add icon and header
+- Include line numbers when listing buffers
+- RevertBufferCommand: revert buffer to disk state.
+- Different strategy for searching in normal files and large files
+- Cursor Blinking
+- Handling of CRLF files
+- ToggleStatusbar
+
+- Fix bug when doing ISearch first visible line was hidden behind ISearch prompt.
+- Fix line numbers bug where Goto line jumped to wrong line
+- Fix line numbers bug where line in statusbar was wrong
+- Fix and Improvements undo
+- Fix copy command not including last character
+- Fix moveRight and moveLeft functions to reset any selection.
 
 v0.4
 =====================
