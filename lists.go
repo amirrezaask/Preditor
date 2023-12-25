@@ -582,7 +582,7 @@ func NewFileList(parent *Context, cfg *Config, initialInput string) *List[Locati
 	var absRoot string
 	var err error
 	if initialInput == "" {
-		absRoot, _ = os.Getwd()
+		absRoot = parent.getCWD()
 	} else {
 		absRoot, err = filepath.Abs(initialInput)
 		if err != nil {
