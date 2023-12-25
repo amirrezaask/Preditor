@@ -26,7 +26,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-//go:embed logo.png
+//go:embed assets/logo.png
 var logoBytes []byte
 
 type RGBA color.RGBA
