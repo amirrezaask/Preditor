@@ -83,9 +83,48 @@ func BufferOpenLocationInCurrentLine(c *Context) {
 	return
 }
 
-func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command string) (*BufferView, error) {
+func NewGrepBuffer(parent *Context, cfg *Config, pattern string) (*BufferView, error) {
+		cwd := parent.getCWD()
+	bufferView := NewBufferViewFromFilename(parent, cfg, fmt.Sprintf("*Grep*@%s", cwd))
+
+	bufferView.Buffer.Readonly = true
+	runCompileCommand := func() {
+		bufferView.Buffer.Content = nil
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Pattern: %s\n", pattern))...)
+		bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Dir: %s\n", cwd))...)
+		go func() {
+			cmd := exec.Command("rg", []string{"--vimgrep", pattern}...)
+			cmd.Dir = cwd
+			since := time.Now()
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(err.Error())...)
+				bufferView.Buffer.Content = append(bufferView.Buffer.Content, '\n')
+			}
+			if bytes.Contains(output, []byte("\r")) {
+				output = bytes.Replace(output, []byte("\r"), []byte(""), -1)
+			}
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, output...)
+			bufferView.Buffer.Content = append(bufferView.Buffer.Content, []byte(fmt.Sprintf("Done in %s\n", time.Since(since)))...)
+
+		}()
+
+	}
+
+	thisKeymap := CompileKeymap.Clone()
+	thisKeymap.BindKey(Key{K: "g"}, MakeCommand(func(b *BufferView) {
+		runCompileCommand()
+	}))
+
+	bufferView.keymaps.Push(thisKeymap)
+
+	runCompileCommand()
+	return bufferView, nil
+}
+
+func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
 	cwd := parent.getCWD()
-	bufferView := NewBufferViewFromFilename(parent, cfg, fmt.Sprintf("%s@%s", bufferName, cwd))
+	bufferView := NewBufferViewFromFilename(parent, cfg, fmt.Sprintf("*Compilation*@%s", cwd))
 
 	bufferView.Buffer.Readonly = true
 	runCompileCommand := func() {
@@ -126,14 +165,6 @@ func RunCommandInBuffer(parent *Context, cfg *Config, bufferName string, command
 
 	runCompileCommand()
 	return bufferView, nil
-}
-
-func NewGrepBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
-	return RunCommandInBuffer(parent, cfg, "*Grep", command)
-}
-
-func NewCompilationBuffer(parent *Context, cfg *Config, command string) (*BufferView, error) {
-	return RunCommandInBuffer(parent, cfg, "*Compilation", command)
 }
 
 func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *BufferView {
@@ -1622,7 +1653,7 @@ func CompileNoAsk(a *BufferView) {
 
 func GrepAsk(a *BufferView) {
 	a.parent.SetPrompt("Grep", nil, func(userInput string, c *Context) {
-		if err := a.parent.OpenGrepBufferInSensibleSplit(fmt.Sprintf("rg --vimgrep %s", userInput)); err != nil {
+		if err := a.parent.OpenGrepBufferInSensibleSplit(userInput); err != nil {
 			return
 		}
 
