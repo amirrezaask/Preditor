@@ -684,6 +684,9 @@ func matchPatternAsync(dst *[][]int, data []byte, pattern []byte) {
 func TSHighlights(fileType *FileType, cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
 	var highlights []highlight
 	parser := sitter.NewParser()
+	if fileType.TSLanguage == nil {
+		return nil, nil, nil
+	}
 	parser.SetLanguage(fileType.TSLanguage)
 
 	tree, err := parser.ParseCtx(context.Background(), prev, code)
@@ -1101,10 +1104,7 @@ func (e *BufferView) deleteSelectionsIfAnySelection() {
 	})
 	e.Buffer.Content = append(e.Buffer.Content[:e.Cursor.Start()], e.Buffer.Content[e.Cursor.End()+1:]...)
 	e.Cursor.Point = e.Cursor.Mark
-	e.moveLeft(&e.Cursor, old-1-len(e.Buffer.Content))
-}
-
-func (e *BufferView) moveLeft(s *Cursor, n int) {
+	PointLeft(e, old-1-len(e.Buffer.Content))
 }
 
 func (e *BufferView) ScrollIfNeeded() {
@@ -1164,7 +1164,7 @@ func DeleteCharBackward(e *BufferView) error {
 	}
 	e.deleteSelectionsIfAnySelection()
 	e.RemoveRange(e.Cursor.Point-1, e.Cursor.Point, true)
-	e.moveLeft(&e.Cursor, 1)
+	PointLeft(e, 1)
 	e.SetStateDirty()
 	return nil
 }
@@ -1249,7 +1249,7 @@ func KillLine(e *BufferView) {
 	}
 	var lastChange int
 	old := len(e.Buffer.Content)
-	e.moveLeft(&e.Cursor, lastChange)
+	PointLeft(e, lastChange)
 	line := e.getBufferLineForIndex(e.Cursor.Start())
 	e.RemoveRange(e.Cursor.Point, line.endIndex, true)
 	lastChange += -1 * (len(e.Buffer.Content) - old)

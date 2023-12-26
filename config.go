@@ -105,31 +105,6 @@ var defaultConfig = Config{
 		{
 			Name: "Default_Dark",
 			Colors: Colors{
-				Background:                mustParseHexColor("#000000"),
-				Foreground:                mustParseHexColor("#d3d3d3"),
-				SelectionBackground:       mustParseHexColor("#636363"),
-				SelectionForeground:       mustParseHexColor("#ffffff"),
-				Prompts:                   mustParseHexColor("#333333"),
-				StatusBarBackground:       mustParseHexColor("#888888"),
-				StatusBarForeground:       mustParseHexColor("#000000"),
-				ActiveStatusBarBackground: mustParseHexColor("#BBBBBB"),
-				ActiveStatusBarForeground: mustParseHexColor("#000000"),
-				LineNumbersForeground:     mustParseHexColor("#F2F2F2"),
-				ActiveWindowBorder:        mustParseHexColor("#292929"),
-				Cursor:                    mustParseHexColor("#969696"),
-				CursorLineBackground:      mustParseHexColor("#B3B3B3"),
-				HighlightMatching:         mustParseHexColor("#b8b8b8"),
-				SyntaxColors: SyntaxColors{
-					"type":    mustParseHexColor("#ff7f24"),
-					"keyword": mustParseHexColor("#eedd82"),
-					"string":  mustParseHexColor("#50FF30"),
-					"comment": mustParseHexColor("#999999"),
-				},
-			},
-		},
-		{
-			Name: "4Coder",
-			Colors: Colors{
 				Background:                mustParseHexColor("#0c0c0c"),
 				Foreground:                mustParseHexColor("#90B090"),
 				SelectionBackground:       mustParseHexColor("#FF44DD"),
