@@ -1036,6 +1036,14 @@ func (c *Context) StartMainLoop() {
 	}()
 	//TODO: Check for drag and dropped files rl.IsFileDropped()
 	for !rl.WindowShouldClose() {
+		if rl.IsFileDropped() {
+			files := rl.LoadDroppedFiles()
+			if len(files) > 0 {
+				for _, file := range files {
+					SwitchOrOpenFileInCurrentWindow(c, c.Cfg, file, nil)
+				}
+			}
+		}
 		c.HandleWindowResize()
 		c.HandleMouseEvents()
 		c.HandleKeyEvents()
