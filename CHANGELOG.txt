@@ -22,6 +22,9 @@ v0.5
 - Cursor Blinking
 - Handling of CRLF files
 - ToggleStatusbar
+- Remove Multiple Cursors, we will add macros in future.
+- Drag&Drop files into the editor
+- When you kill a bufferview, editor tries to find a suitable replacement for it.
 
 - Fix bug when doing ISearch first visible line was hidden behind ISearch prompt.
 - Fix line numbers bug where Goto line jumped to wrong line
