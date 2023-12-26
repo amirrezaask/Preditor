@@ -128,6 +128,7 @@ type Context struct {
 	Buffers           map[string]*Buffer
 	GlobalNoStatusbar bool
 	Drawables         []Drawable
+	DrawablesStack    *Stack[int]
 	GlobalKeymap      Keymap
 	GlobalVariables   Variables
 	Commands          Commands
@@ -273,6 +274,7 @@ func (c *Context) AddDrawable(b Drawable) {
 	id := rand.Intn(10000)
 	b.SetID(id)
 	c.Drawables = append(c.Drawables, b)
+	c.DrawablesStack.Push(id)
 }
 
 func (c *Context) windowCount() int {
@@ -336,10 +338,34 @@ func (c *Context) GetDrawable(id int) Drawable {
 func (c *Context) KillDrawable(id int) {
 	for i, drawable := range c.Drawables {
 		if drawable != nil && drawable.GetID() == id {
+			b, ok := drawable.(*BufferView)
+			if ok && (b.Buffer.File == "*Messages*" || b.Buffer.File == "*Scratch*"){
+				return
+			}
 			c.Drawables[i] = nil
 			break
 		}
 	}
+
+	for {
+		drawableID, err := c.DrawablesStack.Top()
+		if err != nil {
+			break
+		}
+		drawable := c.GetDrawable(drawableID)
+		if drawable == nil {
+			c.DrawablesStack.Pop()
+			continue
+
+		}
+		b, ok := drawable.(*BufferView)
+		if ok {
+			c.ActiveWindow().DrawableID = NewBufferViewFromFilename(c, c.Cfg, b.Buffer.File).ID
+			break
+		}
+
+	}
+
 }
 
 func (c *Context) LoadFont(name string, size int32) error {
@@ -953,6 +979,7 @@ func New() (*Context, error) {
 		OSWindowWidth:  float64(rl.GetRenderWidth()),
 		Windows:        [][]*Window{},
 		Buffers:        map[string]*Buffer{},
+		DrawablesStack: NewStack[int](1000),
 	}
 
 	setupDefaults()

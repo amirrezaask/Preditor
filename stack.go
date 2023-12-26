@@ -24,6 +24,14 @@ func (s *Stack[T]) Pop() (T, error) {
 	return last, nil
 }
 
+func (s *Stack[T]) Top() (T, error) {
+	if len(s.data) == 0 {
+		return *new(T), EmptyStack
+	}
+	last := s.data[len(s.data)-1]
+	return last, nil
+}
+
 func (s *Stack[T]) Push(e T) {
 	s.data = append(s.data, e)
 	if len(s.data) > s.size {
