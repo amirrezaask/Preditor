@@ -1487,9 +1487,9 @@ func MarkDown(e *BufferView, n int) {
 }
 
 func MarkPreviousWord(e *BufferView) {
-	leftWordStart, _ := LeftWord(e)
-	if leftWordStart != -1 {
-		e.Cursor.Mark = leftWordStart
+	j := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Mark)
+	if j != -1 {
+		e.Cursor.Mark = j
 		e.ScrollIfNeeded()
 	}
 
@@ -1497,9 +1497,9 @@ func MarkPreviousWord(e *BufferView) {
 }
 
 func MarkNextWord(e *BufferView) {
-	_, rightWordEnd := RightWord(e)
-	if rightWordEnd != -1 {
-		e.Cursor.Mark = rightWordEnd
+	j := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursor.Mark)
+	if j != -1 {
+		e.Cursor.Mark = j
 	}
 	e.ScrollIfNeeded()
 
