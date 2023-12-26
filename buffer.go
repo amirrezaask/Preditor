@@ -171,7 +171,7 @@ func NewBufferView(parent *Context, cfg *Config, buffer *Buffer) *BufferView {
 	t.keymaps = NewStack[Keymap](5)
 	t.keymaps.Push(BufferKeymap)
 	t.ActionStack = NewStack[BufferAction](1000)
-	t.Cursors = append(t.Cursors, Cursor{Point: 0, Mark: 0})
+	t.Cursor = Cursor{Point: 0, Mark: 0}
 	t.replaceTabsWithSpaces()
 	return &t
 }
@@ -274,7 +274,7 @@ type BufferView struct {
 	keymaps *Stack[Keymap]
 
 	// Cursor
-	Cursors        []Cursor
+	Cursor         Cursor
 	lastCursorTime time.Time
 	showCursors    bool
 
@@ -300,7 +300,7 @@ type BufferAction struct {
 }
 
 func (e *BufferView) String() string {
-	return fmt.Sprintf("%s:%d", e.Buffer.File, e.Cursors[0].Point)
+	return fmt.Sprintf("%s:%d", e.Buffer.File, e.Cursor.Point)
 }
 
 func (e *BufferView) Keymaps() []Keymap {
@@ -326,7 +326,11 @@ func (e *BufferView) SetStateClean() {
 }
 
 func (e *BufferView) replaceTabsWithSpaces() {
-	e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\t"), []byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), -1)
+	tabSize := e.Buffer.fileType.TabSize
+	if e.Buffer.fileType.TabSize == 0 {
+		tabSize = 4
+	}
+	e.Buffer.Content = bytes.Replace(e.Buffer.Content, []byte("\t"), []byte(strings.Repeat(" ", tabSize)), -1)
 }
 
 func (e *BufferView) getBufferLineForIndex(i int) BufferLine {
@@ -390,9 +394,6 @@ func sortme[T any](slice []T, pred func(t1 T, t2 T) bool) {
 }
 
 func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
-	if len(e.Cursors) > 1 {
-		RemoveAllCursorsButOne(e)
-	}
 	if len(e.bufferLines) < 1 {
 		return nil
 	}
@@ -421,7 +422,7 @@ func (e *BufferView) moveCursorTo(pos rl.Vector2) error {
 		col = 0
 	}
 
-	e.Cursors[0].SetBoth(e.PositionToBufferIndex(Position{Line: line, Column: col}))
+	e.Cursor.SetBoth(e.PositionToBufferIndex(Position{Line: line, Column: col}))
 
 	return nil
 }
@@ -519,8 +520,7 @@ func (e *BufferView) getLineNumbersMaxLength() int {
 }
 
 func BufferGetCurrentLine(e *BufferView) []byte {
-	cur := e.Cursors[0]
-	pos := e.BufferIndexToPosition(cur.Point)
+	pos := e.BufferIndexToPosition(e.Cursor.Point)
 
 	if pos.Line < len(e.bufferLines) {
 		line := e.bufferLines[pos.Line]
@@ -795,24 +795,20 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		}
 		sections = append(sections, fmt.Sprintf("%s %s", state, file))
 
-		if len(e.Cursors) > 1 {
-			sections = append(sections, fmt.Sprintf("%d#Cursors", len(e.Cursors)))
-		} else {
-			if e.Cursors[0].Start() == e.Cursors[0].End() {
-				selStart := e.BufferIndexToPosition(e.Cursors[0].Start())
-				if len(e.bufferLines) > selStart.Line {
-					selLine := e.bufferLines[selStart.Line]
-					sections = append(sections, fmt.Sprintf("L#%d C#%d", selLine.ActualLine, selStart.Column))
-				} else {
-					sections = append(sections, fmt.Sprintf("L#%d C#%d", selStart.Line, selStart.Column))
-				}
-
+		if e.Cursor.Start() == e.Cursor.End() {
+			selStart := e.BufferIndexToPosition(e.Cursor.Start())
+			if len(e.bufferLines) > selStart.Line {
+				selLine := e.bufferLines[selStart.Line]
+				sections = append(sections, fmt.Sprintf("L#%d C#%d", selLine.ActualLine, selStart.Column))
 			} else {
-				selEnd := e.BufferIndexToPosition(e.Cursors[0].End())
-				sections = append(sections, fmt.Sprintf("L#%d C#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursors[0].Start()-e.Cursors[0].End())))))
+				sections = append(sections, fmt.Sprintf("L#%d C#%d", selStart.Line, selStart.Column))
 			}
 
+		} else {
+			selEnd := e.BufferIndexToPosition(e.Cursor.End())
+			sections = append(sections, fmt.Sprintf("L#%d C#%d (Selected %d)", selEnd.Line, selEnd.Column, int(math.Abs(float64(e.Cursor.Start()-e.Cursor.End())))))
 		}
+
 		if e.Search.IsSearching {
 			sections = append(sections, fmt.Sprintf("Search: Match#%d Of %d", e.Search.CurrentMatch+1, len(e.Search.SearchMatches)+1))
 		}
@@ -855,7 +851,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 				e.VisibleStart = int32(e.MoveToPositionInNextRender.Line) - e.maxLine/2
 			}
 		}
-		e.Cursors[0].SetBoth(bufferIndex)
+		e.Cursor.SetBoth(bufferIndex)
 		e.MoveToPositionInNextRender = nil
 	}
 	if e.Buffer.needParsing {
@@ -886,9 +882,8 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 		}
 		e.Search.LastSearchString = e.Search.SearchString
 		if len(e.Search.SearchMatches) > 0 {
-			e.Cursors = e.Cursors[:1]
-			e.Cursors[0].Point = e.Search.SearchMatches[e.Search.CurrentMatch][0]
-			e.Cursors[0].Mark = e.Search.SearchMatches[e.Search.CurrentMatch][0]
+			e.Cursor.Point = e.Search.SearchMatches[e.Search.CurrentMatch][0]
+			e.Cursor.Mark = e.Search.SearchMatches[e.Search.CurrentMatch][0]
 		}
 
 		rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
@@ -918,9 +913,8 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 			e.highlightBetweenTwoIndexes(textZeroLocation, match[0], match[1], maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
 		if len(e.QueryReplace.SearchMatches) > 0 {
-			e.Cursors = e.Cursors[:1]
-			e.Cursors[0].Point = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
-			e.Cursors[0].Mark = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
+			e.Cursor.Point = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
+			e.Cursor.Mark = e.QueryReplace.SearchMatches[e.QueryReplace.CurrentMatch][0]
 		}
 
 		rl.DrawRectangle(int32(zeroLocation.X), int32(zeroLocation.Y), int32(maxW), int32(charSize.Y), e.cfg.CurrentThemeColors().Prompts.ToColorRGBA())
@@ -985,62 +979,60 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 
 	if e.parent.ActiveDrawableID() == e.ID {
-		for _, sel := range e.Cursors {
-			if sel.Start() == sel.End() {
-				cursor := e.BufferIndexToPosition(sel.Start())
-				cursorView := Position{
-					Line:   cursor.Line - int(e.VisibleStart),
-					Column: cursor.Column,
-				}
-				posX := int32(cursorView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
-				if e.cfg.LineNumbers {
-					posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
-				}
-				posY := int32(cursorView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
-
-				if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
-					continue
-				}
-				if e.showCursors {
-					switch e.cfg.CursorShape {
-					case CURSOR_SHAPE_OUTLINE:
-						rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-					case CURSOR_SHAPE_BLOCK:
-						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-						if len(e.Buffer.Content)-1 >= sel.Point {
-							rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[sel.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
-						}
-
-					case CURSOR_SHAPE_LINE:
-						rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
-					}
-				}
-				if e.cfg.CursorLineHighlight {
-					rl.DrawRectangle(int32(textZeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(textZeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
-				}
-
-				// highlight matching char
-				if e.cfg.HighlightMatchingParen {
-					matchingIdx := byteutils.FindMatching(e.Buffer.Content, e.Cursors[0].Point)
-					if matchingIdx != -1 {
-						idxPosition := e.BufferIndexToPosition(matchingIdx)
-						idxPositionView := Position{
-							Line:   idxPosition.Line - int(e.VisibleStart),
-							Column: idxPosition.Column,
-						}
-						posX := int32(idxPositionView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
-						if e.cfg.LineNumbers {
-							posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
-						}
-						posY := int32(idxPositionView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
-
-						rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().HighlightMatching.ToColorRGBA(), 0.4))
-					}
-				}
-
-			} else {
-				e.highlightBetweenTwoIndexes(textZeroLocation, sel.Start(), sel.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
+		if e.Cursor.Start() == e.Cursor.End() {
+			cursor := e.BufferIndexToPosition(e.Cursor.Start())
+			cursorView := Position{
+				Line:   cursor.Line - int(e.VisibleStart),
+				Column: cursor.Column,
 			}
+			posX := int32(cursorView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
+			if e.cfg.LineNumbers {
+				posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+			}
+			posY := int32(cursorView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
+
+			// if !isVisibleInWindow(float64(posX), float64(posY), zeroLocation, maxH, maxW) {
+			//	 continue
+			// }
+			if e.showCursors {
+				switch e.cfg.CursorShape {
+				case CURSOR_SHAPE_OUTLINE:
+					rl.DrawRectangleLines(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				case CURSOR_SHAPE_BLOCK:
+					rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+					if len(e.Buffer.Content)-1 >= e.Cursor.Point {
+						rl.DrawTextEx(e.parent.Font, string(e.Buffer.Content[e.Cursor.Point]), rl.Vector2{X: float32(posX), Y: float32(posY)}, float32(e.parent.FontSize), 0, e.cfg.CurrentThemeColors().Background.ToColorRGBA())
+					}
+
+				case CURSOR_SHAPE_LINE:
+					rl.DrawRectangleLines(posX, posY, 2, int32(charSize.Y), e.cfg.CurrentThemeColors().Cursor.ToColorRGBA())
+				}
+			}
+			if e.cfg.CursorLineHighlight {
+				rl.DrawRectangle(int32(textZeroLocation.X), int32(cursorView.Line)*int32(charSize.Y)+int32(textZeroLocation.Y), e.maxColumn*int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().CursorLineBackground.ToColorRGBA(), 0.15))
+			}
+
+			// highlight matching char
+			if e.cfg.HighlightMatchingParen {
+				matchingIdx := byteutils.FindMatching(e.Buffer.Content, e.Cursor.Point)
+				if matchingIdx != -1 {
+					idxPosition := e.BufferIndexToPosition(matchingIdx)
+					idxPositionView := Position{
+						Line:   idxPosition.Line - int(e.VisibleStart),
+						Column: idxPosition.Column,
+					}
+					posX := int32(idxPositionView.Column)*int32(charSize.X) + int32(textZeroLocation.X)
+					if e.cfg.LineNumbers {
+						posX += int32(e.getLineNumbersMaxLength()) * int32(charSize.X)
+					}
+					posY := int32(idxPositionView.Line)*int32(charSize.Y) + int32(textZeroLocation.Y)
+
+					rl.DrawRectangle(posX, posY, int32(charSize.X), int32(charSize.Y), rl.Fade(e.cfg.CurrentThemeColors().HighlightMatching.ToColorRGBA(), 0.4))
+				}
+			}
+
+		} else {
+			e.highlightBetweenTwoIndexes(textZeroLocation, e.Cursor.Start(), e.Cursor.End(), maxH, maxW, e.cfg.CurrentThemeColors().SelectionBackground.ToColorRGBA(), e.cfg.CurrentThemeColors().SelectionForeground.ToColorRGBA())
 		}
 	}
 
@@ -1074,43 +1066,17 @@ func (e *BufferView) deleteSelectionsIfAnySelection() {
 		return
 	}
 	old := len(e.Buffer.Content)
-	for i := range e.Cursors {
-		sel := &e.Cursors[i]
-		if sel.Start() == sel.End() {
-			continue
-		}
-		e.AddBufferAction(BufferAction{
-			Type: BufferActionType_Delete,
-			Idx:  sel.Start(),
-			Data: e.Buffer.Content[sel.Start() : sel.End()+1],
-		})
-		e.Buffer.Content = append(e.Buffer.Content[:sel.Start()], e.Buffer.Content[sel.End()+1:]...)
-		sel.Point = sel.Mark
-		e.moveLeft(sel, old-1-len(e.Buffer.Content))
+	if e.Cursor.Start() == e.Cursor.End() {
+		return
 	}
-
-}
-
-func (e *BufferView) sortCursors() {
-	sortme(e.Cursors, func(t1 Cursor, t2 Cursor) bool {
-		return t1.Start() < t2.Start()
+	e.AddBufferAction(BufferAction{
+		Type: BufferActionType_Delete,
+		Idx:  e.Cursor.Start(),
+		Data: e.Buffer.Content[e.Cursor.Start() : e.Cursor.End()+1],
 	})
-}
-
-func (e *BufferView) removeDuplicateSelectionsAndSort() {
-	selections := map[string]struct{}{}
-	for i := range e.Cursors {
-		selections[fmt.Sprintf("%d:%d", e.Cursors[i].Start(), e.Cursors[i].End())] = struct{}{}
-	}
-
-	e.Cursors = nil
-	for k := range selections {
-		start, _ := strconv.Atoi(strings.Split(k, ":")[0])
-		end, _ := strconv.Atoi(strings.Split(k, ":")[1])
-		e.Cursors = append(e.Cursors, Cursor{Point: start, Mark: end})
-	}
-
-	e.sortCursors()
+	e.Buffer.Content = append(e.Buffer.Content[:e.Cursor.Start()], e.Buffer.Content[e.Cursor.End()+1:]...)
+	e.Cursor.Point = e.Cursor.Mark
+	e.moveLeft(&e.Cursor, old-1-len(e.Buffer.Content))
 }
 
 func (e *BufferView) moveRight(s *Cursor, n int) {
@@ -1130,45 +1096,9 @@ func (e *BufferView) moveLeft(s *Cursor, n int) {
 
 	e.ScrollIfNeeded()
 }
-func (e *BufferView) addAnotherCursorAt(pos rl.Vector2) error {
-	if len(e.bufferLines) < 1 {
-		return nil
-	}
-
-	charSize := measureTextSize(e.parent.Font, ' ', e.parent.FontSize, 0)
-	apprLine := math.Floor(float64((pos.Y - e.textZeroLocation.Y) / charSize.Y))
-	apprColumn := math.Floor(float64((pos.X - e.textZeroLocation.X) / charSize.X))
-
-	line := int(apprLine) + int(e.VisibleStart)
-	col := int(apprColumn)
-	if line >= len(e.bufferLines) {
-		line = len(e.bufferLines) - 1
-	}
-
-	col -= e.getLineNumbersMaxLength()
-
-	if line < 0 {
-		line = 0
-	}
-
-	// check if cursor should be moved back
-	if col > e.bufferLines[line].Length {
-		col = e.bufferLines[line].Length
-	}
-	if col < 0 {
-		col = 0
-	}
-
-	idx := e.PositionToBufferIndex(Position{Line: line, Column: col})
-	e.Cursors = append(e.Cursors, Cursor{Point: idx, Mark: idx})
-
-	e.removeDuplicateSelectionsAndSort()
-
-	return nil
-}
 
 func (e *BufferView) ScrollIfNeeded() {
-	pos := e.BufferIndexToPosition(e.Cursors[0].End())
+	pos := e.BufferIndexToPosition(e.Cursor.End())
 	if int32(pos.Line) <= e.VisibleStart {
 		e.VisibleStart = int32(pos.Line) - e.maxLine/3
 
@@ -1210,13 +1140,9 @@ func BufferInsertChar(e *BufferView, char byte) {
 	if e.Buffer.Readonly {
 		return
 	}
-	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		e.moveRight(&e.Cursors[i], i*1)
-		e.AddBytesAtIndex([]byte{char}, e.Cursors[i].Point, true)
-		e.moveRight(&e.Cursors[i], 1)
-	}
+	e.AddBytesAtIndex([]byte{char}, e.Cursor.Point, true)
+	e.moveRight(&e.Cursor, 1)
 	e.SetStateDirty()
 	e.ScrollIfNeeded()
 	return
@@ -1226,13 +1152,9 @@ func DeleteCharBackward(e *BufferView) error {
 	if e.Buffer.Readonly {
 		return nil
 	}
-	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		e.moveLeft(&e.Cursors[i], i*1)
-		e.RemoveRange(e.Cursors[i].Point-1, e.Cursors[i].Point, true)
-		e.moveLeft(&e.Cursors[i], 1)
-	}
+	e.RemoveRange(e.Cursor.Point-1, e.Cursor.Point, true)
+	e.moveLeft(&e.Cursor, 1)
 	e.SetStateDirty()
 	return nil
 }
@@ -1241,12 +1163,8 @@ func DeleteCharForward(e *BufferView) error {
 	if e.Buffer.Readonly {
 		return nil
 	}
-	e.removeDuplicateSelectionsAndSort()
 	e.deleteSelectionsIfAnySelection()
-	for i := range e.Cursors {
-		e.moveLeft(&e.Cursors[i], i*1)
-		e.RemoveRange(e.Cursors[i].Point, e.Cursors[i].Point+1, true)
-	}
+	e.RemoveRange(e.Cursor.Point, e.Cursor.Point+1, true)
 
 	e.SetStateDirty()
 	return nil
@@ -1272,121 +1190,73 @@ func RevertLastBufferAction(e *BufferView) {
 	}
 }
 
-func AnotherSelectionOnMatch(e *BufferView) {
-	lastSel := e.Cursors[len(e.Cursors)-1]
-	var thingToSearch []byte
-	if lastSel.Point != lastSel.Mark {
-		thingToSearch = e.Buffer.Content[lastSel.Start():lastSel.End()]
-		next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
-		if len(next) == 0 {
-			return
-		}
-		e.Cursors = append(e.Cursors, Cursor{
-			Point: next[0],
-			Mark:  next[1],
-		})
-
-	} else {
-		currentWordStart, currentWordEnd := WordAtPoint(e, len(e.Cursors)-1)
-		if currentWordStart != -1 && currentWordEnd != -1 {
-			thingToSearch = e.Buffer.Content[currentWordStart:currentWordEnd]
-			next := findNextMatch(e.Buffer.Content, lastSel.End()+1, thingToSearch)
-			if len(next) == 0 {
-				return
-			}
-			e.Cursors = append(e.Cursors, Cursor{
-				Point: next[0],
-				Mark:  next[0],
-			})
-		}
-
-	}
-
-	return
-}
-
-func WordAtPoint(e *BufferView, curIndex int) (int, int) {
-	currentWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point) + 1
-	currentWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point)
+func WordAtPoint(e *BufferView) (int, int) {
+	currentWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Point) + 1
+	currentWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursor.Point)
 
 	return currentWordStart, currentWordEnd
 }
 
-func LeftWord(e *BufferView, curIndex int) (int, int) {
-	leftWordEnd := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point)
+func LeftWord(e *BufferView) (int, int) {
+	leftWordEnd := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Point)
 	leftWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, leftWordEnd-1) + 1
 
 	return leftWordStart, leftWordEnd
 }
 
-func RightWord(e *BufferView, curIndex int) (int, int) {
-	rightWordStart := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursors[curIndex].Point) + 1
+func RightWord(e *BufferView) (int, int) {
+	rightWordStart := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursor.Point) + 1
 	rightWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, rightWordStart)
 	return rightWordStart, rightWordEnd
 }
 
 func DeleteWordBackward(e *BufferView) {
-	if e.Buffer.Readonly || len(e.Cursors) > 1 {
+	if e.Buffer.Readonly {
 		return
 	}
-	e.deleteSelectionsIfAnySelection()
-
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		leftWordStart, leftWordEnd := LeftWord(e, i)
-		if leftWordStart == -1 || leftWordEnd == -1 {
-			continue
-		}
-		old := len(e.Buffer.Content)
-		e.RemoveRange(leftWordStart, cur.Point, true)
-		cur.SetBoth(cur.Point + (len(e.Buffer.Content) - old))
+	leftWordStart, leftWordEnd := LeftWord(e)
+	if leftWordStart == -1 || leftWordEnd == -1 {
+		return
 	}
+	old := len(e.Buffer.Content)
+	e.RemoveRange(leftWordStart, e.Cursor.Point, true)
+	e.Cursor.SetBoth(e.Cursor.Point + (len(e.Buffer.Content) - old))
 
 	e.SetStateDirty()
 }
 
 func Indent(e *BufferView) error {
-	e.removeDuplicateSelectionsAndSort()
-	for i := range e.Cursors {
-		e.moveRight(&e.Cursors[i], i*e.Buffer.fileType.TabSize)
-		e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), e.Cursors[i].Point, true)
-		e.moveRight(&e.Cursors[i], e.Buffer.fileType.TabSize)
-	}
+	e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), e.Cursor.Point, true)
+	e.moveRight(&e.Cursor, e.Buffer.fileType.TabSize)
 	e.SetStateDirty()
 
 	return nil
 }
 
 func KillLine(e *BufferView) {
-	if e.Buffer.Readonly || len(e.Cursors) > 1 {
+	if e.Buffer.Readonly {
 		return
 	}
 	var lastChange int
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		old := len(e.Buffer.Content)
-		e.moveLeft(cur, lastChange)
-		line := e.getBufferLineForIndex(cur.Start())
-		e.RemoveRange(cur.Point, line.endIndex, true)
-		lastChange += -1 * (len(e.Buffer.Content) - old)
-	}
+	old := len(e.Buffer.Content)
+	e.moveLeft(&e.Cursor, lastChange)
+	line := e.getBufferLineForIndex(e.Cursor.Start())
+	e.RemoveRange(e.Cursor.Point, line.endIndex, true)
+	lastChange += -1 * (len(e.Buffer.Content) - old)
 	e.SetStateDirty()
 
 }
 func Cut(e *BufferView) error {
-	if e.Buffer.Readonly || len(e.Cursors) > 1 {
+	if e.Buffer.Readonly {
 		return nil
 	}
-	cur := &e.Cursors[0]
-	if cur.Start() != cur.End() {
+	if e.Cursor.Start() != e.Cursor.End() {
 		// Copy selection
-		WriteToClipboard(e.Buffer.Content[cur.Start() : cur.End()+1])
-		fmt.Printf("Cutting '%s'\n", string(e.Buffer.Content[cur.Start():cur.End()+1]))
-		e.RemoveRange(cur.Start(), cur.End()+1, true)
-		cur.Mark = cur.Point
+		WriteToClipboard(e.Buffer.Content[e.Cursor.Start() : e.Cursor.End()+1])
+		e.RemoveRange(e.Cursor.Start(), e.Cursor.End()+1, true)
+		e.Cursor.Mark = e.Cursor.Point
 	} else {
-		line := e.getBufferLineForIndex(cur.Start())
-		fmt.Printf("Cutting '%s'\n", string(e.Buffer.Content[line.startIndex:line.endIndex+1]))
+		line := e.getBufferLineForIndex(e.Cursor.Start())
 		WriteToClipboard(e.Buffer.Content[line.startIndex : line.endIndex+1])
 		e.RemoveRange(line.startIndex, line.endIndex+1, true)
 	}
@@ -1396,13 +1266,11 @@ func Cut(e *BufferView) error {
 }
 
 func Paste(e *BufferView) error {
-	if e.Buffer.Readonly || len(e.Cursors) > 1 {
+	if e.Buffer.Readonly {
 		return nil
 	}
-	e.deleteSelectionsIfAnySelection()
 	contentToPaste := GetClipboardContent()
-	cur := e.Cursors[0]
-	e.AddBytesAtIndex(contentToPaste, cur.Start(), true)
+	e.AddBytesAtIndex(contentToPaste, e.Cursor.Start(), true)
 	e.SetStateDirty()
 	PointRight(e, len(contentToPaste))
 	return nil
@@ -1417,7 +1285,7 @@ func InteractiveGotoLine(e *BufferView) {
 
 		for _, line := range e.bufferLines {
 			if line.ActualLine == number {
-				e.Cursors[0].SetBoth(line.startIndex)
+				e.Cursor.SetBoth(line.startIndex)
 				e.ScrollIfNeeded()
 			}
 		}
@@ -1447,14 +1315,14 @@ func ScrollUp(e *BufferView, n int) {
 
 func ScrollToTop(e *BufferView) {
 	e.VisibleStart = 0
-	e.Cursors[0].SetBoth(0)
+	e.Cursor.SetBoth(0)
 
 	return
 }
 
 func ScrollToBottom(e *BufferView) {
 	e.VisibleStart = int32(len(e.bufferLines) - 1 - int(e.maxLine))
-	e.Cursors[0].SetBoth(e.bufferLines[len(e.bufferLines)-1].startIndex)
+	e.Cursor.SetBoth(e.bufferLines[len(e.bufferLines)-1].startIndex)
 
 	return
 }
@@ -1475,110 +1343,81 @@ func ScrollDown(e *BufferView, n int) error {
 // @Point
 
 func PointLeft(e *BufferView, n int) error {
-	for i := range e.Cursors {
-		e.moveLeft(&e.Cursors[i], n)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
+	e.moveLeft(&e.Cursor, n)
 	return nil
 
 }
 
 func PointRight(e *BufferView, n int) error {
-	for i := range e.Cursors {
-		e.moveRight(&e.Cursors[i], n)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
+	e.moveRight(&e.Cursor, n)
 	return nil
 
 }
 
 func PointUp(e *BufferView) error {
-	for i := range e.Cursors {
-		currentLine := e.getBufferLineForIndex(e.Cursors[i].Point)
-		prevLineIndex := currentLine.Index - 1
-		if prevLineIndex < 0 {
-			return nil
-		}
-
-		prevLine := e.bufferLines[prevLineIndex]
-		col := e.Cursors[i].Point - currentLine.startIndex
-		newidx := prevLine.startIndex + col
-		if newidx > prevLine.endIndex {
-			newidx = prevLine.endIndex
-		}
-		e.Cursors[i].SetBoth(newidx)
-		e.ScrollIfNeeded()
+	currentLine := e.getBufferLineForIndex(e.Cursor.Point)
+	prevLineIndex := currentLine.Index - 1
+	if prevLineIndex < 0 {
+		return nil
 	}
-	e.removeDuplicateSelectionsAndSort()
+
+	prevLine := e.bufferLines[prevLineIndex]
+	col := e.Cursor.Point - currentLine.startIndex
+	newidx := prevLine.startIndex + col
+	if newidx > prevLine.endIndex {
+		newidx = prevLine.endIndex
+	}
+	e.Cursor.SetBoth(newidx)
+	e.ScrollIfNeeded()
 
 	return nil
 }
 
 func PointDown(e *BufferView) error {
-	for i := range e.Cursors {
-		currentLine := e.getBufferLineForIndex(e.Cursors[i].Point)
-		nextLineIndex := currentLine.Index + 1
-		if nextLineIndex >= len(e.bufferLines) {
-			return nil
-		}
-
-		nextLine := e.bufferLines[nextLineIndex]
-		col := e.Cursors[i].Point - currentLine.startIndex
-		newIndex := nextLine.startIndex + col
-		if newIndex > nextLine.endIndex {
-			newIndex = nextLine.endIndex
-		}
-		e.Cursors[i].SetBoth(newIndex)
-		e.ScrollIfNeeded()
-
+	currentLine := e.getBufferLineForIndex(e.Cursor.Point)
+	nextLineIndex := currentLine.Index + 1
+	if nextLineIndex >= len(e.bufferLines) {
+		return nil
 	}
-	e.removeDuplicateSelectionsAndSort()
+
+	nextLine := e.bufferLines[nextLineIndex]
+	col := e.Cursor.Point - currentLine.startIndex
+	newIndex := nextLine.startIndex + col
+	if newIndex > nextLine.endIndex {
+		newIndex = nextLine.endIndex
+	}
+	e.Cursor.SetBoth(newIndex)
+	e.ScrollIfNeeded()
 
 	return nil
 }
 
 func CentralizePoint(e *BufferView) {
-	cur := e.Cursors[0]
-	pos := e.convertBufferIndexToLineAndColumn(cur.Start())
+	pos := e.convertBufferIndexToLineAndColumn(e.Cursor.Start())
 	e.VisibleStart = int32(pos.Line) - (e.maxLine / 2)
 	if e.VisibleStart < 0 {
 		e.VisibleStart = 0
 	}
-	return
 }
 
 func PointToBeginningOfLine(e *BufferView) error {
-	for i := range e.Cursors {
-		line := e.getBufferLineForIndex(e.Cursors[i].Start())
-		e.Cursors[i].SetBoth(line.startIndex)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
+	line := e.getBufferLineForIndex(e.Cursor.Start())
+	e.Cursor.SetBoth(line.startIndex)
 	return nil
-
 }
 
 func PointToEndOfLine(e *BufferView) error {
-	for i := range e.Cursors {
-		line := e.getBufferLineForIndex(e.Cursors[i].Start())
-		e.Cursors[i].SetBoth(line.endIndex)
-	}
-	e.removeDuplicateSelectionsAndSort()
-
+	line := e.getBufferLineForIndex(e.Cursor.Start())
+	e.Cursor.SetBoth(line.endIndex)
 	return nil
 }
 
 func PointToMatchingChar(e *BufferView) error {
-	for i := range e.Cursors {
-		matching := byteutils.FindMatching(e.Buffer.Content, e.Cursors[i].Point)
-		if matching != -1 {
-			e.Cursors[i].SetBoth(matching)
-		}
+	matching := byteutils.FindMatching(e.Buffer.Content, e.Cursor.Point)
+	if matching != -1 {
+		e.Cursor.SetBoth(matching)
 	}
 
-	e.removeDuplicateSelectionsAndSort()
 	return nil
 
 }
@@ -1586,73 +1425,53 @@ func PointToMatchingChar(e *BufferView) error {
 // @Mark
 
 func MarkRight(e *BufferView, n int) {
-	for i := range e.Cursors {
-		sel := &e.Cursors[i]
-		sel.Mark += n
-		if sel.Mark >= len(e.Buffer.Content) {
-			sel.Mark = len(e.Buffer.Content)
-		}
-		e.ScrollIfNeeded()
-
+	e.Cursor.Mark += n
+	if e.Cursor.Mark >= len(e.Buffer.Content) {
+		e.Cursor.Mark = len(e.Buffer.Content)
 	}
-
-	return
+	e.ScrollIfNeeded()
 }
 
 func MarkLeft(e *BufferView, n int) {
-	for i := range e.Cursors {
-		sel := &e.Cursors[i]
-		sel.Mark -= n
-		if sel.Mark < 0 {
-			sel.Mark = 0
-		}
-		e.ScrollIfNeeded()
-
+	e.Cursor.Mark -= n
+	if e.Cursor.Mark < 0 {
+		e.Cursor.Mark = 0
 	}
-
-	return
+	e.ScrollIfNeeded()
 }
 
 func MarkUp(e *BufferView, n int) {
-	for i := range e.Cursors {
-		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
-		nextLineIndex := currentLine.Index - n
-		if nextLineIndex >= len(e.bufferLines) || nextLineIndex < 0 {
-			return
-		}
-
-		nextLine := e.bufferLines[nextLineIndex]
-		newcol := nextLine.startIndex
-		e.Cursors[i].Mark = newcol
-		e.ScrollIfNeeded()
+	currentLine := e.getBufferLineForIndex(e.Cursor.Mark)
+	nextLineIndex := currentLine.Index - n
+	if nextLineIndex >= len(e.bufferLines) || nextLineIndex < 0 {
+		return
 	}
 
-	return
+	nextLine := e.bufferLines[nextLineIndex]
+	newcol := nextLine.startIndex
+	e.Cursor.Mark = newcol
+	e.ScrollIfNeeded()
 }
 
 func MarkDown(e *BufferView, n int) {
-	for i := range e.Cursors {
-		currentLine := e.getBufferLineForIndex(e.Cursors[i].Mark)
-		nextLineIndex := currentLine.Index + n
-		if nextLineIndex >= len(e.bufferLines) {
-			return
-		}
-
-		nextLine := e.bufferLines[nextLineIndex]
-		newcol := nextLine.startIndex
-		e.Cursors[i].Mark = newcol
-		e.ScrollIfNeeded()
+	currentLine := e.getBufferLineForIndex(e.Cursor.Mark)
+	nextLineIndex := currentLine.Index + n
+	if nextLineIndex >= len(e.bufferLines) {
+		return
 	}
+
+	nextLine := e.bufferLines[nextLineIndex]
+	newcol := nextLine.startIndex
+	e.Cursor.Mark = newcol
+	e.ScrollIfNeeded()
 
 	return
 }
 
 func MarkPreviousWord(e *BufferView) {
-	for i := range e.Cursors {
-		leftWordStart, _ := LeftWord(e, i)
-		if leftWordStart != -1 {
-			e.Cursors[i].Mark = leftWordStart
-		}
+	leftWordStart, _ := LeftWord(e)
+	if leftWordStart != -1 {
+		e.Cursor.Mark = leftWordStart
 		e.ScrollIfNeeded()
 	}
 
@@ -1660,111 +1479,53 @@ func MarkPreviousWord(e *BufferView) {
 }
 
 func MarkNextWord(e *BufferView) {
-	for i := range e.Cursors {
-		_, rightWordEnd := RightWord(e, i)
-		if rightWordEnd != -1 {
-			e.Cursors[i].Mark = rightWordEnd
-		}
-		e.ScrollIfNeeded()
-
+	_, rightWordEnd := RightWord(e)
+	if rightWordEnd != -1 {
+		e.Cursor.Mark = rightWordEnd
 	}
+	e.ScrollIfNeeded()
 
-	return
 }
 
 func MarkToEndOfLine(e *BufferView) {
-	for i := range e.Cursors {
-		line := e.getBufferLineForIndex(e.Cursors[i].End())
-		e.Cursors[i].Mark = line.endIndex
-	}
-	e.removeDuplicateSelectionsAndSort()
+	line := e.getBufferLineForIndex(e.Cursor.End())
+	e.Cursor.Mark = line.endIndex
 
 	return
 }
 
 func MarkToBeginningOfLine(e *BufferView) {
-	for i := range e.Cursors {
-		line := e.getBufferLineForIndex(e.Cursors[i].End())
-		e.Cursors[i].Mark = line.startIndex
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return
+	line := e.getBufferLineForIndex(e.Cursor.End())
+	e.Cursor.Mark = line.startIndex
 }
 func MarkToMatchingChar(e *BufferView) {
-	for i := range e.Cursors {
-		matching := byteutils.FindMatching(e.Buffer.Content, e.Cursors[i].Point)
-		if matching != -1 {
-			e.Cursors[i].Mark = matching
-		}
+	matching := byteutils.FindMatching(e.Buffer.Content, e.Cursor.Point)
+	if matching != -1 {
+		e.Cursor.Mark = matching
 	}
-
-	e.removeDuplicateSelectionsAndSort()
-	return
 
 }
 
 // @Cursors
 
-func RemoveAllCursorsButOne(p *BufferView) {
-	p.Cursors = p.Cursors[:1]
-	p.Cursors[0].Point = p.Cursors[0].Mark
-
-	return
-}
-
-func AddCursorNextLine(e *BufferView) {
-	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
-	pos.Line++
-	if e.isValidCursorPosition(pos) {
-		newidx := e.PositionToBufferIndex(pos)
-		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return
-}
-
-func AddCursorPreviousLine(e *BufferView) {
-	pos := e.BufferIndexToPosition(e.Cursors[len(e.Cursors)-1].Start())
-	pos.Line--
-	if e.isValidCursorPosition(pos) {
-		newidx := e.PositionToBufferIndex(pos)
-		e.Cursors = append(e.Cursors, Cursor{Point: newidx, Mark: newidx})
-	}
-	e.removeDuplicateSelectionsAndSort()
-
-	return
-}
-
 func PointForwardWord(e *BufferView) {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		cur.SetBoth(cur.Point)
-		_, rightWordEnd := RightWord(e, i)
-		if rightWordEnd != -1 {
-			cur.SetBoth(rightWordEnd)
-		}
-		e.ScrollIfNeeded()
-
+	e.Cursor.SetBoth(e.Cursor.Point)
+	_, rightWordEnd := RightWord(e)
+	if rightWordEnd != -1 {
+		e.Cursor.SetBoth(rightWordEnd)
 	}
+	e.ScrollIfNeeded()
 
 	return
 }
 
 func PointBackwardWord(e *BufferView) {
-	for i := range e.Cursors {
-		cur := &e.Cursors[i]
-		cur.SetBoth(cur.Point)
-		_, leftWordEnd := LeftWord(e, i)
-		if leftWordEnd != -1 {
-			cur.SetBoth(leftWordEnd)
-		}
-		e.ScrollIfNeeded()
-
+	e.Cursor.SetBoth(e.Cursor.Point)
+	_, leftWordEnd := LeftWord(e)
+	if leftWordEnd != -1 {
+		e.Cursor.SetBoth(leftWordEnd)
 	}
-
-	return
+	e.ScrollIfNeeded()
 }
 
 func Write(e *BufferView) {
@@ -1801,19 +1562,15 @@ func Write(e *BufferView) {
 }
 
 func Copy(e *BufferView) error {
-	if len(e.Cursors) > 1 {
-		return nil
-	}
-	cur := e.Cursors[0]
-	if cur.Start() != cur.End() {
+	if e.Cursor.Start() != e.Cursor.End() {
 		// Copy selection
-		end := cur.End() + 1
+		end := e.Cursor.End() + 1
 		if end >= len(e.Buffer.Content) {
 			end = len(e.Buffer.Content) - 1
 		}
-		WriteToClipboard(e.Buffer.Content[cur.Start():end])
+		WriteToClipboard(e.Buffer.Content[e.Cursor.Start():end])
 	} else {
-		line := e.getBufferLineForIndex(cur.Start())
+		line := e.getBufferLineForIndex(e.Cursor.Start())
 		WriteToClipboard(e.Buffer.Content[line.startIndex : line.endIndex+1])
 	}
 

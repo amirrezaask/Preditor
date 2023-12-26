@@ -137,7 +137,6 @@ func setupDefaults() {
 		BufferInsertChar(c.ActiveDrawable().(*BufferView), b)
 	}))
 
-	BufferKeymap.BindKey(Key{K: ".", Control: true}, MakeCommand(AnotherSelectionOnMatch))
 	BufferKeymap.BindKey(Key{K: ",", Shift: true, Control: true}, MakeCommand(ScrollToTop))
 	BufferKeymap.BindKey(Key{K: "l", Control: true}, MakeCommand(CentralizePoint))
 	BufferKeymap.BindKey(Key{K: ";", Control: true}, MakeCommand(CompileNoAsk))
@@ -160,21 +159,6 @@ func setupDefaults() {
 	BufferKeymap.BindKey(Key{K: "m", Shift: true, Control: true}, MakeCommand(MarkToMatchingChar))
 	BufferKeymap.BindKey(Key{K: "r", Control: true}, MakeCommand(QueryReplaceActivate))
 	BufferKeymap.BindKey(Key{K: "r", Control: true, Shift: true}, MakeCommand(RevertBuffer))
-	BufferKeymap.BindKey(Key{K: "<lmouse>-click", Control: true}, MakeCommand(func(e *BufferView) {
-		e.addAnotherCursorAt(rl.GetMousePosition())
-	}))
-	BufferKeymap.BindKey(Key{K: "<lmouse>-hold", Control: true}, MakeCommand(func(e *BufferView) {
-		e.addAnotherCursorAt(rl.GetMousePosition())
-	}))
-	BufferKeymap.BindKey(Key{K: "<lmouse>-hold", Control: true}, MakeCommand(func(e *BufferView) {
-		e.addAnotherCursorAt(rl.GetMousePosition())
-	}))
-	BufferKeymap.BindKey(Key{K: "<up>", Control: true}, MakeCommand(func(e *BufferView) {
-		AddCursorPreviousLine(e)
-	}))
-	BufferKeymap.BindKey(Key{K: "<down>", Control: true}, MakeCommand(func(e *BufferView) {
-		AddCursorNextLine(e)
-	}))
 	BufferKeymap.BindKey(Key{K: "r", Alt: true}, MakeCommand(func(e *BufferView) {
 		e.readFileFromDisk()
 	}))
@@ -208,10 +192,6 @@ func setupDefaults() {
 	BufferKeymap.BindKey(Key{K: "w", Control: true}, MakeCommand(func(a *BufferView) {
 		Write(a)
 	}))
-	BufferKeymap.BindKey(Key{K: "<esc>"}, MakeCommand(func(p *BufferView) {
-		RemoveAllCursorsButOne(p)
-	}))
-
 	BufferKeymap.BindKey(Key{K: "<lmouse>-click"}, MakeCommand(func(e *BufferView) {
 		e.moveCursorTo(rl.GetMousePosition())
 	}))
