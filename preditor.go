@@ -339,7 +339,7 @@ func (c *Context) KillDrawable(id int) {
 	for i, drawable := range c.Drawables {
 		if drawable != nil && drawable.GetID() == id {
 			b, ok := drawable.(*BufferView)
-			if ok && (b.Buffer.File == "*Messages*" || b.Buffer.File == "*Scratch*"){
+			if ok && (b.Buffer.File == "*Messages*" || b.Buffer.File == "*Scratch*") {
 				return
 			}
 			c.Drawables[i] = nil

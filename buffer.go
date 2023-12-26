@@ -161,13 +161,15 @@ OUTER:
 			// bufView is not shown in any window so it's suitable for us to return it
 			return bufView
 		}
-		
+
 	}
 
 	return NewBufferView(parent, cfg, buffer)
 }
 
 type FileType struct {
+	Name                     string
+	TSLanguage               *sitter.Language
 	TabSize                  int
 	BeforeSave               func(*BufferView) error
 	AfterSave                func(*BufferView) error
@@ -181,7 +183,8 @@ var FileTypes map[string]FileType
 
 func init() {
 	FileTypes = map[string]FileType{
-		".go": GoFileType,
+		".go":  GoFileType,
+		".php": PHPFileType,
 	}
 }
 
@@ -678,10 +681,10 @@ func matchPatternAsync(dst *[][]int, data []byte, pattern []byte) {
 	}()
 }
 
-func TSHighlights(cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
+func TSHighlights(fileType *FileType, cfg *Config, queryString []byte, prev *sitter.Tree, code []byte) ([]highlight, *sitter.Tree, error) {
 	var highlights []highlight
 	parser := sitter.NewParser()
-	parser.SetLanguage(golang.GetLanguage())
+	parser.SetLanguage(fileType.TSLanguage)
 
 	tree, err := parser.ParseCtx(context.Background(), prev, code)
 	if err != nil {
@@ -878,7 +881,7 @@ func (e *BufferView) Render(zeroLocation rl.Vector2, maxH float64, maxW float64)
 	}
 	if e.Buffer.needParsing {
 		var err error
-		e.Buffer.highlights, e.Buffer.oldTSTree, err = TSHighlights(e.cfg, e.Buffer.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
+		e.Buffer.highlights, e.Buffer.oldTSTree, err = TSHighlights(&e.Buffer.fileType, e.cfg, e.Buffer.fileType.TSHighlightQuery, nil, e.Buffer.Content) //TODO: see how we can use old tree
 		if err != nil {
 			panic(err)
 		}
@@ -1101,22 +1104,7 @@ func (e *BufferView) deleteSelectionsIfAnySelection() {
 	e.moveLeft(&e.Cursor, old-1-len(e.Buffer.Content))
 }
 
-func (e *BufferView) moveRight(s *Cursor, n int) {
-	s.Point += n
-	if s.Point > len(e.Buffer.Content) {
-		s.SetBoth(0)
-	}
-	s.Mark = s.Point
-	e.ScrollIfNeeded()
-}
 func (e *BufferView) moveLeft(s *Cursor, n int) {
-	s.Point -= n
-	if s.Point < 0 {
-		s.SetBoth(0)
-	}
-	s.Mark = s.Point
-
-	e.ScrollIfNeeded()
 }
 
 func (e *BufferView) ScrollIfNeeded() {
@@ -1164,7 +1152,7 @@ func BufferInsertChar(e *BufferView, char byte) {
 	}
 	e.deleteSelectionsIfAnySelection()
 	e.AddBytesAtIndex([]byte{char}, e.Cursor.Point, true)
-	e.moveRight(&e.Cursor, 1)
+	PointRight(e, 1)
 	e.SetStateDirty()
 	e.ScrollIfNeeded()
 	return
@@ -1249,7 +1237,7 @@ func DeleteWordBackward(e *BufferView) {
 
 func Indent(e *BufferView) error {
 	e.AddBytesAtIndex([]byte(strings.Repeat(" ", e.Buffer.fileType.TabSize)), e.Cursor.Point, true)
-	e.moveRight(&e.Cursor, e.Buffer.fileType.TabSize)
+	PointRight(e, e.Buffer.fileType.TabSize)
 	e.SetStateDirty()
 
 	return nil
@@ -1365,15 +1353,23 @@ func ScrollDown(e *BufferView, n int) error {
 // @Point
 
 func PointLeft(e *BufferView, n int) error {
-	e.moveLeft(&e.Cursor, n)
+	e.Cursor.Point -= n
+	if e.Cursor.Point < 0 {
+		e.Cursor.SetBoth(0)
+	}
+	e.Cursor.Mark = e.Cursor.Point
+	e.ScrollIfNeeded()
 	return nil
-
 }
 
 func PointRight(e *BufferView, n int) error {
-	e.moveRight(&e.Cursor, n)
+	e.Cursor.Point += n
+	if e.Cursor.Point > len(e.Buffer.Content) {
+		e.Cursor.SetBoth(0)
+	}
+	e.Cursor.Mark = e.Cursor.Point
+	e.ScrollIfNeeded()
 	return nil
-
 }
 
 func PointUp(e *BufferView) error {
@@ -1530,22 +1526,22 @@ func MarkToMatchingChar(e *BufferView) {
 
 // @Cursors
 
-func PointForwardWord(e *BufferView) {
+func PointRightWord(e *BufferView) {
 	e.Cursor.SetBoth(e.Cursor.Point)
-	_, rightWordEnd := RightWord(e)
-	if rightWordEnd != -1 {
-		e.Cursor.SetBoth(rightWordEnd)
+	j := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursor.Point)
+	if j != -1 {
+		e.Cursor.SetBoth(j)
 	}
 	e.ScrollIfNeeded()
 
 	return
 }
 
-func PointBackwardWord(e *BufferView) {
+func PointLeftWord(e *BufferView) {
 	e.Cursor.SetBoth(e.Cursor.Point)
-	_, leftWordEnd := LeftWord(e)
-	if leftWordEnd != -1 {
-		e.Cursor.SetBoth(leftWordEnd)
+	j := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Point)
+	if j != -1 {
+		e.Cursor.SetBoth(j)
 	}
 	e.ScrollIfNeeded()
 }

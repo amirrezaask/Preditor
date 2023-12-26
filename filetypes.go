@@ -1,6 +1,8 @@
 package preditor
 
 import (
+	"github.com/smacker/go-tree-sitter/golang"
+	"github.com/smacker/go-tree-sitter/php"
 	"go/format"
 )
 
@@ -12,8 +14,10 @@ import (
    - function_name
 */
 
-var GoFileType = FileType {
-	TabSize: 4,
+var GoFileType = FileType{
+	Name:       "Go",
+	TabSize:    4,
+	TSLanguage: golang.GetLanguage(),
 	BeforeSave: func(e *BufferView) error {
 		newBytes, err := format.Source(e.Buffer.Content)
 		if err != nil {
@@ -61,5 +65,9 @@ var GoFileType = FileType {
 	DefaultCompileCommand: "go build -v ./...",
 }
 
-
-
+var PHPFileType = FileType{
+	Name:             "PHP",
+	TabSize:          4,
+	TSLanguage:       php.GetLanguage(),
+	TSHighlightQuery: []byte(``),
+}
