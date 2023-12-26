@@ -1083,12 +1083,7 @@ func (c *Context) OpenThemesList() {
 }
 
 func SwitchOrOpenFileInWindow(parent *Context, cfg *Config, filename string, startingPos *Position, window *Window) error {
-	buffer := parent.GetBufferByFilename(filename)
-	if buffer == nil {
-		buffer = parent.OpenFileAsBuffer(filename)
-	}
-
-	bufferView := NewBufferView(parent, cfg, buffer)
+	bufferView := NewBufferViewFromFilename(parent, cfg, filename)
 	parent.AddDrawable(bufferView)
 	window.DrawableID = bufferView.ID
 	bufferView.MoveToPositionInNextRender = startingPos

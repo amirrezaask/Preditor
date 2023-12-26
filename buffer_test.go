@@ -180,9 +180,7 @@ func Test_DeleteCharForeward(t *testing.T) {
 }
 
 // func Test_WordAtPoint(t *testing.T) {
-
 // }
-
 //func Test_LeftWord(t *testing.T)				{}
 //func Test_RightWord(t *testing.T)			   {}
 //func Test_DeleteWordBackward(t *testing.T)	  {}
@@ -208,9 +206,6 @@ func Test_DeleteCharForeward(t *testing.T) {
 //func Test_MarkToEndOfLine(t *testing.T)		 {}
 //func Test_MarkToBeginningOfLine(t *testing.T)   {}
 //func Test_MarkToMatchingChar(t *testing.T)	  {}
-//func Test_RemoveAllCursorsButOne(t *testing.T)  {}
-//func Test_AddCursorNextLine(t *testing.T)	   {}
-//func Test_AddCursorPreviousLine(t *testing.T)   {}
 //func Test_PointForwardWord(t *testing.T)		{}
 //func Test_PointBackwardWord(t *testing.T)	   {}
 //func Test_Copy(t *testing.T)					{}

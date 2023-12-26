@@ -142,6 +142,28 @@ func NewBufferViewFromFilename(parent *Context, cfg *Config, filename string) *B
 		buffer = parent.OpenFileAsBuffer(filename)
 	}
 
+	//check if we have a buffer view for this file that is not shown in any window
+OUTER:
+	for _, d := range parent.Drawables {
+		bufView, ok := d.(*BufferView)
+		if !ok {
+			continue
+		}
+		if bufView.Buffer == buffer {
+			for _, col := range parent.Windows {
+				for _, win := range col {
+					if win.DrawableID == bufView.ID {
+						continue OUTER
+					}
+				}
+			}
+
+			// bufView is not shown in any window so it's suitable for us to return it
+			return bufView
+		}
+		
+	}
+
 	return NewBufferView(parent, cfg, buffer)
 }
 
