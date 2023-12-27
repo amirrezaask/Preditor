@@ -7,7 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"image"
+	// "image"
 	"image/color"
 	"math/rand"
 	"os"
@@ -935,13 +935,13 @@ func setupRaylib(cfg *Config) {
 	rl.InitWindow(800, 600, "Preditor")
 	rl.SetTargetFPS(60)
 	rl.SetTextLineSpacing(cfg.FontSize)
-	img, _, err := image.Decode(bytes.NewReader(logoBytes))
-	if err != nil {
-		panic(err)
-	}
+	// img, _, err := image.Decode(bytes.NewReader(logoBytes))
+	// if err != nil {
+	//	 panic(err)
+	// }
 
-	rlImage := rl.NewImageFromImage(img)
-	rl.SetWindowIcon(*rlImage)
+	// rlImage := rl.NewImageFromImage(img)
+	// rl.SetWindowIcon(*rlImage)
 	rl.SetExitKey(0)
 
 }

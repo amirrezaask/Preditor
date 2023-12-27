@@ -84,7 +84,7 @@ func BufferOpenLocationInCurrentLine(c *Context) {
 }
 
 func NewGrepBuffer(parent *Context, cfg *Config, pattern string) (*BufferView, error) {
-		cwd := parent.getCWD()
+	cwd := parent.getCWD()
 	bufferView := NewBufferViewFromFilename(parent, cfg, fmt.Sprintf("*Grep*@%s", cwd))
 
 	bufferView.Buffer.Readonly = true
@@ -1232,8 +1232,14 @@ func RevertLastBufferAction(e *BufferView) {
 }
 
 func WordAtPoint(e *BufferView) (int, int) {
-	currentWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Point) + 1
+	currentWordStart := byteutils.SeekPreviousNonLetter(e.Buffer.Content, e.Cursor.Point)
+	if currentWordStart != 0 {
+		currentWordStart++
+	}
 	currentWordEnd := byteutils.SeekNextNonLetter(e.Buffer.Content, e.Cursor.Point)
+	if currentWordEnd != len(e.Buffer.Content)-1 {
+		currentWordEnd--
+	}
 
 	return currentWordStart, currentWordEnd
 }

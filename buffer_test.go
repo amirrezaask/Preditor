@@ -179,8 +179,25 @@ func Test_DeleteCharForeward(t *testing.T) {
 	assert.Equal(t, "012345678\n012345678", string(bufferView.Buffer.Content))
 }
 
-// func Test_WordAtPoint(t *testing.T) {
-// }
+func Test_WordAtPoint(t *testing.T) {
+	bufferView := BufferView{
+		Buffer: &Buffer{
+			File:    "",
+			Content: []byte("hello world"),
+			CRLF:    false,
+		},
+		Cursor: Cursor{
+			Point: 2,
+			Mark:  2,
+		},
+		ActionStack: NewStack[BufferAction](10),
+	}
+
+	start, end := WordAtPoint(&bufferView)
+	assert.Equal(t, 0, start)
+	assert.Equal(t, 4, end)
+}
+
 //func Test_LeftWord(t *testing.T)				{}
 //func Test_RightWord(t *testing.T)			   {}
 //func Test_DeleteWordBackward(t *testing.T)	  {}
