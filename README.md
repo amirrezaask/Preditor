@@ -1,4 +1,7 @@
 # Preditor
+## Disclaimer
+I don't recommend using this as your editor since I did that as an educational project for graphics rendering and GUI applications. I learnt alot about graphics and rendering in general in this project, and I will use that knowledge in my future projects, but in the mean time if you want a battle tested text editor I always recommend *Gnu Emacs*.
+
 ![Logo](assets/header.png)
 ## Programmable Editor
 Simple text editor implemented in Golang using Raylib with the goal of replacing Emacs for me, easier to extend and much faster and better language to work with than Elisp.
