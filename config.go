@@ -100,7 +100,7 @@ func mustParseHexColor(hex string) RGBA {
 }
 
 var defaultConfig = Config{
-	CurrentTheme: "Default_Dark",
+	CurrentTheme: "4Coder_Fleury",
 	Themes: []Theme{
 		{
 			Name: "Default_Dark",
@@ -160,10 +160,10 @@ var defaultConfig = Config{
 				SelectionBackground:       mustParseHexColor("#FF44DD"),
 				SelectionForeground:       mustParseHexColor("#ffffff"),
 				Prompts:                   mustParseHexColor("#333333"),
-				StatusBarBackground:       mustParseHexColor("#000000"),
-				StatusBarForeground:       mustParseHexColor("#ffa900"),
-				ActiveStatusBarBackground: mustParseHexColor("#000000"),
-				ActiveStatusBarForeground: mustParseHexColor("#ffa933"),
+				StatusBarBackground:       mustParseHexColor("#1f1f27"),
+				StatusBarForeground:       mustParseHexColor("#cb9401"),
+				ActiveStatusBarBackground: mustParseHexColor("#1f1f27"),
+				ActiveStatusBarForeground: mustParseHexColor("#cb9401"),
 				LineNumbersForeground:     mustParseHexColor("#010101"),
 				ActiveWindowBorder:        mustParseHexColor("#8cde94"),
 				Cursor:                    mustParseHexColor("#e0741b"),
@@ -171,7 +171,7 @@ var defaultConfig = Config{
 				HighlightMatching:         mustParseHexColor("#e0741b"),
 				SyntaxColors: SyntaxColors{
 					"ident":   mustParseHexColor("#90B090"),
-					"type":    mustParseHexColor("#f0c674"),
+					"type":    mustParseHexColor("#d8a51d"),
 					"keyword": mustParseHexColor("#f0c674"),
 					"string":  mustParseHexColor("#ffa900"),
 					"comment": mustParseHexColor("#666666"),
